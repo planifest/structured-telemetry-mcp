@@ -1,0 +1,1 @@
+# structured-telemetry-mcp
