@@ -1,0 +1,126 @@
+# Planifest Component Manifest
+id: "structured-telemetry-mcp"
+name: "Structured Telemetry MCP Server"
+feature: "0000008-structured-telemetry-mcp-server"
+version: "0.1.0"
+status: "active"
+type: "microservice"
+domain: "observability"
+summary: "MCP server that ingests and queries structured telemetry events from Planifest pipeline runs."
+systemContext: "Runs as a local MCP server alongside the developer's agent tool (Claude Code, Cursor, etc.). Planifest-compliant agents call emit_event to record pipeline telemetry. The human on the loop calls query_telemetry to analyse bottlenecks, failures, and token efficiency. The DuckDB store is the data source for the future 0024 observability dashboard."
+
+responsibilities:
+  - "Accept and validate telemetry events via the emit_event MCP tool"
+  - "Persist all valid events to a DuckDB store with temporal optimisation"
+  - "Answer structured queries via the query_telemetry MCP tool, returning Markdown tables, JSON, and raw event samples"
+  - "Enforce JSON Schema validation for all event types at ingestion"
+  - "Provide setup and doctor CLI commands for installation and diagnostics"
+  - "Expose a build and bundle pipeline producing a single server.bundle.mjs"
+
+exceptions:
+  - "Does not emit telemetry itself — it is the sink, not a source"
+  - "Does not detect loops server-side — loop detection is query-side only"
+  - "Does not update planifest-framework skills or setup scripts (0008b — separate pipeline run)"
+  - "Does not provide a web dashboard or visualisation layer (0024 — future)"
+  - "Does not publish to npm this pipeline run"
+  - "Does not run in the cloud or as a hosted service"
+  - "Does not authenticate callers — local stdio process only"
+
+stack:
+  language: "typescript"
+  runtime: "node"
+  framework: "none"
+  frontend: "none"
+  styling: "none"
+  componentLibrary: "none"
+  database: "duckdb"
+  orm: "none"
+  testing: "vitest"
+  iac: "none"
+  cloud: "none"
+  compute: "none"
+  ci: "github-actions"
+
+contract:
+  apiSpec: "none"
+  inputs:
+    - name: "emit_event"
+      type: "event"
+      description: "Accepts a telemetry event envelope + typed payload; validates and writes to DuckDB"
+    - name: "query_telemetry"
+      type: "event"
+      description: "Accepts a structured query; returns aggregated Markdown + JSON + raw event sample"
+  outputs:
+    - name: "emit_event response"
+      type: "event"
+      description: "{ ok: true, id } on success or { ok: false, errors } on validation/storage failure"
+    - name: "query_telemetry response"
+      type: "event"
+      description: "Markdown table + JSON payload + raw event sample (5 events)"
+  consumedBy: []
+  consumes: []
+  breakingChangePolicy: "requires-adr"
+
+data:
+  ownsData: true
+  dataContract: "src/structured-telemetry-mcp/docs/data-contract.md"
+  tables:
+    - "events"
+  schemaVersion: "1.0"
+  migrationPath: "src/structured-telemetry-mcp/docs/migrations/"
+
+scope:
+  inScope:
+    - "emit_event and query_telemetry MCP tools"
+    - "DuckDB storage layer"
+    - "JSON Schema validation for all 9 event types"
+    - "Setup and doctor CLI commands"
+    - "Build and bundle pipeline"
+    - "GitHub Actions CI with platform matrix"
+    - "Performance test (p95 < 5ms gate)"
+  outOfScope:
+    - "0008b framework integration"
+    - "npm publish"
+    - "Remote hosting"
+    - "Web dashboard"
+    - "HTTP/SSE transport"
+    - "Server-side loop detection"
+  deferred:
+    - "npm publish — blocked on: decision to make package public"
+    - "Plugin marketplace manifests — blocked on: marketplace listing decision"
+
+risk:
+  level: "medium"
+  items:
+    - "DuckDB native module compilation failure on CI platforms (R-001)"
+    - "esbuild bundle excluding DuckDB native bindings incorrectly (R-005)"
+    - "Schema evolution breaking existing stored events (R-003)"
+
+quality:
+  testCoverage:
+    unit: 18   # 18 unit tests — all 9 event types + rejection cases (validation.test.ts)
+    integration: 17  # 4 emit-event + 13 query-telemetry (all modes across 3 query modules)
+    e2e: 0     # not applicable — local stdio tool, no HTTP layer
+    performanceGate: "p95 < 5ms (actual: ~2.7ms over 1000 iterations)"
+  techDebt:
+    - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build. Note: .cts adapter was attempted but rejected — Vitest 4 (Rolldown) does not transform .cts files."
+  quirks:
+    - "@duckdb/node-api named params require prepare().bind({name}).runAndReadAll() — positional ? binding is unsupported in this version."
+    - "DuckDB does not support PRAGMA wal_mode — WAL is managed internally, pragma removed from schema init."
+    - "Zod v4 arrives as a transitive dep (not declared by MCP SDK's own package.json); pinned explicitly to ^4.0.0 to prevent accidental downgrade."
+    - "Vitest 4 (Rolldown) does not transform .cts files — .cts adapters cannot be used for CJS interop in this project."
+    - "TypeScript 6 no longer implicitly includes Node.js types — requires explicit types: [node] in tsconfig.json."
+
+pipeline:
+  templateVersion: "1.0.0"
+  featureMode: "greenfield"
+  domainKnowledgePath: "plan"
+
+metadata:
+  createdAt: "2026-04-13T00:00:00Z"
+  updatedAt: "2026-04-13T03:00:00Z"
+  createdBy: "agent"
+  lastModifiedBy: "agent"
+  skill: "planifest-codegen-agent"
+  tool: "claude-code"
+  model: "claude-sonnet-4-6"
