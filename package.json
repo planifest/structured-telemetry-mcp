@@ -1,0 +1,72 @@
+{
+  "name": "structured-telemetry-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for structured telemetry ingestion and querying in Planifest pipeline runs.",
+  "type": "module",
+  "author": "Planifest",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "telemetry",
+    "observability",
+    "planifest",
+    "claude-code"
+  ],
+  "bin": {
+    "structured-telemetry-mcp": "./cli.bundle.mjs"
+  },
+  "main": "./server.bundle.mjs",
+  "files": [
+    "build",
+    "server.bundle.mjs",
+    "server-http.bundle.mjs",
+    "cli.bundle.mjs",
+    "schemas",
+    "scripts/postinstall.mjs",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node server-http.bundle.mjs",
+    "service:install": "powershell -ExecutionPolicy Bypass -File scripts/service.ps1 install",
+    "service:uninstall": "powershell -ExecutionPolicy Bypass -File scripts/service.ps1 uninstall",
+    "service:status": "powershell -ExecutionPolicy Bypass -File scripts/service.ps1 status",
+    "service:restart": "powershell -ExecutionPolicy Bypass -File scripts/service.ps1 restart",
+    "build": "tsc && npm run bundle",
+    "bundle": "esbuild src/server.ts --bundle --platform=node --target=node18 --format=esm --outfile=server.bundle.mjs --minify && esbuild src/server-http.ts --bundle --platform=node --target=node18 --format=esm --outfile=server-http.bundle.mjs --external:@duckdb/node-api --minify && esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=cli.bundle.mjs --external:@duckdb/node-api --minify",
+    "dev": "npx tsx src/server.ts",
+    "setup": "npx tsx src/cli.ts setup",
+    "doctor": "npx tsx src/cli.ts doctor",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "benchmark": "npx tsx tests/benchmark.ts",
+    "prepublishOnly": "npm run build",
+    "postinstall": "node scripts/postinstall.mjs",
+    "version-sync": "node scripts/version-sync.mjs"
+  },
+  "dependencies": {
+    "@clack/prompts": "^1.0.1",
+    "@duckdb/node-api": "1.5.1-r.2",
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "picocolors": "^1.1.1",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "esbuild": "^0.28.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/planifest/structured-telemetry-mcp"
+  }
+}

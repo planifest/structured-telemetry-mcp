@@ -1,0 +1,12 @@
+# Agent tool config
+.claude/
+.cursor/
+.agents/
+.agent/
+.gemini/
+.github/skills/
+.windsurf/
+.clinerules/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
