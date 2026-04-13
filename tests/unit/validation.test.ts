@@ -182,5 +182,76 @@ describe('req-005-schema-validation: validateEvent', () => {
       expect(result.errors.length).toBeGreaterThan(0);
       expect(typeof result.errors[0]).toBe('string');
     });
+
+    // Non-object inputs
+    it('rejects null', () => {
+      expect(validateEvent(null).isValid).toBe(false);
+    });
+    it('rejects undefined', () => {
+      expect(validateEvent(undefined).isValid).toBe(false);
+    });
+    it('rejects a plain string', () => {
+      expect(validateEvent('phase_start').isValid).toBe(false);
+    });
+    it('rejects a number', () => {
+      expect(validateEvent(42).isValid).toBe(false);
+    });
+    it('rejects an array', () => {
+      expect(validateEvent([]).isValid).toBe(false);
+    });
+    it('rejects an empty object', () => {
+      expect(validateEvent({}).isValid).toBe(false);
+    });
+
+    // Missing individual required envelope fields
+    it('rejects missing agent', () => {
+      const { agent: _, ...rest } = BASE_ENVELOPE;
+      expect(validateEvent({ ...rest, event: 'phase_start', data: { phase_name: 'codegen' } }).isValid).toBe(false);
+    });
+    it('rejects missing tool', () => {
+      const { tool: _, ...rest } = BASE_ENVELOPE;
+      expect(validateEvent({ ...rest, event: 'phase_start', data: { phase_name: 'codegen' } }).isValid).toBe(false);
+    });
+    it('rejects missing model', () => {
+      const { model: _, ...rest } = BASE_ENVELOPE;
+      expect(validateEvent({ ...rest, event: 'phase_start', data: { phase_name: 'codegen' } }).isValid).toBe(false);
+    });
+    it('rejects missing phase', () => {
+      const { phase: _, ...rest } = BASE_ENVELOPE;
+      expect(validateEvent({ ...rest, event: 'phase_start', data: { phase_name: 'codegen' } }).isValid).toBe(false);
+    });
+    it('rejects wrong schema_version', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, schema_version: '2.0', event: 'phase_start', data: { phase_name: 'codegen' } }).isValid).toBe(false);
+    });
+
+    // Per-event sad paths not previously covered
+    it('rejects spec_gap with data that satisfies no oneOf branch', () => {
+      // Note: data.oneOf is not discriminated by event type; each branch has required fields,
+      // so an empty object fails all branches.
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'spec_gap', data: {} as never }).isValid).toBe(false);
+    });
+    it('rejects deviation with invalid severity', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'deviation', data: { component_id: 'x', description: 'y', severity: 'critical' } as never }).isValid).toBe(false);
+    });
+    it('rejects migration_proposal missing destructive', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'migration_proposal', data: { component_id: 'x', proposal_path: 'y' } as never }).isValid).toBe(false);
+    });
+    it('rejects self_correction missing correction_type', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'self_correction', data: { phase_name: 'codegen', attempt_number: 1, action_id: 'a' } as never }).isValid).toBe(false);
+    });
+
+    // Boundary values (valid extremes)
+    it('accepts context_fill_pct at 0 (minimum)', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'context_pressure', data: { context_fill_pct: 0, unused_sources: [], trigger: 't' } }).isValid).toBe(true);
+    });
+    it('accepts context_fill_pct at 100 (maximum)', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'context_pressure', data: { context_fill_pct: 100, unused_sources: [], trigger: 't' } }).isValid).toBe(true);
+    });
+    it('accepts duration_ms at 0 (minimum)', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'phase_end', data: { phase_name: 'codegen', status: 'pass', duration_ms: 0 } }).isValid).toBe(true);
+    });
+    it('accepts attempt_number at 1 (minimum)', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'validation_failure', data: { failure_type: 'lint', phase_name: 'validate', attempt_number: 1, action_id: 'a' } }).isValid).toBe(true);
+    });
   });
 });

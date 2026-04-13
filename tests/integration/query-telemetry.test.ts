@@ -97,6 +97,20 @@ describe('req-002-query-bottlenecks: queryBottlenecks', () => {
     const result = response.json as { results: unknown[] };
     expect(result.results).toHaveLength(1);
   });
+
+  it('accepts group_by run_id', async () => {
+    const response = await queryBottlenecks({ group_by: 'run_id' });
+    const result = response.json as { results: Array<{ group_key: string }> };
+    expect(result.results.some((r) => r.group_key === 'query-test-session')).toBe(true);
+  });
+
+  it('reflects failure in success_rate_pct', async () => {
+    const response = await queryBottlenecks({ group_by: 'phase' });
+    const result = response.json as { results: Array<{ group_key: string; success_rate_pct: number }> };
+    const validate = result.results.find((r) => r.group_key === 'validate');
+    // validate phase has 1 fail event → success_rate_pct should be 0
+    expect(validate?.success_rate_pct).toBe(0);
+  });
 });
 
 describe('req-003-query-failures: queryFailures', () => {
