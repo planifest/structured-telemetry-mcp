@@ -390,7 +390,7 @@ All context pressure and MCP impact events for a specific session.
 
 ### Prerequisites
 
-- Node.js >= 18
+- Node.js >= 20.19
 - PowerShell 5.1+
 
 ### Commands
