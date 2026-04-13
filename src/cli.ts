@@ -19,23 +19,22 @@ const __dirname = dirname(__filename);
 
 // In the bundle, __dirname is the project root (cli.bundle.mjs and server.bundle.mjs are siblings).
 // In dev (tsx running src/cli.ts), __dirname is src/ so server.bundle.mjs is one level up.
-const BUNDLE_PATH = existsSync(resolve(__dirname, 'server.bundle.mjs'))
-  ? resolve(__dirname, 'server.bundle.mjs')
-  : resolve(__dirname, '../server.bundle.mjs');
 const DEFAULT_DB_PATH = join(homedir(), '.planifest', 'telemetry.db');
+const DEFAULT_PORT = 3741;
 
 // ── Agent tool configs ────────────────────────────────────────────────────────
 
 interface McpEntry {
   command: string;
   args: string[];
-  env?: Record<string, string>;
+  env: Record<string, string>;
 }
 
-function buildMcpEntry(dbPath: string): McpEntry {
+function buildMcpEntry(dbPath: string = DEFAULT_DB_PATH): McpEntry {
+  const serverBundle = resolve(__dirname, 'server.bundle.mjs');
   return {
-    command: 'node',
-    args: [BUNDLE_PATH],
+    command: process.execPath,
+    args: [serverBundle],
     env: { PLANIFEST_TELEMETRY_DB: dbPath },
   };
 }
@@ -80,21 +79,23 @@ async function runSetup(): Promise<void> {
 
   mkdirSync(dirname(dbPath), { recursive: true });
 
+  const entry = buildMcpEntry(dbPath);
+
   if (tool === 'claude-code') {
     const settingsPath = findClaudeSettingsPath();
     if (settingsPath === null) {
       p.log.warn('Could not locate .claude/settings.json. Creating at project root.');
     }
     const target = settingsPath ?? join(process.cwd(), '.claude', 'settings.json');
-    registerInClaudeSettings(target, buildMcpEntry(dbPath));
+    registerInClaudeSettings(target, entry);
     p.log.success(`Registered in ${target}`);
   } else if (tool === 'cursor') {
     const cursorPath = join(process.cwd(), '.cursor', 'mcp.json');
-    registerInCursorMcp(cursorPath, buildMcpEntry(dbPath));
+    registerInCursorMcp(cursorPath, entry);
     p.log.success(`Registered in ${cursorPath}`);
   } else {
     p.log.info('Manual configuration required. Add the following to your tool\'s MCP config:');
-    p.log.message(JSON.stringify({ 'structured-telemetry-mcp': buildMcpEntry(dbPath) }, null, 2));
+    p.log.message(JSON.stringify({ 'structured-telemetry-mcp': entry }, null, 2));
   }
 
   p.outro(color.green('Setup complete. Run `npm run doctor` to verify.'));
@@ -134,11 +135,9 @@ async function runDoctor(): Promise<void> {
   const checks: Array<{ label: string; pass: boolean; detail?: string }> = [];
 
   // Check 1: server bundle exists.
-  checks.push({
-    label: 'server.bundle.mjs exists',
-    pass: existsSync(BUNDLE_PATH),
-    detail: BUNDLE_PATH,
-  });
+  const serverBundle = resolve(__dirname, 'server.bundle.mjs');
+  const bundleOk = existsSync(serverBundle);
+  checks.push({ label: 'server.bundle.mjs exists', pass: bundleOk, detail: serverBundle });
 
   // Check 2: DuckDB parent directory writable.
   const dbPath = process.env['PLANIFEST_TELEMETRY_DB'] ?? DEFAULT_DB_PATH;

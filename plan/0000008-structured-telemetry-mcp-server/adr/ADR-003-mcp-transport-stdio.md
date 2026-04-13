@@ -1,7 +1,7 @@
 ---
 title: "ADR 003: MCP Transport — stdio"
-summary: "The MCP server uses stdio transport exclusively. This constrains the server to local use but eliminates all networking complexity."
-status: "accepted"
+summary: "The MCP server uses stdio transport at the agent boundary. Originally superseded by ADR-008 (pure SSE daemon); reinstated at the MCP layer by ADR-009 (stdio proxy + HTTP REST backend)."
+status: "superseded"
 version: "0.1.0"
 ---
 # ADR-003 - MCP Transport — stdio
@@ -86,7 +86,8 @@ HTTP/SSE transport is explicitly deferred to a future pipeline run when a hosted
 
 ## Superseded By
 
-- none
+- ADR-008 — MCP Transport — HTTP/SSE daemon (DuckDB single-writer constraint required architectural change)
+- ADR-009 — MCP Transport — stdio proxy + HTTP REST backend (stdio reinstated at agent boundary; DB access decoupled to backend service)
 
 ---
 

@@ -3,8 +3,8 @@
 .SYNOPSIS
     Build structured-telemetry-mcp from source.
 .DESCRIPTION
-    Runs npm install and npm run build, producing server.bundle.mjs
-    and cli.bundle.mjs at the repo root.
+    Runs npm install and npm run build, producing server.bundle.mjs,
+    server-http.bundle.mjs and cli.bundle.mjs at the repo root.
 .EXAMPLE
     .\scripts\build.ps1
 #>
@@ -55,7 +55,7 @@ try {
 }
 
 # Verify artifacts
-$artifacts = @('server.bundle.mjs', 'cli.bundle.mjs')
+$artifacts = @('server.bundle.mjs', 'server-http.bundle.mjs', 'cli.bundle.mjs')
 $missing = $artifacts | Where-Object { -not (Test-Path (Join-Path $RepoRoot $_)) }
 if ($missing) {
     Write-Err "Missing expected build outputs: $($missing -join ', ')"

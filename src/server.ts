@@ -1,34 +1,34 @@
 #!/usr/bin/env node
 /**
- * structured-telemetry-mcp — entry point.
- * Wires dependencies and connects the MCP server to stdio transport.
+ * structured-telemetry-mcp — stdio MCP server entry point.
  *
- * Business logic lives in server-factory.ts (testable without this file).
+ * Spawned once per agent session by the MCP host (Claude Code / Claude Desktop).
+ * Communicates with the host over stdin/stdout (MCP stdio transport).
+ * All DB operations are forwarded via HTTP to the backend REST daemon.
+ *
+ * Usage: node server.bundle.mjs [backendUrl]
+ *   backendUrl  URL of the backend daemon (default: http://localhost:3741)
  */
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { createRequire } from 'node:module';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync } from 'node:fs';
 
-import { openDatabase } from './db/index.js';
-import { DuckDbEventRepository } from './db/duckdb-event-repository.js';
-import { DuckDbQueryService } from './query/query-service.js';
+import { HttpEventRepository } from './http-repo.js';
+import { HttpQueryService } from './http-query-service.js';
 import { createServer } from './server-factory.js';
 
 // ── Version ───────────────────────────────────────────────────────────────────
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-createRequire(import.meta.url); // retain for bundle compatibility
 
 const VERSION: string = (() => {
   for (const rel of ['../package.json', './package.json']) {
     const p = resolve(__dirname, rel);
     if (existsSync(p)) {
-      try {
-        return (JSON.parse(readFileSync(p, 'utf8')) as { version: string }).version;
-      } catch { /* continue */ }
+      try { return (JSON.parse(readFileSync(p, 'utf8')) as { version: string }).version; }
+      catch { /* continue */ }
     }
   }
   return 'unknown';
@@ -38,18 +38,22 @@ const VERSION: string = (() => {
 
 process.on('unhandledRejection', (err) => {
   process.stderr.write(`[structured-telemetry-mcp] unhandledRejection: ${err}\n`);
+  process.exit(1);
 });
 process.on('uncaughtException', (err: Error) => {
   process.stderr.write(`[structured-telemetry-mcp] uncaughtException: ${err?.message ?? err}\n`);
+  process.exit(1);
 });
 
-// ── Wire and start ────────────────────────────────────────────────────────────
+// ── Connect ───────────────────────────────────────────────────────────────────
 
-const db = await openDatabase();
-const repo = new DuckDbEventRepository(db);
-const qs = new DuckDbQueryService(db);
+const backendUrl = process.argv[2] ?? 'http://localhost:3741';
+
+const repo   = new HttpEventRepository(backendUrl);
+const qs     = new HttpQueryService(backendUrl);
 const server = createServer(repo, qs, VERSION);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);
-process.stderr.write(`[structured-telemetry-mcp] v${VERSION} ready (stdio)\n`);
+
+process.stderr.write(`[structured-telemetry-mcp] v${VERSION} ready (stdio → ${backendUrl})\n`);

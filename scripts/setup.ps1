@@ -80,25 +80,17 @@ function Ensure-Prop {
 }
 
 # ── Resolve MCP server entry ───────────────────────────────────────────────────
-# Prefer absolute path to cli.bundle.mjs so agent tools that don't inherit
-# PATH can still find the server.
+# The server runs as a persistent HTTP/SSE daemon (npm start / node server.bundle.mjs).
+# All agent tools connect via SSE URL — no per-session stdio spawning.
 
-$CliBundle = Join-Path $RepoRoot 'server.bundle.mjs'
-$_nodeCmd  = Get-Command node -ErrorAction SilentlyContinue
-$NodeExe   = if ($_nodeCmd) { $_nodeCmd.Source } else { 'node' }
-
-function New-McpEntry([string]$dbPath) {
-    if (Test-Path $script:CliBundle) {
-        return [PSCustomObject]@{
-            command = $script:NodeExe
-            args    = @($script:CliBundle)
-            env     = [PSCustomObject]@{ PLANIFEST_TELEMETRY_DB = $dbPath }
-        }
-    }
-    # Fallback: global install
+function New-McpEntry {
+    param([int]$BackendPort = 3741)
+    $nodePath  = (Get-Command node -ErrorAction Stop).Source
+    $globalMod = (& npm root -g 2>$null).Trim()
+    $bundle    = Join-Path $globalMod 'structured-telemetry-mcp\server.bundle.mjs'
     return [PSCustomObject]@{
-        command = 'structured-telemetry-mcp'
-        env     = [PSCustomObject]@{ PLANIFEST_TELEMETRY_DB = $dbPath }
+        command = $nodePath
+        args    = @($bundle, "http://localhost:$BackendPort")
     }
 }
 
@@ -113,23 +105,23 @@ function Setup-ClaudeCode([string]$dbPath) {
     $settings = Read-JsonFile $settingsPath
     Ensure-Prop $settings 'mcpServers' ([PSCustomObject]@{})
     $settings.mcpServers | Add-Member -NotePropertyName 'structured-telemetry-mcp' `
-        -NotePropertyValue (New-McpEntry $dbPath) -Force
+        -NotePropertyValue (New-McpEntry) -Force
 
     Write-JsonFile $settingsPath $settings
     Write-OK "~/.claude/settings.json"
 
-    # Claude Desktop
+    # Claude Desktop — same stdio command+args format
     $desktopCfgPath = Join-Path (Join-Path $env:APPDATA 'Claude') 'claude_desktop_config.json'
     if (Test-Path (Split-Path $desktopCfgPath -Parent)) {
         Write-Step "Claude Desktop - merging claude_desktop_config.json"
         $desktop = Read-JsonFile $desktopCfgPath
         Ensure-Prop $desktop 'mcpServers' ([PSCustomObject]@{})
         $desktop.mcpServers | Add-Member -NotePropertyName 'structured-telemetry-mcp' `
-            -NotePropertyValue (New-McpEntry $dbPath) -Force
+            -NotePropertyValue (New-McpEntry) -Force
         Write-JsonFile $desktopCfgPath $desktop
         Write-OK "claude_desktop_config.json"
     } else {
-        Write-Warn "Claude Desktop config dir not found - skipped ($desktopCfgPath)"
+        Write-Warn "Claude Desktop config dir not found - skipped"
     }
 
     Write-OK "DB path: $dbPath"
@@ -145,7 +137,7 @@ function Setup-Cursor([string]$dbPath, [string]$projectDir) {
     $mcp = Read-JsonFile $mcpPath
     Ensure-Prop $mcp 'mcpServers' ([PSCustomObject]@{})
     $mcp.mcpServers | Add-Member -NotePropertyName 'structured-telemetry-mcp' `
-        -NotePropertyValue (New-McpEntry $dbPath) -Force
+        -NotePropertyValue (New-McpEntry) -Force
 
     Write-JsonFile $mcpPath $mcp
     Write-OK "$mcpPath updated"
@@ -161,7 +153,7 @@ function Setup-Antigravity([string]$dbPath) {
     $cfg = Read-JsonFile $cfgPath
     Ensure-Prop $cfg 'mcpServers' ([PSCustomObject]@{})
     $cfg.mcpServers | Add-Member -NotePropertyName 'structured-telemetry-mcp' `
-        -NotePropertyValue (New-McpEntry $dbPath) -Force
+        -NotePropertyValue (New-McpEntry) -Force
 
     Write-JsonFile $cfgPath $cfg
     Write-OK "~/.gemini/antigravity/mcp_config.json"
@@ -172,7 +164,7 @@ function Setup-Antigravity([string]$dbPath) {
 function Setup-Manual([string]$dbPath) {
     Write-Step "Manual configuration"
     $entry = [PSCustomObject]@{
-        'structured-telemetry-mcp' = New-McpEntry $dbPath
+        'structured-telemetry-mcp' = New-McpEntry
     }
     Write-Host ""
     Write-Host "Add the following to your tool's mcpServers config:" -ForegroundColor White
@@ -226,5 +218,15 @@ switch ($Tool) {
 }
 
 Write-Host ""
-Write-Host "Setup complete. Run 'npm run doctor' to verify." -ForegroundColor Green
+Write-Host "Setup complete." -ForegroundColor Green
+
+# Verify server bundle is reachable at the registered path.
+$globalMod  = (& npm root -g 2>$null).Trim()
+$bundlePath = Join-Path $globalMod 'structured-telemetry-mcp\server.bundle.mjs'
+if (Test-Path $bundlePath) {
+    Write-Host "  server.bundle.mjs found at $bundlePath" -ForegroundColor Green
+} else {
+    Write-Host "  WARNING: server bundle not found at $bundlePath" -ForegroundColor Yellow
+    Write-Host "  Run: .\scripts\deploy.ps1  (then re-run setup)" -ForegroundColor White
+}
 Write-Host ""

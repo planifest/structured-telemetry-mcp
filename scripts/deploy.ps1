@@ -1,10 +1,12 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Install structured-telemetry-mcp globally from local source.
+    Install structured-telemetry-mcp globally and register it as a Windows service.
 .DESCRIPTION
-    Runs npm install -g . from the repo root so the structured-telemetry-mcp
-    binary is available system-wide. Run build.ps1 first.
+    1. Verifies build artifacts exist (run build.ps1 first if not).
+    2. Installs the CLI globally (npm install -g .).
+    3. Installs or restarts the Windows service via NSSM.
+    Requires administrator privileges.
 .EXAMPLE
     .\scripts\deploy.ps1
 #>
@@ -25,7 +27,7 @@ Write-Host "structured-telemetry-mcp: deploy (global install)" -ForegroundColor 
 Write-Host ("=" * 40)
 
 # Check build artifacts exist
-foreach ($artifact in @('server.bundle.mjs', 'cli.bundle.mjs')) {
+foreach ($artifact in @('server.bundle.mjs', 'server-http.bundle.mjs', 'cli.bundle.mjs')) {
     if (-not (Test-Path (Join-Path $RepoRoot $artifact))) {
         Write-Err "$artifact not found. Run build.ps1 first."
         exit 1
@@ -55,6 +57,27 @@ if (-not $bin) {
 }
 
 Write-OK "structured-telemetry-mcp installed at $($bin.Source)"
+
+# ── Install or restart Windows service ────────────────────────────────────────
+
+$ServiceScript = Join-Path $PSScriptRoot 'service.ps1'
+$svc = Get-Service -Name 'structured-telemetry-mcp' -ErrorAction SilentlyContinue
+
+if ($svc) {
+    Write-Step "Service already installed — updating bundle path and restarting..."
+    $nssm = Get-Command nssm -ErrorAction SilentlyContinue
+    if (-not $nssm) { Write-Err "nssm not found. Install via: choco install nssm"; exit 1 }
+    $bundle = Join-Path $RepoRoot 'server-http.bundle.mjs'
+    & $nssm.Source set structured-telemetry-mcp Application (Get-Command node).Source
+    & $nssm.Source set structured-telemetry-mcp AppParameters $bundle
+    & $ServiceScript restart
+    Write-OK "Service updated and restarted."
+} else {
+    Write-Step "Installing Windows service..."
+    & $ServiceScript install
+}
+
 Write-Host ""
-Write-Host "Next step: run setup-tools.ps1 to register with your agent tool." -ForegroundColor DarkGray
+Write-Host "Done." -ForegroundColor Green
+Write-Host "  Next: .\scripts\setup.ps1 -Tool <claudecode|cursor|antigravity|manual>" -ForegroundColor DarkGray
 Write-Host ""
