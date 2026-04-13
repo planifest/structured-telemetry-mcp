@@ -155,9 +155,10 @@ async function runDoctor(): Promise<void> {
   let dbDetail = '';
   try {
     const { openDatabase, closeDatabase } = await import('./db/index.js');
-    const { writeEvent } = await import('./db/events-repository.js');
-    await openDatabase(dbPath);
-    const result = await writeEvent({
+    const { DuckDbEventRepository } = await import('./db/duckdb-event-repository.js');
+    const db = await openDatabase(dbPath);
+    const repo = new DuckDbEventRepository(db);
+    const result = await repo.write({
       schema_version: '1.0',
       event: 'phase_start',
       session_id: 'doctor-check',
@@ -170,7 +171,7 @@ async function runDoctor(): Promise<void> {
       data: { phase_name: 'doctor' },
     });
     dbOk = result.ok;
-    dbDetail = result.ok ? `event id: ${result.id}` : `error: ${result.errors.join(', ')}`;
+    dbDetail = result.ok ? `event id: ${result.id}` : `error: ${(result as { errors: readonly string[] }).errors.join(', ')}`;
     closeDatabase();
   } catch (err) {
     dbDetail = String(err);

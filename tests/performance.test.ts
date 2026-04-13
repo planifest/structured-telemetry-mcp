@@ -9,17 +9,21 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
+import type { DuckDBInstance } from '@duckdb/node-api';
 import { openDatabase, closeDatabase } from '../src/db/index.js';
-import { writeEvent } from '../src/db/events-repository.js';
+import { DuckDbEventRepository } from '../src/db/duckdb-event-repository.js';
 import type { TelemetryEvent } from '../src/types/events.js';
 
 const TEST_DB = join(tmpdir(), `telemetry-perf-${Date.now()}.db`);
 const ITERATIONS = 1000;
 const P95_THRESHOLD_MS = 100;
 
+let repo: DuckDbEventRepository;
+
 beforeAll(async () => {
   process.env['PLANIFEST_TELEMETRY_DB'] = TEST_DB;
-  await openDatabase(TEST_DB);
+  const db: DuckDBInstance = await openDatabase(TEST_DB);
+  repo = new DuckDbEventRepository(db);
 });
 
 afterAll(() => {
@@ -47,7 +51,7 @@ describe('req-006-performance: emit_event latency', () => {
 
     for (let i = 0; i < ITERATIONS; i++) {
       const start = performance.now();
-      await writeEvent(event);
+      await repo.write(event);
       latencies.push(performance.now() - start);
     }
 

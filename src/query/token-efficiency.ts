@@ -3,8 +3,7 @@
  * Context pressure, MCP impact, request volume, trend analysis.
  */
 
-import type { DuckDBConnection } from '@duckdb/node-api';
-import { openDatabase } from '../db/index.js';
+import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
 import { buildQueryResponse, type QueryResponse } from './format-results.js';
 
 export type TokenEfficiencyMode = 'context_pressure' | 'mcp_impact' | 'request_volume' | 'trend' | 'drill_down';
@@ -16,19 +15,18 @@ export interface TokenEfficiencyQuery {
 }
 
 /** Dispatches to the appropriate token efficiency query mode. */
-export async function queryTokenEfficiency(query: TokenEfficiencyQuery): Promise<QueryResponse> {
+export async function queryTokenEfficiency(db: DuckDBInstance, query: TokenEfficiencyQuery): Promise<QueryResponse> {
   switch (query.mode) {
-    case 'context_pressure': return queryContextPressure();
-    case 'mcp_impact': return queryMcpImpact();
-    case 'request_volume': return queryRequestVolume();
-    case 'trend': return queryTrend(query.limit ?? 30);
-    case 'drill_down': return queryDrillDown(query.session_id ?? '');
+    case 'context_pressure': return queryContextPressure(db);
+    case 'mcp_impact': return queryMcpImpact(db);
+    case 'request_volume': return queryRequestVolume(db);
+    case 'trend': return queryTrend(db, query.limit ?? 30);
+    case 'drill_down': return queryDrillDown(db, query.session_id ?? '');
   }
 }
 
 /** Mode A: avg and max context fill % per phase, ranked highest first. */
-async function queryContextPressure(): Promise<QueryResponse> {
-  const db = await openDatabase();
+async function queryContextPressure(db: DuckDBInstance): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const sql = `
@@ -63,8 +61,7 @@ async function queryContextPressure(): Promise<QueryResponse> {
 }
 
 /** Mode B: avg token delta and peak fill per mcp_mode configuration. */
-async function queryMcpImpact(): Promise<QueryResponse> {
-  const db = await openDatabase();
+async function queryMcpImpact(db: DuckDBInstance): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const sql = `
@@ -99,8 +96,7 @@ async function queryMcpImpact(): Promise<QueryResponse> {
 }
 
 /** Mode C: total tool calls and avg calls per phase, per agent. */
-async function queryRequestVolume(): Promise<QueryResponse> {
-  const db = await openDatabase();
+async function queryRequestVolume(db: DuckDBInstance): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const sql = `
@@ -133,8 +129,7 @@ async function queryRequestVolume(): Promise<QueryResponse> {
 }
 
 /** Mode D: context pressure trend over time (by day). */
-async function queryTrend(limitDays: number): Promise<QueryResponse> {
-  const db = await openDatabase();
+async function queryTrend(db: DuckDBInstance, limitDays: number): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const sql = `
@@ -171,8 +166,7 @@ async function queryTrend(limitDays: number): Promise<QueryResponse> {
 }
 
 /** Mode E: full raw event detail for a session (context_pressure + mcp_impact). */
-async function queryDrillDown(sessionId: string): Promise<QueryResponse> {
-  const db = await openDatabase();
+async function queryDrillDown(db: DuckDBInstance, sessionId: string): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const sql = `

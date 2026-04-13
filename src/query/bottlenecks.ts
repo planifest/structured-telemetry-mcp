@@ -3,8 +3,7 @@
  * Aggregates phase/agent/tool/run/content-type duration from phase_end events.
  */
 
-import type { DuckDBConnection } from '@duckdb/node-api';
-import { openDatabase } from '../db/index.js';
+import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
 import { buildQueryResponse, type QueryResponse } from './format-results.js';
 
 export type BottleneckGroupBy = 'phase' | 'agent' | 'tool' | 'run_id' | 'content_type';
@@ -20,8 +19,7 @@ export interface BottleneckQuery {
  * Queries duration metrics grouped by the requested dimension.
  * Ranked by avg_duration_ms descending (slowest first).
  */
-export async function queryBottlenecks(query: BottleneckQuery): Promise<QueryResponse> {
-  const db = await openDatabase();
+export async function queryBottlenecks(db: DuckDBInstance, query: BottleneckQuery): Promise<QueryResponse> {
   const conn = await db.connect();
 
   try {

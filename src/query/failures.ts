@@ -3,8 +3,7 @@
  * Retry instances, pass/fail rates, consecutive failure detection.
  */
 
-import type { DuckDBConnection } from '@duckdb/node-api';
-import { openDatabase } from '../db/index.js';
+import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
 import { buildQueryResponse, type QueryResponse } from './format-results.js';
 
 export type FailureQueryMode = 'retry_summary' | 'loop_candidates' | 'failure_sequence' | 'failure_cluster';
@@ -16,18 +15,17 @@ export interface FailureQuery {
 }
 
 /** Dispatches to the appropriate failure query mode. */
-export async function queryFailures(query: FailureQuery): Promise<QueryResponse> {
+export async function queryFailures(db: DuckDBInstance, query: FailureQuery): Promise<QueryResponse> {
   switch (query.mode) {
-    case 'retry_summary': return queryRetrySummary();
-    case 'loop_candidates': return queryLoopCandidates(query.loop_threshold ?? 5);
-    case 'failure_sequence': return queryFailureSequence(query.session_id ?? '');
-    case 'failure_cluster': return queryFailureCluster();
+    case 'retry_summary': return queryRetrySummary(db);
+    case 'loop_candidates': return queryLoopCandidates(db, query.loop_threshold ?? 5);
+    case 'failure_sequence': return queryFailureSequence(db, query.session_id ?? '');
+    case 'failure_cluster': return queryFailureCluster(db);
   }
 }
 
 /** Mode A: retry instance count and pass/fail rate per session+phase. */
-async function queryRetrySummary(): Promise<QueryResponse> {
-  const db = await openDatabase();
+async function queryRetrySummary(db: DuckDBInstance): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const sql = `
@@ -81,8 +79,7 @@ async function queryRetrySummary(): Promise<QueryResponse> {
 }
 
 /** Mode B: sessions where consecutive identical failures >= threshold. */
-async function queryLoopCandidates(threshold: number): Promise<QueryResponse> {
-  const db = await openDatabase();
+async function queryLoopCandidates(db: DuckDBInstance, threshold: number): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const sql = `
@@ -133,8 +130,7 @@ async function queryLoopCandidates(threshold: number): Promise<QueryResponse> {
 }
 
 /** Mode C: ordered event timeline for a session. */
-async function queryFailureSequence(sessionId: string): Promise<QueryResponse> {
-  const db = await openDatabase();
+async function queryFailureSequence(db: DuckDBInstance, sessionId: string): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const sql = `
@@ -169,8 +165,7 @@ async function queryFailureSequence(sessionId: string): Promise<QueryResponse> {
 }
 
 /** Mode D: failure count per phase across all sessions. */
-async function queryFailureCluster(): Promise<QueryResponse> {
-  const db = await openDatabase();
+async function queryFailureCluster(db: DuckDBInstance): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const sql = `

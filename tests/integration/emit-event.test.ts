@@ -2,17 +2,21 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { rmSync } from 'node:fs';
+import type { DuckDBInstance } from '@duckdb/node-api';
 import { openDatabase, closeDatabase } from '../../src/db/index.js';
-import { writeEvent, findEventById } from '../../src/db/events-repository.js';
+import { DuckDbEventRepository } from '../../src/db/duckdb-event-repository.js';
 import { validateEvent } from '../../src/validation/validate-event.js';
 
 // req-001-emit-event: MCP tool that ingests a validated telemetry event into DuckDB.
 
 const TEST_DB = join(tmpdir(), `telemetry-test-${Date.now()}.db`);
 
+let repo: DuckDbEventRepository;
+
 beforeAll(async () => {
   process.env['PLANIFEST_TELEMETRY_DB'] = TEST_DB;
-  await openDatabase(TEST_DB);
+  const db: DuckDBInstance = await openDatabase(TEST_DB);
+  repo = new DuckDbEventRepository(db);
 });
 
 afterAll(() => {
@@ -34,9 +38,9 @@ const VALID_EVENT = {
   data: { phase_name: 'codegen' },
 };
 
-describe('req-001-emit-event: writeEvent', () => {
+describe('req-001-emit-event: DuckDbEventRepository', () => {
   it('returns ok and a row id for a valid event', async () => {
-    const result = await writeEvent(VALID_EVENT);
+    const result = await repo.write(VALID_EVENT);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(typeof result.id).toBe('string');
@@ -45,11 +49,11 @@ describe('req-001-emit-event: writeEvent', () => {
   });
 
   it('persists the event so it can be retrieved by id', async () => {
-    const writeResult = await writeEvent(VALID_EVENT);
+    const writeResult = await repo.write(VALID_EVENT);
     expect(writeResult.ok).toBe(true);
     if (!writeResult.ok) return;
 
-    const stored = await findEventById(writeResult.id);
+    const stored = await repo.findById(writeResult.id);
     expect(stored).not.toBeNull();
     expect(stored?.event).toBe('phase_start');
     expect(stored?.session_id).toBe('integration-test-session');
@@ -73,36 +77,49 @@ describe('req-001-emit-event: writeEvent', () => {
       const validation = validateEvent(event);
       expect(validation.isValid, `Event ${event.event} failed validation: ${validation.errors.join(', ')}`).toBe(true);
 
-      const result = await writeEvent(event);
-      expect(result.ok, `Event ${event.event} failed write: ${!result.ok ? result.errors.join(', ') : ''}`).toBe(true);
+      const result = await repo.write(event);
+      expect(result.ok, `Event ${event.event} failed write`).toBe(true);
     }
   });
 
   it('stores the initiative_id when provided', async () => {
     const event = { ...VALID_EVENT, initiative_id: '0000008-structured-telemetry-mcp-server' };
-    const result = await writeEvent(event);
+    const result = await repo.write(event);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const stored = await findEventById(result.id);
+    const stored = await repo.findById(result.id);
     expect(stored?.initiative_id).toBe('0000008-structured-telemetry-mcp-server');
   });
 
+  it('returns undefined initiative_id when not provided', async () => {
+    const result = await repo.write(VALID_EVENT);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const stored = await repo.findById(result.id);
+    expect(stored?.initiative_id).toBeUndefined();
+  });
+
   it('stores and retrieves model_config round-trip', async () => {
-    const event = {
-      ...VALID_EVENT,
-      model_config: { effort: 'high', thinking: true, budget_tokens: 8000 },
-    };
-    const result = await writeEvent(event);
+    const event = { ...VALID_EVENT, model_config: { effort: 'high', thinking: true, budget_tokens: 8000 } };
+    const result = await repo.write(event);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
-    const stored = await findEventById(result.id);
+    const stored = await repo.findById(result.id);
     expect(stored?.model_config).toEqual({ effort: 'high', thinking: true, budget_tokens: 8000 });
   });
 
+  it('returns undefined model_config when not provided', async () => {
+    const result = await repo.write(VALID_EVENT);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const stored = await repo.findById(result.id);
+    expect(stored?.model_config).toBeUndefined();
+  });
+
   it('returns null for a non-existent id', async () => {
-    const stored = await findEventById('00000000-0000-0000-0000-000000000000');
+    const stored = await repo.findById('00000000-0000-0000-0000-000000000000');
     expect(stored).toBeNull();
   });
 });
