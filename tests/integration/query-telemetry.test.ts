@@ -79,6 +79,24 @@ describe('req-002-query-bottlenecks: queryBottlenecks', () => {
     const response = await queryBottlenecks({ group_by: 'agent' });
     expect(typeof response.markdown).toBe('string');
   });
+
+  it('accepts group_by tool', async () => {
+    const response = await queryBottlenecks({ group_by: 'tool' });
+    expect(typeof response.markdown).toBe('string');
+    const result = response.json as { results: Array<{ group_key: string }> };
+    expect(result.results.some((r) => r.group_key === 'claude-code')).toBe(true);
+  });
+
+  it('accepts group_by content_type', async () => {
+    const response = await queryBottlenecks({ group_by: 'content_type' });
+    expect(typeof response.markdown).toBe('string');
+  });
+
+  it('respects the limit param', async () => {
+    const response = await queryBottlenecks({ group_by: 'phase', limit: 1 });
+    const result = response.json as { results: unknown[] };
+    expect(result.results).toHaveLength(1);
+  });
 });
 
 describe('req-003-query-failures: queryFailures', () => {

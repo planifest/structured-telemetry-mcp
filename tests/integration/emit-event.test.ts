@@ -87,4 +87,22 @@ describe('req-001-emit-event: writeEvent', () => {
     const stored = await findEventById(result.id);
     expect(stored?.initiative_id).toBe('0000008-structured-telemetry-mcp-server');
   });
+
+  it('stores and retrieves model_config round-trip', async () => {
+    const event = {
+      ...VALID_EVENT,
+      model_config: { effort: 'high', thinking: true, budget_tokens: 8000 },
+    };
+    const result = await writeEvent(event);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const stored = await findEventById(result.id);
+    expect(stored?.model_config).toEqual({ effort: 'high', thinking: true, budget_tokens: 8000 });
+  });
+
+  it('returns null for a non-existent id', async () => {
+    const stored = await findEventById('00000000-0000-0000-0000-000000000000');
+    expect(stored).toBeNull();
+  });
 });
