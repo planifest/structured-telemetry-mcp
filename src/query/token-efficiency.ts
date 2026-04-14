@@ -48,9 +48,9 @@ async function queryContextPressure(db: DuckDBInstance, initiativeId?: string): 
 
     const rows = await runQuery<[string, number, number, number]>(conn, sql, params);
     const sampleWhere = initiativeId
-      ? `event = 'context_pressure' AND initiative_id = '${initiativeId.replace(/'/g, "''")}'`
+      ? "event = 'context_pressure' AND initiative_id = $initiative_id"
       : "event = 'context_pressure'";
-    const rawSample = await sampleEvents(conn, sampleWhere);
+    const rawSample = await sampleEvents(conn, sampleWhere, params);
 
     const aggregation = {
       mode: 'context_pressure',
@@ -89,9 +89,9 @@ async function queryMcpImpact(db: DuckDBInstance, initiativeId?: string): Promis
 
     const rows = await runQuery<[string, number, number, number]>(conn, sql, params);
     const sampleWhere = initiativeId
-      ? `event = 'mcp_impact' AND initiative_id = '${initiativeId.replace(/'/g, "''")}'`
+      ? "event = 'mcp_impact' AND initiative_id = $initiative_id"
       : "event = 'mcp_impact'";
-    const rawSample = await sampleEvents(conn, sampleWhere);
+    const rawSample = await sampleEvents(conn, sampleWhere, params);
 
     const aggregation = {
       mode: 'mcp_impact',
@@ -129,9 +129,9 @@ async function queryRequestVolume(db: DuckDBInstance, initiativeId?: string): Pr
 
     const rows = await runQuery<[string, number, number]>(conn, sql, params);
     const sampleWhere = initiativeId
-      ? `initiative_id = '${initiativeId.replace(/'/g, "''")}'`
+      ? 'initiative_id = $initiative_id'
       : '1=1';
-    const rawSample = await sampleEvents(conn, sampleWhere);
+    const rawSample = await sampleEvents(conn, sampleWhere, params);
 
     const aggregation = {
       mode: 'request_volume',
@@ -153,7 +153,8 @@ async function queryRequestVolume(db: DuckDBInstance, initiativeId?: string): Pr
 async function queryTrend(db: DuckDBInstance, limitDays: number, initiativeId?: string): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
-    const initiativeClause = initiativeId ? `AND initiative_id = '${initiativeId.replace(/'/g, "''")}'` : '';
+    const initiativeClause = initiativeId ? 'AND initiative_id = $initiative_id' : '';
+    const trendParams: Record<string, string> = initiativeId ? { initiative_id: initiativeId } : {};
     const sql = `
       SELECT
         CAST(timestamp AS DATE)::VARCHAR                                         AS run_date,
@@ -168,11 +169,11 @@ async function queryTrend(db: DuckDBInstance, limitDays: number, initiativeId?: 
       ORDER BY run_date ASC
     `;
 
-    const rows = await runQuery<[string, number, number, number]>(conn, sql, {});
+    const rows = await runQuery<[string, number, number, number]>(conn, sql, trendParams);
     const sampleWhere = initiativeId
-      ? `event = 'context_pressure' AND initiative_id = '${initiativeId.replace(/'/g, "''")}'`
+      ? "event = 'context_pressure' AND initiative_id = $initiative_id"
       : "event = 'context_pressure'";
-    const rawSample = await sampleEvents(conn, sampleWhere);
+    const rawSample = await sampleEvents(conn, sampleWhere, trendParams);
 
     const aggregation = {
       mode: 'trend',
@@ -254,12 +255,14 @@ async function runQuery<T>(
   return result.getRows() as T[];
 }
 
-async function sampleEvents(conn: DuckDBConnection, where: string): Promise<object[]> {
-  const result = await conn.runAndReadAll(
-    `SELECT id, event, session_id, phase, agent, timestamp::VARCHAR AS timestamp, data::VARCHAR AS data
-     FROM events WHERE ${where} ORDER BY timestamp DESC LIMIT 5`,
-  );
-  return (result.getRows() as Array<unknown[]>).map(rowToRaw);
+async function sampleEvents(
+  conn: DuckDBConnection,
+  where: string,
+  params: Record<string, string | number> = {},
+): Promise<object[]> {
+  const sql = `SELECT id, event, session_id, phase, agent, timestamp::VARCHAR AS timestamp, data::VARCHAR AS data
+     FROM events WHERE ${where} ORDER BY timestamp DESC LIMIT 5`;
+  return (await runQuery<unknown[]>(conn, sql, params)).map(rowToRaw);
 }
 
 function rowToRaw(row: unknown[]): object {

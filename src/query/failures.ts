@@ -65,9 +65,9 @@ async function queryRetrySummary(db: DuckDBInstance, initiativeId?: string): Pro
 
     const rows = await runQuery<[string, string, number, number, number]>(conn, sql, params);
     const sampleWhere = initiativeId
-      ? `event = 'validation_failure' AND initiative_id = '${initiativeId.replace(/'/g, "''")}'`
+      ? "event = 'validation_failure' AND initiative_id = $initiative_id"
       : "event = 'validation_failure'";
-    const rawSample = await sampleEvents(conn, sampleWhere);
+    const rawSample = await sampleEvents(conn, sampleWhere, params);
 
     const tableRows = rows.map(([sid, phase, count, passRate, failRate]) =>
       [sid, phase, count, `${passRate}%`, `${failRate}%`]);
@@ -90,7 +90,8 @@ async function queryRetrySummary(db: DuckDBInstance, initiativeId?: string): Pro
 async function queryLoopCandidates(db: DuckDBInstance, threshold: number, initiativeId?: string): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
-    const initiativeClause = initiativeId ? `AND initiative_id = '${initiativeId.replace(/'/g, "''")}'` : '';
+    const initiativeClause = initiativeId ? 'AND initiative_id = $initiative_id' : '';
+    const loopParams: Record<string, string> = initiativeId ? { initiative_id: initiativeId } : {};
     const sql = `
       WITH ordered AS (
         SELECT
@@ -119,8 +120,11 @@ async function queryLoopCandidates(db: DuckDBInstance, threshold: number, initia
       ORDER BY consecutive_count DESC
     `;
 
-    const rows = await runQuery<[string, string, string, number]>(conn, sql, {});
-    const rawSample = await sampleEvents(conn, "event = 'validation_failure'");
+    const rows = await runQuery<[string, string, string, number]>(conn, sql, loopParams);
+    const sampleWhere = initiativeId
+      ? "event = 'validation_failure' AND initiative_id = $initiative_id"
+      : "event = 'validation_failure'";
+    const rawSample = await sampleEvents(conn, sampleWhere, loopParams);
 
     const aggregation = {
       mode: 'loop_candidates',
@@ -196,9 +200,9 @@ async function queryFailureCluster(db: DuckDBInstance, initiativeId?: string): P
 
     const rows = await runQuery<[string, number, number]>(conn, sql, params);
     const sampleWhere = initiativeId
-      ? `event = 'validation_failure' AND initiative_id = '${initiativeId.replace(/'/g, "''")}'`
+      ? "event = 'validation_failure' AND initiative_id = $initiative_id"
       : "event = 'validation_failure'";
-    const rawSample = await sampleEvents(conn, sampleWhere);
+    const rawSample = await sampleEvents(conn, sampleWhere, params);
 
     const aggregation = {
       mode: 'failure_cluster',
@@ -230,12 +234,14 @@ async function runQuery<T>(
   return result.getRows() as T[];
 }
 
-async function sampleEvents(conn: DuckDBConnection, where: string): Promise<object[]> {
-  const result = await conn.runAndReadAll(
-    `SELECT id, event, session_id, phase, agent, timestamp::VARCHAR AS timestamp, data::VARCHAR AS data
-     FROM events WHERE ${where} ORDER BY timestamp DESC LIMIT 5`,
-  );
-  return (result.getRows() as Array<unknown[]>).map(rowToRaw);
+async function sampleEvents(
+  conn: DuckDBConnection,
+  where: string,
+  params: Record<string, string | number> = {},
+): Promise<object[]> {
+  const sql = `SELECT id, event, session_id, phase, agent, timestamp::VARCHAR AS timestamp, data::VARCHAR AS data
+     FROM events WHERE ${where} ORDER BY timestamp DESC LIMIT 5`;
+  return (await runQuery<unknown[]>(conn, sql, params)).map(rowToRaw);
 }
 
 function rowToRaw(row: unknown[]): object {
