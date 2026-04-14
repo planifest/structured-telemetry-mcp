@@ -98,12 +98,17 @@ conn.disconnectSync();
 console.log(`Deleted \${before} record(s). Remaining: \${after}.`);
 "@
 
+$tmpScript = [System.IO.Path]::GetTempFileName() + '.mjs'
 try {
-    $result = node --input-type=module <<< $nodeScript 2>&1
+    Set-Content -Path $tmpScript -Value $nodeScript -Encoding UTF8
+    $result = node $tmpScript 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  Truncation failed: $result" -ForegroundColor Red
+        exit 1
+    }
     Write-Host "  $result" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Truncation complete." -ForegroundColor Green
-} catch {
-    Write-Host "  Truncation failed: $_" -ForegroundColor Red
-    exit 1
+} finally {
+    if (Test-Path $tmpScript) { Remove-Item $tmpScript -Force }
 }
