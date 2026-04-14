@@ -8,14 +8,16 @@ import type { DuckDBInstance } from '@duckdb/node-api';
 import { queryBottlenecks, type BottleneckQuery } from './bottlenecks.js';
 import { queryFailures, type FailureQuery } from './failures.js';
 import { queryTokenEfficiency, type TokenEfficiencyQuery } from './token-efficiency.js';
+import { queryEventLog, type EventLogQuery } from './event-log.js';
 import type { QueryResponse } from './format-results.js';
 
-export type { BottleneckQuery, FailureQuery, TokenEfficiencyQuery, QueryResponse };
+export type { BottleneckQuery, FailureQuery, TokenEfficiencyQuery, EventLogQuery, QueryResponse };
 
 export interface IQueryService {
   bottlenecks(query: BottleneckQuery): Promise<QueryResponse>;
   failures(query: FailureQuery): Promise<QueryResponse>;
   tokenEfficiency(query: TokenEfficiencyQuery): Promise<QueryResponse>;
+  eventLog(query: EventLogQuery): Promise<QueryResponse>;
 }
 
 export class DuckDbQueryService implements IQueryService {
@@ -31,5 +33,9 @@ export class DuckDbQueryService implements IQueryService {
 
   tokenEfficiency(query: TokenEfficiencyQuery): Promise<QueryResponse> {
     return queryTokenEfficiency(this.db, query);
+  }
+
+  eventLog(query: EventLogQuery): Promise<QueryResponse> {
+    return queryEventLog(this.db, query);
   }
 }

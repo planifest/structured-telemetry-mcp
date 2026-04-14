@@ -8,6 +8,7 @@ import type {
   BottleneckQuery,
   FailureQuery,
   TokenEfficiencyQuery,
+  EventLogQuery,
   QueryResponse,
 } from './query/query-service.js';
 
@@ -23,6 +24,10 @@ export class HttpQueryService implements IQueryService {
   }
 
   tokenEfficiency(query: TokenEfficiencyQuery): Promise<QueryResponse> {
+    return this.post(query);
+  }
+
+  eventLog(query: EventLogQuery): Promise<QueryResponse> {
     return this.post(query);
   }
 

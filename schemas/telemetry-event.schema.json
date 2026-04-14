@@ -33,7 +33,12 @@
         "migration_proposal",
         "context_pressure",
         "mcp_impact",
-        "self_correction"
+        "self_correction",
+        "phase_skip",
+        "security_finding",
+        "retry_limit_exceeded",
+        "adr_decision",
+        "doc_gap"
       ],
       "description": "Event type discriminator."
     },
@@ -101,7 +106,12 @@
         { "$ref": "#/$defs/MigrationProposalData" },
         { "$ref": "#/$defs/ContextPressureData" },
         { "$ref": "#/$defs/McpImpactData" },
-        { "$ref": "#/$defs/SelfCorrectionData" }
+        { "$ref": "#/$defs/SelfCorrectionData" },
+        { "$ref": "#/$defs/PhaseSkipData" },
+        { "$ref": "#/$defs/SecurityFindingData" },
+        { "$ref": "#/$defs/RetryLimitExceededData" },
+        { "$ref": "#/$defs/AdrDecisionData" },
+        { "$ref": "#/$defs/DocGapData" }
       ]
     }
   },
@@ -194,6 +204,55 @@
         "attempt_number": { "type": "integer", "minimum": 1 },
         "action_id": { "type": "string", "minLength": 1 },
         "correction_type": { "type": "string", "minLength": 1 }
+      }
+    },
+    "PhaseSkipData": {
+      "type": "object",
+      "required": ["phase_name", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "phase_name": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "SecurityFindingData": {
+      "type": "object",
+      "required": ["component_id", "title", "severity"],
+      "additionalProperties": false,
+      "properties": {
+        "component_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "severity": { "type": "string", "enum": ["low", "medium", "high", "critical"] },
+        "cwe": { "type": "string" }
+      }
+    },
+    "RetryLimitExceededData": {
+      "type": "object",
+      "required": ["phase_name", "action_id", "attempt_count"],
+      "additionalProperties": false,
+      "properties": {
+        "phase_name": { "type": "string", "minLength": 1 },
+        "action_id": { "type": "string", "minLength": 1 },
+        "attempt_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "AdrDecisionData": {
+      "type": "object",
+      "required": ["adr_id", "title", "chosen_option"],
+      "additionalProperties": false,
+      "properties": {
+        "adr_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "chosen_option": { "type": "string", "minLength": 1 }
+      }
+    },
+    "DocGapData": {
+      "type": "object",
+      "required": ["component_id", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "component_id": { "type": "string", "minLength": 1 },
+        "description": { "type": "string", "minLength": 1 }
       }
     }
   }

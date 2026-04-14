@@ -6,12 +6,13 @@
 import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
 import { buildQueryResponse, type QueryResponse } from './format-results.js';
 
-export type BottleneckGroupBy = 'phase' | 'agent' | 'tool' | 'run_id' | 'content_type';
+export type BottleneckGroupBy = 'phase' | 'agent' | 'tool' | 'run_id' | 'content_type' | 'mcp_mode' | 'initiative_id';
 
 export interface BottleneckQuery {
   readonly group_by: BottleneckGroupBy;
   readonly run_id?: string;
   readonly session_id?: string;
+  readonly initiative_id?: string;
   readonly limit?: number;
 }
 
@@ -84,6 +85,8 @@ function resolveGroupColumn(groupBy: BottleneckGroupBy): string {
     case 'tool': return 'tool';
     case 'run_id': return 'session_id';
     case 'content_type': return "COALESCE(data->>'content_type', 'unknown')";
+    case 'mcp_mode': return 'mcp_mode';
+    case 'initiative_id': return "COALESCE(initiative_id, 'unknown')";
   }
 }
 
@@ -98,6 +101,10 @@ function buildWhereClause(query: BottleneckQuery): { clause: string; params: Rec
   if (query.session_id !== undefined) {
     clauses.push('AND session_id = $session_id');
     params['session_id'] = query.session_id;
+  }
+  if (query.initiative_id !== undefined) {
+    clauses.push('AND initiative_id = $initiative_id');
+    params['initiative_id'] = query.initiative_id;
   }
 
   return { clause: clauses.join(' '), params };

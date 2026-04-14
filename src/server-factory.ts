@@ -8,7 +8,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { validateEvent } from './validation/validate-event.js';
 import type { IEventRepository } from './db/repository.js';
-import type { IQueryService, BottleneckQuery, FailureQuery, TokenEfficiencyQuery, QueryResponse } from './query/query-service.js';
+import type { IQueryService, BottleneckQuery, FailureQuery, TokenEfficiencyQuery, EventLogQuery, QueryResponse } from './query/query-service.js';
 import type { TelemetryEvent } from './types/events.js';
 
 export type McpTextResult = { content: Array<{ type: 'text'; text: string }> };
@@ -20,10 +20,21 @@ export type McpTextResult = { content: Array<{ type: 'text'; text: string }> };
  * Exported for unit testing. Throws for unrecognised shapes.
  */
 export async function dispatchQuery(qs: IQueryService, q: Record<string, unknown>): Promise<QueryResponse> {
+  // event_log is checked first — it uses `mode` but is its own query family (ADR-010).
+  if (q['mode'] === 'event_log') {
+    return qs.eventLog(q as unknown as EventLogQuery);
+  }
+
   if (
     typeof q['mode'] === 'string' &&
     ['retry_summary', 'loop_candidates', 'failure_sequence', 'failure_cluster'].includes(q['mode'])
   ) {
+    // BUG-002 / BUG-003: session_id is required for modes that scope to a single session.
+    if (q['mode'] === 'failure_sequence') {
+      if (typeof q['session_id'] !== 'string' || q['session_id'] === '') {
+        throw new Error('failure_sequence requires session_id');
+      }
+    }
     return qs.failures(q as unknown as FailureQuery);
   }
 
@@ -31,6 +42,11 @@ export async function dispatchQuery(qs: IQueryService, q: Record<string, unknown
     typeof q['mode'] === 'string' &&
     ['context_pressure', 'mcp_impact', 'request_volume', 'trend', 'drill_down'].includes(q['mode'])
   ) {
+    if (q['mode'] === 'drill_down') {
+      if (typeof q['session_id'] !== 'string' || q['session_id'] === '') {
+        throw new Error('drill_down requires session_id');
+      }
+    }
     return qs.tokenEfficiency(q as unknown as TokenEfficiencyQuery);
   }
 

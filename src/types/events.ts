@@ -12,7 +12,12 @@ export type EventType =
   | 'migration_proposal'
   | 'context_pressure'
   | 'mcp_impact'
-  | 'self_correction';
+  | 'self_correction'
+  | 'phase_skip'
+  | 'security_finding'
+  | 'retry_limit_exceeded'
+  | 'adr_decision'
+  | 'doc_gap';
 
 export type Phase =
   | 'orchestrator'
@@ -82,6 +87,35 @@ export interface SelfCorrectionData {
   readonly correction_type: string;
 }
 
+export interface PhaseSkipData {
+  readonly phase_name: string;
+  readonly reason: string;
+}
+
+export interface SecurityFindingData {
+  readonly component_id: string;
+  readonly title: string;
+  readonly severity: 'low' | 'medium' | 'high' | 'critical';
+  readonly cwe?: string;
+}
+
+export interface RetryLimitExceededData {
+  readonly phase_name: string;
+  readonly action_id: string;
+  readonly attempt_count: number;
+}
+
+export interface AdrDecisionData {
+  readonly adr_id: string;
+  readonly title: string;
+  readonly chosen_option: string;
+}
+
+export interface DocGapData {
+  readonly component_id: string;
+  readonly description: string;
+}
+
 export type EventData =
   | PhaseStartData
   | PhaseEndData
@@ -91,7 +125,12 @@ export type EventData =
   | MigrationProposalData
   | ContextPressureData
   | McpImpactData
-  | SelfCorrectionData;
+  | SelfCorrectionData
+  | PhaseSkipData
+  | SecurityFindingData
+  | RetryLimitExceededData
+  | AdrDecisionData
+  | DocGapData;
 
 // ── Common envelope ───────────────────────────────────────────────────────────
 
