@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000008-structured-telemetry-mcp-server"
-version: "0.1.0"
+feature: "0000008c-mcp-fixes-and-enhancements"
+version: "0.2.0"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -10,12 +10,14 @@ summary: "MCP server that ingests and queries structured telemetry events from P
 systemContext: "Runs as a local MCP server alongside the developer's agent tool (Claude Code, Cursor, etc.). Planifest-compliant agents call emit_event to record pipeline telemetry. The human on the loop calls query_telemetry to analyse bottlenecks, failures, and token efficiency. The DuckDB store is the data source for the future 0024 observability dashboard."
 
 responsibilities:
-  - "Accept and validate telemetry events via the emit_event MCP tool"
+  - "Accept and validate telemetry events via the emit_event MCP tool (14 event types as of 0.2.0)"
   - "Persist all valid events to a DuckDB store with temporal optimisation"
-  - "Answer structured queries via the query_telemetry MCP tool, returning Markdown tables, JSON, and raw event samples"
+  - "Answer structured queries via the query_telemetry MCP tool across three query families plus event_log"
   - "Enforce JSON Schema validation for all event types at ingestion"
   - "Provide setup and doctor CLI commands for installation and diagnostics"
-  - "Expose a build and bundle pipeline producing a single server.bundle.mjs"
+  - "Expose a build and bundle pipeline producing server.bundle.mjs, server-http.bundle.mjs, and cli.bundle.mjs"
+  - "Support initiative_id-scoped filtering on all query families"
+  - "Provide human-only post-deployment truncation scripts with admin/sudo gate and interactive phrase confirmation"
 
 exceptions:
   - "Does not emit telemetry itself — it is the sink, not a source"
@@ -24,12 +26,12 @@ exceptions:
   - "Does not provide a web dashboard or visualisation layer (0024 — future)"
   - "Does not publish to npm this pipeline run"
   - "Does not run in the cloud or as a hosted service"
-  - "Does not authenticate callers — local stdio process only"
+  - "Does not authenticate callers — bound to 127.0.0.1, no auth model required"
 
 stack:
   language: "typescript"
   runtime: "node"
-  framework: "none"
+  framework: "express"
   frontend: "none"
   styling: "none"
   componentLibrary: "none"
@@ -38,7 +40,7 @@ stack:
   testing: "vitest"
   iac: "none"
   cloud: "none"
-  compute: "none"
+  compute: "local-daemon"
   ci: "github-actions"
 
 contract:
@@ -71,36 +73,43 @@ data:
 
 scope:
   inScope:
-    - "emit_event and query_telemetry MCP tools"
+    - "emit_event MCP tool — 14 event types (9 carried from 0008a + 5 new in 0008c)"
+    - "query_telemetry MCP tool — bottlenecks, failures, token-efficiency, event_log"
+    - "initiative_id filter on all query families"
+    - "group_by: mcp_mode and group_by: initiative_id for bottleneck queries"
     - "DuckDB storage layer"
-    - "JSON Schema validation for all 9 event types"
+    - "JSON Schema validation for all 14 event types"
     - "Setup and doctor CLI commands"
-    - "Build and bundle pipeline"
-    - "GitHub Actions CI with platform matrix"
+    - "HTTP/SSE daemon transport on 127.0.0.1:3741"
+    - "Build and bundle pipeline (server.bundle.mjs, server-http.bundle.mjs, cli.bundle.mjs)"
+    - "GitHub Actions CI with platform matrix (ubuntu/macos/windows × node20/22)"
     - "Performance test (p95 < 100ms gate)"
+    - "Human-only post-deployment truncation scripts with admin/sudo and interactive phrase gate"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
     - "Remote hosting"
     - "Web dashboard"
-    - "HTTP/SSE transport"
     - "Server-side loop detection"
+    - "Authentication or access control"
   deferred:
     - "npm publish — blocked on: decision to make package public"
     - "Plugin marketplace manifests — blocked on: marketplace listing decision"
 
 risk:
-  level: "medium"
+  level: "low"
   items:
-    - "DuckDB native module compilation failure on CI platforms (R-001)"
-    - "esbuild bundle excluding DuckDB native bindings incorrectly (R-005)"
-    - "Schema evolution breaking existing stored events (R-003)"
+    - "express missing from package.json dependencies — build fails if not present (R-005)"
+    - "initiative_id nullable — COALESCE required in group_by to avoid null group keys (R-002)"
+    - "event_log dispatch order — must precede existing checks in dispatchQuery (R-003)"
+    - "AJV recompilation — schema additions only active after daemon restart (R-004)"
+    - "Truncation script DB path resolution — must print path before prompting (R-006)"
 
 quality:
   testCoverage:
-    unit: 68   # validation (44) + format-results (7) + server-factory (17) — all branches incl. mock-injected error paths
-    integration: 30  # emit-event (8) + query-telemetry (18) + query-empty (14) — all query modes, empty DB cold-start
-    e2e: 0     # not applicable — local stdio tool, no HTTP layer
+    unit: 68   # existing; +~20 new validation tests + ~10 new server-factory tests = ~98 target
+    integration: 30  # existing; +~24 new query integration tests = ~54 target
+    e2e: 0
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
@@ -114,14 +123,14 @@ quality:
 
 pipeline:
   templateVersion: "1.0.0"
-  featureMode: "greenfield"
+  featureMode: "retrofit"
   domainKnowledgePath: "plan"
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-04-13T08:30:00Z"
+  updatedAt: "2026-04-14T00:00:00Z"
   createdBy: "agent"
   lastModifiedBy: "agent"
-  skill: "planifest-codegen-agent"
+  skill: "planifest-spec-agent"
   tool: "claude-code"
   model: "claude-sonnet-4-6"

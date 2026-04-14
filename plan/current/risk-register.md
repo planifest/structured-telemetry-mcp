@@ -1,0 +1,45 @@
+---
+title: "Risk Register - 0000008c-mcp-fixes-and-enhancements"
+summary: "Technical, operational, and security risks for the 0008c patch release."
+status: "active"
+version: "0.1.0"
+---
+# Risk Register - 0000008c-mcp-fixes-and-enhancements
+
+**Skill:** spec-agent (updated by any agent that identifies a new risk)
+**Tool:** Claude Code
+**Model:** claude-sonnet-4-6
+**Feature:** 0000008c-mcp-fixes-and-enhancements
+**Version:** 0.1.0
+**Overall Risk Level:** low
+
+---
+
+## Risks
+
+| ID | Category | Description | Likelihood | Impact | Mitigation | Status |
+|----|----------|------------|------------|--------|-----------|--------|
+| R-001 | technical | `resolveGroupColumn()` exhaustive switch — adding `mcp_mode` and `initiative_id` cases simultaneously; TypeScript exhaustiveness check may not catch a missed case if the type union is widened before the switch is updated | low | medium | Codegen adds both type union members and switch cases in the same edit; TypeScript compile (`npm run typecheck`) catches any gap before tests run | open |
+| R-002 | technical | `initiative_id` is nullable in the `events` table; `group_by: "initiative_id"` without `COALESCE` produces a `NULL` group key that may render incorrectly in `QueryResponse` format | medium | low | Spec requires `COALESCE(initiative_id, 'unknown')` in `resolveGroupColumn()`; integration test with null initiative_id data verifies grouping | open |
+| R-003 | technical | `event_log` dispatch check in `dispatchQuery` must be placed before the existing bottleneck/failure/token-efficiency checks; if placed after, it will never be reached because no existing check matches `mode: "event_log"` | low | medium | Spec explicitly requires `event_log` branch added before existing checks; unit test of `dispatchQuery` with `{ mode: "event_log" }` catches misplacement | open |
+| R-004 | technical | AJV schema compilation caches the compiled validator; adding new `$defs` to the JSON schema file may not trigger recompilation if the file is loaded once at startup and the server is not restarted | low | medium | Verify `validate-event.ts` reads schema at startup (not at build time); daemon restart required after deployment picks up new schema | open |
+| R-005 | technical | `express` package was installed during 0008a HTTP migration but may not be recorded in `package.json` if the session that ran `npm install express --save` did not persist correctly | medium | high | Verify `package.json` includes `express` before build; CI will fail at bundle step if missing; dependency verification step (NFR-007) catches this | open |
+| R-006 | operational | Truncation scripts run against the live `telemetry.db` file path. If `TELEMETRY_DB_PATH` env var is not set and the fallback path (`~/.planifest/telemetry.db`) differs from the actual deployed path, truncation silently operates on the wrong (or a non-existent) file | low | high | Script must print the resolved DB path before prompting for confirmation; human verifies path is correct before entering phrase | open |
+| R-007 | security | `DELETE-ALL-PRODUCTION-RECORDS` scripts are in the `scripts/` directory alongside other deployment scripts; a future automated script runner that targets all `.ps1`/`.sh` files in `scripts/` could execute it non-interactively | low | high | Admin/sudo gate prevents non-elevated execution; conspicuous filename serves as a visual guard; document in repo README that this script must never be included in automated runners | open |
+| R-008 | technical | Existing integration tests in `tests/integration/query-telemetry.test.ts` seed data with 9 known event types; adding 5 new types may require seeding updates if tests assert exact event type counts | low | low | New tests are additive; existing seed data unchanged; failing tests will be caught by CI | open |
+| R-009 | technical | `model_config` column is absent from `src/structured-telemetry-mcp/docs/data-contract.md` despite existing in `src/db/schema.ts` and having an applied migration. This documentation gap predates 0008c — fixing it in this release prevents further drift | low | low | Data contract update included in scope; no code change required | open |
+
+---
+
+## Assumptions Logged as Risks
+
+| ID | Assumption | Impact if Wrong | Status |
+|----|-----------|----------------|--------|
+| A-001 | `initiative_id` and `mcp_mode` are present as columns in the live `events` table | BUG-001, FEA-002, FEA-003 require a DB migration before implementation | open |
+| A-002 | `express` is correctly recorded in `package.json` dependencies | Build fails at bundle step; must be added before release | open |
+| A-003 | `event_log` applies AND logic when both `session_id` and `initiative_id` are provided | Callers expecting OR behaviour receive unexpected empty results | open |
+| A-004 | No production users exist at time of truncation script execution | Data loss; mitigated by admin/sudo gate, interactive phrase, and human-run step | open |
+
+---
+
+*Generated by spec-agent. Updated by any agent that identifies a new risk.*
