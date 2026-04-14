@@ -99,7 +99,18 @@ conn.disconnectSync();
 console.log('Deleted ' + before + ' record(s). Remaining: ' + after + '.');
 "@
 
-$tmpScript = [System.IO.Path]::GetTempFileName() + '.mjs'
+$RepoRoot = Split-Path $PSScriptRoot -Parent
+$tmpScript = Join-Path $RepoRoot '._truncate_tmp.mjs'
+
+# ── Stop daemon to release DuckDB file lock ───────────────────────────────────
+$svcName = 'structured-telemetry-mcp'
+$svcExists = Get-Service $svcName -ErrorAction SilentlyContinue
+if ($svcExists) {
+    Write-Host "  Stopping daemon service..." -ForegroundColor Cyan
+    Stop-Service $svcName -Force
+    Start-Sleep 2
+}
+
 try {
     Set-Content -Path $tmpScript -Value $nodeScript -Encoding UTF8
     $result = node $tmpScript 2>&1
@@ -112,4 +123,9 @@ try {
     Write-Host "  Truncation complete." -ForegroundColor Green
 } finally {
     if (Test-Path $tmpScript) { Remove-Item $tmpScript -Force }
+    if ($svcExists) {
+        Write-Host "  Restarting daemon service..." -ForegroundColor Cyan
+        Start-Service $svcName
+        Write-Host "  Daemon restarted." -ForegroundColor Green
+    }
 }
