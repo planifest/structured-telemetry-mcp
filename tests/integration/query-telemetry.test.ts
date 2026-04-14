@@ -197,8 +197,8 @@ describe('req-004-query-token-efficiency: DuckDbQueryService.tokenEfficiency', (
 
 // req-004-event-log-query (FEA-001)
 describe('req-004-event-log-query: DuckDbQueryService.eventLog', () => {
-  it('returns Markdown, JSON, and rawSample', async () => {
-    const response = await qs.eventLog({ mode: 'event_log' });
+  it('returns Markdown, JSON, and rawSample when scoped by session_id', async () => {
+    const response = await qs.eventLog({ mode: 'event_log', session_id: 'query-test-session' });
     expect(typeof response.markdown).toBe('string');
     expect(response.markdown).toContain('|');
     expect(typeof response.json).toBe('object');
@@ -206,7 +206,7 @@ describe('req-004-event-log-query: DuckDbQueryService.eventLog', () => {
   });
 
   it('returns event_count in JSON aggregation', async () => {
-    const response = await qs.eventLog({ mode: 'event_log' });
+    const response = await qs.eventLog({ mode: 'event_log', session_id: 'query-test-session' });
     const result = response.json as { event_count: number; events: unknown[] };
     expect(result.event_count).toBeGreaterThan(0);
     expect(Array.isArray(result.events)).toBe(true);
@@ -233,7 +233,7 @@ describe('req-004-event-log-query: DuckDbQueryService.eventLog', () => {
   });
 
   it('respects limit param', async () => {
-    const response = await qs.eventLog({ mode: 'event_log', limit: 2 });
+    const response = await qs.eventLog({ mode: 'event_log', session_id: 'query-test-session', limit: 2 });
     const result = response.json as { event_count: number };
     expect(result.event_count).toBeLessThanOrEqual(2);
   });
@@ -242,6 +242,10 @@ describe('req-004-event-log-query: DuckDbQueryService.eventLog', () => {
     const response = await qs.eventLog({ mode: 'event_log', session_id: 'nonexistent-session' });
     const result = response.json as { event_count: number };
     expect(result.event_count).toBe(0);
+  });
+
+  it('throws when no scope parameter is provided', async () => {
+    await expect(qs.eventLog({ mode: 'event_log' })).rejects.toThrow('requires at least one scope parameter');
   });
 });
 
@@ -296,5 +300,30 @@ describe('req-006-initiative-id-filter: initiative_id filter across query famili
     // init-beta only has a spec phase_end
     expect(result.results.some((r) => r.group_key === 'spec')).toBe(true);
     expect(result.results.some((r) => r.group_key === 'codegen')).toBe(false);
+  });
+
+  it('failures: retry_summary scoped to initiative_id', async () => {
+    const response = await qs.failures({ mode: 'retry_summary', initiative_id: 'init-alpha' });
+    const result = response.json as { results: Array<{ session_id: string }> };
+    // init-alpha validation_failure events are from query-test-session
+    expect(result.results.every((r) => r.session_id === 'query-test-session')).toBe(true);
+  });
+
+  it('failures: retry_summary returns empty for non-existent initiative', async () => {
+    const response = await qs.failures({ mode: 'retry_summary', initiative_id: 'nonexistent' });
+    const result = response.json as { results: unknown[] };
+    expect(result.results).toHaveLength(0);
+  });
+
+  it('tokenEfficiency: context_pressure scoped to initiative_id', async () => {
+    const response = await qs.tokenEfficiency({ mode: 'context_pressure', initiative_id: 'init-alpha' });
+    const result = response.json as { results: Array<{ phase: string }> };
+    expect(result.results.some((r) => r.phase === 'codegen')).toBe(true);
+  });
+
+  it('tokenEfficiency: context_pressure returns empty for non-existent initiative', async () => {
+    const response = await qs.tokenEfficiency({ mode: 'context_pressure', initiative_id: 'nonexistent' });
+    const result = response.json as { results: unknown[] };
+    expect(result.results).toHaveLength(0);
   });
 });

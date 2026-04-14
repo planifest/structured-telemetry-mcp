@@ -35,7 +35,22 @@ fi
 echo "  [Gate 1 passed] Running as root."
 echo ""
 
-# ── Gate 2: Interactive phrase confirmation ───────────────────────────────────
+# ── Gate 2: Acceptable to proceed? ───────────────────────────────────────────
+echo "  Is it acceptable to remove ALL Production telemetry records? (yes/no)"
+read -r proceed
+
+if [ "$proceed" != "yes" ]; then
+    echo ""
+    echo "  Operation cancelled. No data was deleted."
+    echo ""
+    exit 1
+fi
+
+echo ""
+echo "  [Gate 2 passed] Proceeding to phrase confirmation."
+echo ""
+
+# ── Gate 3: Interactive phrase confirmation ───────────────────────────────────
 echo "  To confirm you understand the consequences, type the following"
 echo "  phrase exactly (case-sensitive) and press Enter:"
 echo ""
@@ -51,7 +66,7 @@ if [ "$confirmation" != "I UNDERSTAND THAT THIS WILL DELETE ALL RECORDS!" ]; the
 fi
 
 echo ""
-echo "  [Gate 2 passed] Confirmation received."
+echo "  [Gate 3 passed] Confirmation received."
 echo ""
 
 # ── Resolve DB path ───────────────────────────────────────────────────────────

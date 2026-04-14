@@ -36,7 +36,22 @@ if (-not $isAdmin) {
 Write-Host "  [Gate 1 passed] Running as Administrator." -ForegroundColor Green
 Write-Host ""
 
-# ── Gate 2: Interactive phrase confirmation ───────────────────────────────────
+# ── Gate 2: Acceptable to proceed? ───────────────────────────────────────────
+Write-Host "  Is it acceptable to remove ALL Production telemetry records? (yes/no)" -ForegroundColor Cyan
+$proceed = Read-Host "Proceed"
+
+if ($proceed -ne "yes") {
+    Write-Host ""
+    Write-Host "  Operation cancelled. No data was deleted." -ForegroundColor Yellow
+    Write-Host ""
+    exit 1
+}
+
+Write-Host ""
+Write-Host "  [Gate 2 passed] Proceeding to phrase confirmation." -ForegroundColor Green
+Write-Host ""
+
+# ── Gate 3: Interactive phrase confirmation ───────────────────────────────────
 Write-Host "  To confirm you understand the consequences, type the following" -ForegroundColor Cyan
 Write-Host "  phrase exactly (case-sensitive) and press Enter:" -ForegroundColor Cyan
 Write-Host ""
@@ -53,7 +68,7 @@ if ($confirmation -ne "I UNDERSTAND THAT THIS WILL DELETE ALL RECORDS!") {
 }
 
 Write-Host ""
-Write-Host "  [Gate 2 passed] Confirmation received." -ForegroundColor Green
+Write-Host "  [Gate 3 passed] Confirmation received." -ForegroundColor Green
 Write-Host ""
 
 # ── Resolve DB path ───────────────────────────────────────────────────────────

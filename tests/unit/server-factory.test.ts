@@ -117,6 +117,17 @@ describe('dispatchQuery', () => {
     expect(qs.bottlenecks).not.toHaveBeenCalled();
   });
 
+  it('throws for event_log without scope params', async () => {
+    const qs = mockQueryService();
+    await expect(dispatchQuery(qs, { mode: 'event_log' })).rejects.toThrow('requires at least one scope parameter');
+  });
+
+  it('routes event_log with initiative_id scope', async () => {
+    const qs = mockQueryService();
+    await dispatchQuery(qs, { mode: 'event_log', initiative_id: 'init-alpha' });
+    expect(qs.eventLog).toHaveBeenCalledWith({ mode: 'event_log', initiative_id: 'init-alpha' });
+  });
+
   // req-003-bug-session-id-validation (BUG-002 + BUG-003)
   it('throws for failure_sequence without session_id (BUG-002)', async () => {
     const qs = mockQueryService();

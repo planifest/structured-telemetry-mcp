@@ -22,6 +22,12 @@ export type McpTextResult = { content: Array<{ type: 'text'; text: string }> };
 export async function dispatchQuery(qs: IQueryService, q: Record<string, unknown>): Promise<QueryResponse> {
   // event_log is checked first — it uses `mode` but is its own query family (ADR-010).
   if (q['mode'] === 'event_log') {
+    const hasScope = (typeof q['session_id'] === 'string' && q['session_id'] !== '') ||
+                     (typeof q['initiative_id'] === 'string' && q['initiative_id'] !== '') ||
+                     (typeof q['event_type'] === 'string' && q['event_type'] !== '');
+    if (!hasScope) {
+      throw new Error('event_log requires at least one scope parameter: session_id, initiative_id, or event_type');
+    }
     return qs.eventLog(q as unknown as EventLogQuery);
   }
 

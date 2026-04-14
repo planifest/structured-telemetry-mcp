@@ -19,6 +19,11 @@ export interface EventLogQuery {
 
 /** Returns a paginated raw event log, optionally scoped by session / initiative / event type. */
 export async function queryEventLog(db: DuckDBInstance, query: EventLogQuery): Promise<QueryResponse> {
+  // Require at least one scope parameter — unscoped dumps are not permitted (ADR-010).
+  if (!query.session_id && !query.initiative_id && !query.event_type) {
+    throw new Error('event_log requires at least one scope parameter: session_id, initiative_id, or event_type');
+  }
+
   const conn = await db.connect();
   try {
     const { clause: whereClause, params } = buildWhereClause(query);
@@ -30,7 +35,7 @@ export async function queryEventLog(db: DuckDBInstance, query: EventLogQuery): P
       FROM events
       WHERE 1=1
         ${whereClause}
-      ORDER BY timestamp DESC
+      ORDER BY timestamp ASC
       LIMIT ${limit}
     `;
 
