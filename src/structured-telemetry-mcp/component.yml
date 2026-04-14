@@ -107,8 +107,8 @@ risk:
 
 quality:
   testCoverage:
-    unit: 68   # existing; +~20 new validation tests + ~10 new server-factory tests = ~98 target
-    integration: 30  # existing; +~24 new query integration tests = ~54 target
+    unit: 98   # 152 total tests across 7 files as of 0.2.0 (unit + integration)
+    integration: 54
     e2e: 0
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
@@ -120,6 +120,7 @@ quality:
     - "Zod v4 arrives as a transitive dep (not declared by MCP SDK's own package.json); pinned explicitly to ^4.0.0 to prevent accidental downgrade."
     - "Vitest 4 (Rolldown) does not transform .cts files — .cts adapters cannot be used for CJS interop in this project."
     - "TypeScript 6 no longer implicitly includes Node.js types — requires explicit types: [node] in tsconfig.json."
+    - "sampleEvents helpers in failures.ts and token-efficiency.ts accept a WHERE clause string — callers must always use named params ($param) rather than string interpolation for any user-supplied values."
 
 pipeline:
   templateVersion: "1.0.0"
@@ -128,7 +129,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-04-14T05:00:00Z"
+  updatedAt: "2026-04-14T06:00:00Z"
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"
