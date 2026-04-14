@@ -1,8 +1,9 @@
 # Dependencies
 node_modules/
 
-# TypeScript build output (intermediate — bundles are the deployable artifacts)
+# TypeScript build output and compiled bundles (run build.ps1 / npm run build)
 build/
+*.bundle.mjs
 
 # Local telemetry data
 *.db
