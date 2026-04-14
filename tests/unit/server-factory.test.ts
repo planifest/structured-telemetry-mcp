@@ -33,6 +33,7 @@ function mockQueryService(overrides: Partial<IQueryService> = {}): IQueryService
     bottlenecks: vi.fn().mockResolvedValue(MOCK_RESPONSE),
     failures: vi.fn().mockResolvedValue(MOCK_RESPONSE),
     tokenEfficiency: vi.fn().mockResolvedValue(MOCK_RESPONSE),
+    eventLog: vi.fn().mockResolvedValue(MOCK_RESPONSE),
     ...overrides,
   };
 }
@@ -57,7 +58,8 @@ describe('dispatchQuery', () => {
   });
 
   it('routes failure modes to failures', async () => {
-    const failureModes = ['retry_summary', 'loop_candidates', 'failure_sequence', 'failure_cluster'];
+    // failure_sequence requires session_id — tested separately in BUG-002 cases below
+    const failureModes = ['retry_summary', 'loop_candidates', 'failure_cluster'];
     for (const mode of failureModes) {
       const qs = mockQueryService();
       await dispatchQuery(qs, { mode });
@@ -66,7 +68,8 @@ describe('dispatchQuery', () => {
   });
 
   it('routes token efficiency modes to tokenEfficiency', async () => {
-    const tokenModes = ['context_pressure', 'mcp_impact', 'request_volume', 'trend', 'drill_down'];
+    // drill_down requires session_id — tested separately in BUG-003 cases below
+    const tokenModes = ['context_pressure', 'mcp_impact', 'request_volume', 'trend'];
     for (const mode of tokenModes) {
       const qs = mockQueryService();
       await dispatchQuery(qs, { mode });
@@ -87,6 +90,75 @@ describe('dispatchQuery', () => {
   it('throws when query is empty', async () => {
     const qs = mockQueryService();
     await expect(dispatchQuery(qs, {})).rejects.toThrow('Unrecognised query shape');
+  });
+
+  // req-001-schema-additions + req-002-bug-mcp-mode-groupby
+  it('routes group_by: mcp_mode to bottlenecks (BUG-001)', async () => {
+    const qs = mockQueryService();
+    await dispatchQuery(qs, { group_by: 'mcp_mode' });
+    expect(qs.bottlenecks).toHaveBeenCalledWith({ group_by: 'mcp_mode' });
+    expect(qs.failures).not.toHaveBeenCalled();
+    expect(qs.tokenEfficiency).not.toHaveBeenCalled();
+  });
+
+  it('routes group_by: initiative_id to bottlenecks (FEA-002)', async () => {
+    const qs = mockQueryService();
+    await dispatchQuery(qs, { group_by: 'initiative_id' });
+    expect(qs.bottlenecks).toHaveBeenCalledWith({ group_by: 'initiative_id' });
+  });
+
+  // req-004-event-log-query (FEA-001)
+  it('routes mode: event_log to eventLog before other checks', async () => {
+    const qs = mockQueryService();
+    await dispatchQuery(qs, { mode: 'event_log', session_id: 'test-session' });
+    expect(qs.eventLog).toHaveBeenCalledWith({ mode: 'event_log', session_id: 'test-session' });
+    expect(qs.failures).not.toHaveBeenCalled();
+    expect(qs.tokenEfficiency).not.toHaveBeenCalled();
+    expect(qs.bottlenecks).not.toHaveBeenCalled();
+  });
+
+  it('throws for event_log without scope params', async () => {
+    const qs = mockQueryService();
+    await expect(dispatchQuery(qs, { mode: 'event_log' })).rejects.toThrow('requires at least one scope parameter');
+  });
+
+  it('routes event_log with initiative_id scope', async () => {
+    const qs = mockQueryService();
+    await dispatchQuery(qs, { mode: 'event_log', initiative_id: 'init-alpha' });
+    expect(qs.eventLog).toHaveBeenCalledWith({ mode: 'event_log', initiative_id: 'init-alpha' });
+  });
+
+  // req-003-bug-session-id-validation (BUG-002 + BUG-003)
+  it('throws for failure_sequence without session_id (BUG-002)', async () => {
+    const qs = mockQueryService();
+    await expect(dispatchQuery(qs, { mode: 'failure_sequence' })).rejects.toThrow('failure_sequence requires session_id');
+  });
+
+  it('throws for failure_sequence with empty session_id (BUG-002)', async () => {
+    const qs = mockQueryService();
+    await expect(dispatchQuery(qs, { mode: 'failure_sequence', session_id: '' })).rejects.toThrow('failure_sequence requires session_id');
+  });
+
+  it('routes failure_sequence with valid session_id to failures (BUG-002 regression)', async () => {
+    const qs = mockQueryService();
+    await dispatchQuery(qs, { mode: 'failure_sequence', session_id: 'valid-session' });
+    expect(qs.failures).toHaveBeenCalledWith({ mode: 'failure_sequence', session_id: 'valid-session' });
+  });
+
+  it('throws for drill_down without session_id (BUG-003)', async () => {
+    const qs = mockQueryService();
+    await expect(dispatchQuery(qs, { mode: 'drill_down' })).rejects.toThrow('drill_down requires session_id');
+  });
+
+  it('throws for drill_down with empty session_id (BUG-003)', async () => {
+    const qs = mockQueryService();
+    await expect(dispatchQuery(qs, { mode: 'drill_down', session_id: '' })).rejects.toThrow('drill_down requires session_id');
+  });
+
+  it('routes drill_down with valid session_id to tokenEfficiency (BUG-003 regression)', async () => {
+    const qs = mockQueryService();
+    await dispatchQuery(qs, { mode: 'drill_down', session_id: 'valid-session' });
+    expect(qs.tokenEfficiency).toHaveBeenCalledWith({ mode: 'drill_down', session_id: 'valid-session' });
   });
 });
 

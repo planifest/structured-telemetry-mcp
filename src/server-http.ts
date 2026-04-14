@@ -23,6 +23,7 @@ import { openDatabase } from './db/index.js';
 import { DuckDbEventRepository } from './db/duckdb-event-repository.js';
 import { DuckDbQueryService } from './query/query-service.js';
 import { dispatchQuery } from './server-factory.js';
+import { validateEvent } from './validation/validate-event.js';
 
 // ── Version ───────────────────────────────────────────────────────────────────
 
@@ -93,6 +94,11 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/emit') {
     try {
       const event = JSON.parse(await readBody(req)) as unknown;
+      const validation = validateEvent(event);
+      if (!validation.isValid) {
+        json(res, 400, { ok: false, errors: validation.errors });
+        return;
+      }
       const result = await repo.write(event as Parameters<typeof repo.write>[0]);
       json(res, 200, result);
     } catch (err) {

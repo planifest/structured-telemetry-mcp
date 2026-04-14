@@ -11,23 +11,27 @@ export type FailureQueryMode = 'retry_summary' | 'loop_candidates' | 'failure_se
 export interface FailureQuery {
   readonly mode: FailureQueryMode;
   readonly session_id?: string;
+  readonly initiative_id?: string;
   readonly loop_threshold?: number;
 }
 
 /** Dispatches to the appropriate failure query mode. */
 export async function queryFailures(db: DuckDBInstance, query: FailureQuery): Promise<QueryResponse> {
+  const initiativeId = query.initiative_id;
   switch (query.mode) {
-    case 'retry_summary': return queryRetrySummary(db);
-    case 'loop_candidates': return queryLoopCandidates(db, query.loop_threshold ?? 5);
-    case 'failure_sequence': return queryFailureSequence(db, query.session_id ?? '');
-    case 'failure_cluster': return queryFailureCluster(db);
+    case 'retry_summary': return queryRetrySummary(db, initiativeId);
+    case 'loop_candidates': return queryLoopCandidates(db, query.loop_threshold ?? 5, initiativeId);
+    case 'failure_sequence': return queryFailureSequence(db, query.session_id ?? '', initiativeId);
+    case 'failure_cluster': return queryFailureCluster(db, initiativeId);
   }
 }
 
 /** Mode A: retry instance count and pass/fail rate per session+phase. */
-async function queryRetrySummary(db: DuckDBInstance): Promise<QueryResponse> {
+async function queryRetrySummary(db: DuckDBInstance, initiativeId?: string): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
+    const initiativeClause = initiativeId ? 'AND initiative_id = $initiative_id' : '';
+    const params: Record<string, string> = initiativeId ? { initiative_id: initiativeId } : {};
     const sql = `
       WITH retry_instances AS (
         SELECT
@@ -38,6 +42,7 @@ async function queryRetrySummary(db: DuckDBInstance): Promise<QueryResponse> {
           MAX(CAST(data->>'attempt_number' AS INTEGER)) AS max_attempt
         FROM events
         WHERE event = 'validation_failure'
+          ${initiativeClause}
         GROUP BY session_id, phase, data->>'action_id'
         HAVING COUNT(*) >= 1
       ),
@@ -58,8 +63,11 @@ async function queryRetrySummary(db: DuckDBInstance): Promise<QueryResponse> {
       ORDER BY retry_instance_count DESC
     `;
 
-    const rows = await runQuery<[string, string, number, number, number]>(conn, sql, {});
-    const rawSample = await sampleEvents(conn, "event = 'validation_failure'");
+    const rows = await runQuery<[string, string, number, number, number]>(conn, sql, params);
+    const sampleWhere = initiativeId
+      ? "event = 'validation_failure' AND initiative_id = $initiative_id"
+      : "event = 'validation_failure'";
+    const rawSample = await sampleEvents(conn, sampleWhere, params);
 
     const tableRows = rows.map(([sid, phase, count, passRate, failRate]) =>
       [sid, phase, count, `${passRate}%`, `${failRate}%`]);
@@ -79,9 +87,11 @@ async function queryRetrySummary(db: DuckDBInstance): Promise<QueryResponse> {
 }
 
 /** Mode B: sessions where consecutive identical failures >= threshold. */
-async function queryLoopCandidates(db: DuckDBInstance, threshold: number): Promise<QueryResponse> {
+async function queryLoopCandidates(db: DuckDBInstance, threshold: number, initiativeId?: string): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
+    const initiativeClause = initiativeId ? 'AND initiative_id = $initiative_id' : '';
+    const loopParams: Record<string, string> = initiativeId ? { initiative_id: initiativeId } : {};
     const sql = `
       WITH ordered AS (
         SELECT
@@ -91,6 +101,7 @@ async function queryLoopCandidates(db: DuckDBInstance, threshold: number): Promi
           ROW_NUMBER() OVER (PARTITION BY session_id, phase ORDER BY timestamp) AS rn
         FROM events
         WHERE event = 'validation_failure'
+          ${initiativeClause}
       ),
       grouped AS (
         SELECT
@@ -109,8 +120,11 @@ async function queryLoopCandidates(db: DuckDBInstance, threshold: number): Promi
       ORDER BY consecutive_count DESC
     `;
 
-    const rows = await runQuery<[string, string, string, number]>(conn, sql, {});
-    const rawSample = await sampleEvents(conn, "event = 'validation_failure'");
+    const rows = await runQuery<[string, string, string, number]>(conn, sql, loopParams);
+    const sampleWhere = initiativeId
+      ? "event = 'validation_failure' AND initiative_id = $initiative_id"
+      : "event = 'validation_failure'";
+    const rawSample = await sampleEvents(conn, sampleWhere, loopParams);
 
     const aggregation = {
       mode: 'loop_candidates',
@@ -130,18 +144,23 @@ async function queryLoopCandidates(db: DuckDBInstance, threshold: number): Promi
 }
 
 /** Mode C: ordered event timeline for a session. */
-async function queryFailureSequence(db: DuckDBInstance, sessionId: string): Promise<QueryResponse> {
+async function queryFailureSequence(db: DuckDBInstance, sessionId: string, initiativeId?: string): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
+    const initiativeClause = initiativeId ? 'AND initiative_id = $initiative_id' : '';
+    const params: Record<string, string> = { session_id: sessionId };
+    if (initiativeId) params['initiative_id'] = initiativeId;
+
     const sql = `
       SELECT id, event, session_id, phase, agent, timestamp::VARCHAR AS timestamp, data::VARCHAR AS data
       FROM events
       WHERE session_id = $session_id
         AND event IN ('phase_start', 'validation_failure', 'self_correction', 'phase_end')
+        ${initiativeClause}
       ORDER BY timestamp ASC
     `;
 
-    const rows = await runQuery<unknown[]>(conn, sql, { session_id: sessionId });
+    const rows = await runQuery<unknown[]>(conn, sql, params);
     const rawSample = rows.slice(0, 5).map(rowToRaw);
 
     const aggregation = {
@@ -165,19 +184,25 @@ async function queryFailureSequence(db: DuckDBInstance, sessionId: string): Prom
 }
 
 /** Mode D: failure count per phase across all sessions. */
-async function queryFailureCluster(db: DuckDBInstance): Promise<QueryResponse> {
+async function queryFailureCluster(db: DuckDBInstance, initiativeId?: string): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
+    const initiativeClause = initiativeId ? 'AND initiative_id = $initiative_id' : '';
+    const params: Record<string, string> = initiativeId ? { initiative_id: initiativeId } : {};
     const sql = `
       SELECT phase, COUNT(*) AS total_count, COUNT(DISTINCT session_id) AS unique_session_count
       FROM events
       WHERE event = 'validation_failure'
+        ${initiativeClause}
       GROUP BY phase
       ORDER BY total_count DESC
     `;
 
-    const rows = await runQuery<[string, number, number]>(conn, sql, {});
-    const rawSample = await sampleEvents(conn, "event = 'validation_failure'");
+    const rows = await runQuery<[string, number, number]>(conn, sql, params);
+    const sampleWhere = initiativeId
+      ? "event = 'validation_failure' AND initiative_id = $initiative_id"
+      : "event = 'validation_failure'";
+    const rawSample = await sampleEvents(conn, sampleWhere, params);
 
     const aggregation = {
       mode: 'failure_cluster',
@@ -209,12 +234,14 @@ async function runQuery<T>(
   return result.getRows() as T[];
 }
 
-async function sampleEvents(conn: DuckDBConnection, where: string): Promise<object[]> {
-  const result = await conn.runAndReadAll(
-    `SELECT id, event, session_id, phase, agent, timestamp::VARCHAR AS timestamp, data::VARCHAR AS data
-     FROM events WHERE ${where} ORDER BY timestamp DESC LIMIT 5`,
-  );
-  return (result.getRows() as Array<unknown[]>).map(rowToRaw);
+async function sampleEvents(
+  conn: DuckDBConnection,
+  where: string,
+  params: Record<string, string | number> = {},
+): Promise<object[]> {
+  const sql = `SELECT id, event, session_id, phase, agent, timestamp::VARCHAR AS timestamp, data::VARCHAR AS data
+     FROM events WHERE ${where} ORDER BY timestamp DESC LIMIT 5`;
+  return (await runQuery<unknown[]>(conn, sql, params)).map(rowToRaw);
 }
 
 function rowToRaw(row: unknown[]): object {

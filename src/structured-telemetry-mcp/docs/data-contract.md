@@ -23,7 +23,7 @@ The single table that stores all telemetry events. One row per event.
 |--------|------|----------|---------|-------------|
 | `id` | VARCHAR | no | `gen_random_uuid()` | PK |
 | `schema_version` | VARCHAR | no | — | NOT NULL |
-| `event` | VARCHAR | no | — | NOT NULL; one of the 9 event types |
+| `event` | VARCHAR | no | — | NOT NULL; one of the 14 event types |
 | `session_id` | VARCHAR | no | — | NOT NULL |
 | `initiative_id` | VARCHAR | yes | NULL | — |
 | `phase` | VARCHAR | no | — | NOT NULL |
@@ -32,6 +32,7 @@ The single table that stores all telemetry events. One row per event.
 | `model` | VARCHAR | no | — | NOT NULL |
 | `mcp_mode` | VARCHAR | no | — | NOT NULL; one of: none, workspace, context, workspace+context |
 | `timestamp` | TIMESTAMPTZ | no | — | NOT NULL |
+| `model_config` | JSON | yes | NULL | Tool-specific model configuration (e.g. effort, thinking). Keys are tool-defined. |
 | `data` | JSON | yes | NULL | Typed payload; structure varies by event type |
 | `inserted_at` | TIMESTAMPTZ | no | `now()` | Server-assigned ingestion time |
 
@@ -46,7 +47,7 @@ The single table that stores all telemetry events. One row per event.
 
 ## Schema Invariants
 
-1. Every row has a non-null `event` value matching one of the 9 defined event types.
+1. Every row has a non-null `event` value matching one of the 14 defined event types.
 2. Every row has a non-null `session_id`.
 3. `timestamp` is the agent-reported event time; `inserted_at` is the server ingestion time. They may differ.
 4. `data` column is nullable to allow forward-compatibility with new event types before their schema is finalised. All current event types have a non-null `data` payload.
@@ -130,6 +131,44 @@ The single table that stores all telemetry events. One row per event.
   "action_id": "string",
   "correction_type": "string"
 }
+```
+
+### `phase_skip` _(added 0.2.0)_
+```json
+{ "phase_name": "string", "reason": "string" }
+```
+
+### `security_finding` _(added 0.2.0)_
+```json
+{
+  "component_id": "string",
+  "title": "string",
+  "severity": "low | medium | high | critical",
+  "cwe": "string (optional)"
+}
+```
+
+### `retry_limit_exceeded` _(added 0.2.0)_
+```json
+{
+  "phase_name": "string",
+  "action_id": "string",
+  "attempt_count": "integer"
+}
+```
+
+### `adr_decision` _(added 0.2.0)_
+```json
+{
+  "adr_id": "string",
+  "title": "string",
+  "chosen_option": "string"
+}
+```
+
+### `doc_gap` _(added 0.2.0)_
+```json
+{ "component_id": "string", "description": "string" }
 ```
 
 ---

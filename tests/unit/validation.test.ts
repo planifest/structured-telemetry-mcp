@@ -255,3 +255,109 @@ describe('req-005-schema-validation: validateEvent', () => {
     });
   });
 });
+
+// req-001-schema-additions: five new event types (SCH-001–005)
+
+describe('req-001-schema-additions: new event types', () => {
+  describe('SCH-001: phase_skip', () => {
+    it('accepts a valid phase_skip event', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'phase_skip', data: { phase_name: 'security', reason: 'No security-sensitive components changed' } }).isValid).toBe(true);
+    });
+
+    it('rejects phase_skip missing phase_name', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'phase_skip', data: { reason: 'skipped' } as never }).isValid).toBe(false);
+    });
+
+    it('rejects phase_skip missing reason', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'phase_skip', data: { phase_name: 'security' } as never }).isValid).toBe(false);
+    });
+
+    it('rejects phase_skip with additional property', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'phase_skip', data: { phase_name: 'security', reason: 'skipped', extra: true } as never }).isValid).toBe(false);
+    });
+  });
+
+  describe('SCH-002: security_finding', () => {
+    it('accepts a valid security_finding with optional cwe', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'security_finding', data: { component_id: 'api', title: 'SQL injection', severity: 'high', cwe: 'CWE-89' } }).isValid).toBe(true);
+    });
+
+    it('accepts a valid security_finding without cwe', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'security_finding', data: { component_id: 'api', title: 'SQL injection', severity: 'high' } }).isValid).toBe(true);
+    });
+
+    it('accepts severity: critical (new enum value)', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'security_finding', data: { component_id: 'api', title: 'RCE', severity: 'critical' } }).isValid).toBe(true);
+    });
+
+    it('rejects security_finding missing component_id', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'security_finding', data: { title: 'SQL injection', severity: 'high' } as never }).isValid).toBe(false);
+    });
+
+    it('rejects security_finding missing title', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'security_finding', data: { component_id: 'api', severity: 'high' } as never }).isValid).toBe(false);
+    });
+
+    it('rejects security_finding missing severity', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'security_finding', data: { component_id: 'api', title: 'SQL injection' } as never }).isValid).toBe(false);
+    });
+
+    it('rejects invalid severity value', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'security_finding', data: { component_id: 'api', title: 'SQL injection', severity: 'extreme' } as never }).isValid).toBe(false);
+    });
+  });
+
+  describe('SCH-003: retry_limit_exceeded', () => {
+    it('accepts a valid retry_limit_exceeded event', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'retry_limit_exceeded', data: { phase_name: 'validate', action_id: 'act-001', attempt_count: 5 } }).isValid).toBe(true);
+    });
+
+    it('rejects retry_limit_exceeded missing phase_name', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'retry_limit_exceeded', data: { action_id: 'act-001', attempt_count: 5 } as never }).isValid).toBe(false);
+    });
+
+    it('rejects retry_limit_exceeded missing action_id', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'retry_limit_exceeded', data: { phase_name: 'validate', attempt_count: 5 } as never }).isValid).toBe(false);
+    });
+
+    it('rejects retry_limit_exceeded missing attempt_count', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'retry_limit_exceeded', data: { phase_name: 'validate', action_id: 'act-001' } as never }).isValid).toBe(false);
+    });
+
+    it('rejects attempt_count below minimum (0)', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'retry_limit_exceeded', data: { phase_name: 'validate', action_id: 'act-001', attempt_count: 0 } }).isValid).toBe(false);
+    });
+  });
+
+  describe('SCH-004: adr_decision', () => {
+    it('accepts a valid adr_decision event', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'adr_decision', data: { adr_id: 'ADR-010', title: 'event_log family', chosen_option: 'new fourth query family' } }).isValid).toBe(true);
+    });
+
+    it('rejects adr_decision missing adr_id', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'adr_decision', data: { title: 'event_log family', chosen_option: 'new fourth query family' } as never }).isValid).toBe(false);
+    });
+
+    it('rejects adr_decision missing title', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'adr_decision', data: { adr_id: 'ADR-010', chosen_option: 'new fourth query family' } as never }).isValid).toBe(false);
+    });
+
+    it('rejects adr_decision missing chosen_option', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'adr_decision', data: { adr_id: 'ADR-010', title: 'event_log family' } as never }).isValid).toBe(false);
+    });
+  });
+
+  describe('SCH-005: doc_gap', () => {
+    it('accepts a valid doc_gap event', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'doc_gap', data: { component_id: 'structured-telemetry-mcp', description: 'Missing model_config in data contract' } }).isValid).toBe(true);
+    });
+
+    it('rejects doc_gap missing component_id', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'doc_gap', data: { description: 'Missing docs' } as never }).isValid).toBe(false);
+    });
+
+    it('rejects doc_gap missing description', () => {
+      expect(validateEvent({ ...BASE_ENVELOPE, event: 'doc_gap', data: { component_id: 'structured-telemetry-mcp' } as never }).isValid).toBe(false);
+    });
+  });
+});
