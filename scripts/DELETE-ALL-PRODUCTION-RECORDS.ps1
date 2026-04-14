@@ -87,15 +87,16 @@ Write-Host "  Target database: $dbPath" -ForegroundColor Cyan
 Write-Host ""
 
 # ── Execute truncation ────────────────────────────────────────────────────────
+$escapedDbPath = $dbPath -replace '\\', '\\\\'
 $nodeScript = @"
 import { DuckDBInstance } from '@duckdb/node-api';
-const db = await DuckDBInstance.create('$($dbPath -replace '\\', '\\\\')');
+const db = await DuckDBInstance.create('$escapedDbPath');
 const conn = await db.connect();
 const before = (await (await conn.runAndReadAll('SELECT COUNT(*) AS n FROM events')).getRows())[0][0];
 await conn.run('DELETE FROM events');
 const after = (await (await conn.runAndReadAll('SELECT COUNT(*) AS n FROM events')).getRows())[0][0];
 conn.disconnectSync();
-console.log(`Deleted \${before} record(s). Remaining: \${after}.`);
+console.log('Deleted ' + before + ' record(s). Remaining: ' + after + '.');
 "@
 
 $tmpScript = [System.IO.Path]::GetTempFileName() + '.mjs'
