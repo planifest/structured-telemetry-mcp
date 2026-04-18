@@ -196,7 +196,8 @@ Emit ($base + @{ event = "not_a_real_event"; phase = "codegen"; data = @{} })
 ### E2E-014 — event_log query returns ship-phase events
 
 ```powershell
-Invoke-RestMethod -Uri http://127.0.0.1:3741/query -Method Post -ContentType "application/json" -Body '{"query":{"mode":"event_log","session_id":"e2e-test-ship"}}'
+# Note: /query takes the query shape directly as the body — no "query" wrapper
+Invoke-RestMethod -Uri http://127.0.0.1:3741/query -Method Post -ContentType "application/json" -Body '{"mode":"event_log","session_id":"e2e-test-ship"}'
 # Expected: results include the phase_start event with phase = "ship" from E2E-001
 ```
 
