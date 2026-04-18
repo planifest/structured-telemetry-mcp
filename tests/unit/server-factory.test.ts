@@ -247,6 +247,25 @@ describe('createQueryTelemetryHandler', () => {
     expect(parsed.errors[0]).toContain('DuckDB offline');
   });
 
+  // req-021–028: new event types through handler pipeline
+  it('accepts context_reset through handler pipeline (REQ-022)', async () => {
+    const repo = mockRepository();
+    const handler = createEmitEventHandler(repo);
+    const result = await handler({ event: { ...VALID_EVENT, event: 'context_reset', data: { phase_name: 'codegen', reason: 'compaction' } } });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.ok).toBe(true);
+    expect(repo.write).toHaveBeenCalledOnce();
+  });
+
+  it('rejects context_reset missing reason — does not call repo.write (REQ-022)', async () => {
+    const repo = mockRepository();
+    const handler = createEmitEventHandler(repo);
+    const result = await handler({ event: { ...VALID_EVENT, event: 'context_reset', data: { phase_name: 'codegen' } } });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.ok).toBe(false);
+    expect(repo.write).not.toHaveBeenCalled();
+  });
+
   it('serialises BigInt values without throwing', async () => {
     const qs = mockQueryService({
       bottlenecks: vi.fn().mockResolvedValue({

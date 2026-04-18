@@ -60,7 +60,7 @@ describe('req-001-emit-event: DuckDbEventRepository', () => {
     expect(stored?.phase).toBe('codegen');
   });
 
-  it('stores all 9 event types without error', async () => {
+  it('stores all 21 event types without error', async () => {
     const events = [
       { ...VALID_EVENT, event: 'phase_start' as const, data: { phase_name: 'spec' } },
       { ...VALID_EVENT, event: 'phase_end' as const, data: { phase_name: 'spec', status: 'pass' as const, duration_ms: 1500 } },
@@ -71,6 +71,18 @@ describe('req-001-emit-event: DuckDbEventRepository', () => {
       { ...VALID_EVENT, event: 'context_pressure' as const, data: { context_fill_pct: 78.5, unused_sources: ['file:foo.md'], trigger: 'threshold' } },
       { ...VALID_EVENT, event: 'mcp_impact' as const, data: { mcp_mode: 'context' as const, avg_token_delta: -800, peak_fill_pct: 52.0 } },
       { ...VALID_EVENT, event: 'self_correction' as const, data: { phase_name: 'codegen', attempt_number: 2, action_id: 'act-002', correction_type: 'lint-fix' } },
+      { ...VALID_EVENT, event: 'phase_skip' as const, data: { phase_name: 'security', reason: 'No security-sensitive changes' } },
+      { ...VALID_EVENT, event: 'security_finding' as const, data: { component_id: 'auth', title: 'SQL injection', severity: 'high' as const } },
+      { ...VALID_EVENT, event: 'retry_limit_exceeded' as const, data: { phase_name: 'validate', action_id: 'act-003', attempt_count: 5 } },
+      { ...VALID_EVENT, event: 'adr_decision' as const, data: { adr_id: 'ADR-010', title: 'Event log query family', chosen_option: 'Dedicated eventLog method' } },
+      { ...VALID_EVENT, event: 'doc_gap' as const, data: { component_id: 'auth', description: 'Missing ADR for auth strategy' } },
+      { ...VALID_EVENT, event: 'context_reset' as const, data: { phase_name: 'codegen', reason: 'compaction' } },
+      { ...VALID_EVENT, event: 'approval_requested' as const, data: { phase_name: 'codegen', subject: 'drop column users.token', action_id: 'mig-003' } },
+      { ...VALID_EVENT, event: 'fast_path_engaged' as const, data: { change_type: 'bug-fix', reason: 'isolated pure-function fix' } },
+      { ...VALID_EVENT, event: 'test_failure' as const, data: { test_name: 'should return 404', phase_name: 'validate', attempt_number: 1 } },
+      { ...VALID_EVENT, event: 'performance_regression' as const, data: { metric: 'p95_latency_ms', threshold: 50, actual: 73.4, phase_name: 'validate' } },
+      { ...VALID_EVENT, event: 'dependency_blocked' as const, data: { phase_name: 'codegen', dependency: 'human: approve migration', reason: 'destructive op' } },
+      { ...VALID_EVENT, event: 'schema_migration_applied' as const, data: { component_id: 'auth', migration_path: 'migrations/0003.sql', destructive: false } },
     ];
 
     for (const event of events) {
