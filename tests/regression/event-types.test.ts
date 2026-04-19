@@ -36,6 +36,14 @@ describe('known event types — valid minimal payloads accepted', () => {
     ['retry_limit_exceeded', { phase_name: 'validate', action_id: 'act-003', attempt_count: 5 }],
     ['adr_decision',         { adr_id: 'ADR-010', title: 'Event log query family', chosen_option: 'Dedicated eventLog method' }],
     ['doc_gap',              { component_id: 'auth', description: 'Missing ADR for auth strategy' }],
+    // 0000009 — 7 new event types
+    ['context_reset',           { phase_name: 'codegen', reason: 'compaction' }],
+    ['approval_requested',      { phase_name: 'codegen', subject: 'drop column users.token', action_id: 'mig-003' }],
+    ['fast_path_engaged',       { change_type: 'bug-fix', reason: 'isolated pure-function fix' }],
+    ['test_failure',            { test_name: 'should return 404', phase_name: 'validate', attempt_number: 1 }],
+    ['performance_regression',  { metric: 'p95_latency_ms', threshold: 50, actual: 73.4, phase_name: 'validate' }],
+    ['dependency_blocked',      { phase_name: 'codegen', dependency: 'human: approve migration', reason: 'destructive op requires consent' }],
+    ['schema_migration_applied',{ component_id: 'auth-service', migration_path: 'migrations/0003.sql', destructive: false }],
   ];
 
   for (const [event, data] of cases) {

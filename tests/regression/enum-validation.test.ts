@@ -21,7 +21,7 @@ const BASE = {
 // ── phase enum ────────────────────────────────────────────────────────────────
 
 describe('phase enum — valid values accepted', () => {
-  const phases = ['orchestrator', 'spec', 'adr', 'codegen', 'validate', 'security', 'docs', 'change'];
+  const phases = ['orchestrator', 'spec', 'adr', 'codegen', 'validate', 'security', 'docs', 'change', 'ship'];
 
   for (const phase of phases) {
     it(`accepts phase: "${phase}"`, () => {
