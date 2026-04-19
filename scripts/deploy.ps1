@@ -74,9 +74,14 @@ if ($svc) {
     Write-Step "Service already installed - updating bundle path and restarting..."
     $nssm = Get-Command nssm -ErrorAction SilentlyContinue
     if (-not $nssm) { Write-Err "nssm not found. Install via: choco install nssm"; exit 1 }
-    $bundle = Join-Path $RepoRoot 'server-http.bundle.mjs'
-    & $nssm.Source set structured-telemetry-mcp Application (Get-Command node).Source
-    & $nssm.Source set structured-telemetry-mcp AppParameters $bundle
+    $bundle  = Join-Path $RepoRoot 'server-http.bundle.mjs'
+    $logDir  = Join-Path $RepoRoot 'logs'
+    if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+    & $nssm.Source set structured-telemetry-mcp Application    (Get-Command node).Source
+    & $nssm.Source set structured-telemetry-mcp AppParameters  $bundle
+    & $nssm.Source set structured-telemetry-mcp AppDirectory   $RepoRoot
+    & $nssm.Source set structured-telemetry-mcp AppStdout      (Join-Path $logDir 'service.log')
+    & $nssm.Source set structured-telemetry-mcp AppStderr      (Join-Path $logDir 'service-error.log')
     & $ServiceScript restart
     Write-OK "Service updated and restarted."
 } else {
