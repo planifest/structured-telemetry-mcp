@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000008c-mcp-fixes-and-enhancements"
-version: "0.2.0"
+feature: "0000009-ship-phase-enum"
+version: "0.3.0"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -10,7 +10,7 @@ summary: "MCP server that ingests and queries structured telemetry events from P
 systemContext: "Runs as a local MCP server alongside the developer's agent tool (Claude Code, Cursor, etc.). Planifest-compliant agents call emit_event to record pipeline telemetry. The human on the loop calls query_telemetry to analyse bottlenecks, failures, and token efficiency. The DuckDB store is the data source for the future 0024 observability dashboard."
 
 responsibilities:
-  - "Accept and validate telemetry events via the emit_event MCP tool (14 event types as of 0.2.0)"
+  - "Accept and validate telemetry events via the emit_event MCP tool (22 event types as of 0.3.0)"
   - "Persist all valid events to a DuckDB store with temporal optimisation"
   - "Answer structured queries via the query_telemetry MCP tool across three query families plus event_log"
   - "Enforce JSON Schema validation for all event types at ingestion"
@@ -73,12 +73,12 @@ data:
 
 scope:
   inScope:
-    - "emit_event MCP tool — 14 event types (9 carried from 0008a + 5 new in 0008c)"
+    - "emit_event MCP tool — 22 event types (9 from 0008a + 5 from 0008c + 1 phase enum + 7 new in 0000009)"
     - "query_telemetry MCP tool — bottlenecks, failures, token-efficiency, event_log"
     - "initiative_id filter on all query families"
     - "group_by: mcp_mode and group_by: initiative_id for bottleneck queries"
     - "DuckDB storage layer"
-    - "JSON Schema validation for all 14 event types"
+    - "JSON Schema validation for all 22 event types"
     - "Setup and doctor CLI commands"
     - "HTTP/SSE daemon transport on 127.0.0.1:3741"
     - "Build and bundle pipeline (server.bundle.mjs, server-http.bundle.mjs, cli.bundle.mjs)"
@@ -107,13 +107,13 @@ risk:
 
 quality:
   testCoverage:
-    unit: 98   # 152 total tests across 7 files as of 0.2.0 (unit + integration)
+    unit: 98   # 258 total tests across 13 files as of 0.3.0 (unit + integration + regression)
     integration: 54
     e2e: 0
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
-    - "data.oneOf in telemetry-event.schema.json is not discriminated by event type — addressed in 0.2.0 by cross-field validation in src/validation/validate-event.ts (EVENT_REQUIRED_DATA_FIELDS map). Schema itself still uses unguarded oneOf; a future improvement is if/then/else or unevaluatedProperties in JSON Schema."
+    - "data.anyOf in telemetry-event.schema.json is not discriminated by event type — addressed by cross-field validation in src/validation/validate-event.ts (EVENT_REQUIRED_DATA_FIELDS map). Changed from oneOf to anyOf in 0.3.0 when ContextResetData and PhaseSkipData became structurally identical; anyOf is correct since cross-field validation handles semantic discrimination. Future improvement: if/then/else or unevaluatedProperties in JSON Schema."
   quirks:
     - "@duckdb/node-api named params require prepare().bind({name}).runAndReadAll() — positional ? binding is unsupported in this version."
     - "DuckDB does not support PRAGMA wal_mode — WAL is managed internally, pragma removed from schema init."
@@ -129,7 +129,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-04-14T06:00:00Z"
+  updatedAt: "2026-04-18T00:00:00Z"
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"

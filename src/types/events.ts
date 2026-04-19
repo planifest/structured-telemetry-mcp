@@ -17,7 +17,14 @@ export type EventType =
   | 'security_finding'
   | 'retry_limit_exceeded'
   | 'adr_decision'
-  | 'doc_gap';
+  | 'doc_gap'
+  | 'context_reset'
+  | 'approval_requested'
+  | 'fast_path_engaged'
+  | 'test_failure'
+  | 'performance_regression'
+  | 'dependency_blocked'
+  | 'schema_migration_applied';
 
 export type Phase =
   | 'orchestrator'
@@ -27,7 +34,8 @@ export type Phase =
   | 'validate'
   | 'security'
   | 'docs'
-  | 'change';
+  | 'change'
+  | 'ship';
 
 export type McpMode = 'none' | 'workspace' | 'context' | 'workspace+context';
 
@@ -116,6 +124,48 @@ export interface DocGapData {
   readonly description: string;
 }
 
+export interface ContextResetData {
+  readonly phase_name: string;
+  readonly reason: string;
+}
+
+export interface ApprovalRequestedData {
+  readonly phase_name: string;
+  readonly subject: string;
+  readonly action_id: string;
+}
+
+export interface FastPathEngagedData {
+  readonly change_type: string;
+  readonly reason: string;
+}
+
+export interface TestFailureData {
+  readonly test_name: string;
+  readonly phase_name: string;
+  readonly attempt_number: number;
+  readonly error_summary?: string;
+}
+
+export interface PerformanceRegressionData {
+  readonly metric: string;
+  readonly threshold: number;
+  readonly actual: number;
+  readonly phase_name: string;
+}
+
+export interface DependencyBlockedData {
+  readonly phase_name: string;
+  readonly dependency: string;
+  readonly reason: string;
+}
+
+export interface SchemaMigrationAppliedData {
+  readonly component_id: string;
+  readonly migration_path: string;
+  readonly destructive: boolean;
+}
+
 export type EventData =
   | PhaseStartData
   | PhaseEndData
@@ -130,7 +180,14 @@ export type EventData =
   | SecurityFindingData
   | RetryLimitExceededData
   | AdrDecisionData
-  | DocGapData;
+  | DocGapData
+  | ContextResetData
+  | ApprovalRequestedData
+  | FastPathEngagedData
+  | TestFailureData
+  | PerformanceRegressionData
+  | DependencyBlockedData
+  | SchemaMigrationAppliedData;
 
 // ── Common envelope ───────────────────────────────────────────────────────────
 

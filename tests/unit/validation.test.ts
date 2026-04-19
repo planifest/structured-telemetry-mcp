@@ -225,8 +225,8 @@ describe('req-005-schema-validation: validateEvent', () => {
     });
 
     // Per-event sad paths not previously covered
-    it('rejects spec_gap with data that satisfies no oneOf branch', () => {
-      // Note: data.oneOf is not discriminated by event type; each branch has required fields,
+    it('rejects spec_gap with data that satisfies no anyOf branch', () => {
+      // data.anyOf requires at least one branch to match; each branch has required fields,
       // so an empty object fails all branches.
       expect(validateEvent({ ...BASE_ENVELOPE, event: 'spec_gap', data: {} as never }).isValid).toBe(false);
     });
@@ -359,5 +359,129 @@ describe('req-001-schema-additions: new event types', () => {
     it('rejects doc_gap missing description', () => {
       expect(validateEvent({ ...BASE_ENVELOPE, event: 'doc_gap', data: { component_id: 'structured-telemetry-mcp' } as never }).isValid).toBe(false);
     });
+  });
+});
+
+// req-021: phase enum gains "ship"
+
+describe('req-021: phase enum gains "ship"', () => {
+  it('accepts phase: "ship" on phase_start', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, phase: 'ship', event: 'phase_start', data: { phase_name: 'ship' } }).isValid).toBe(true);
+  });
+
+  it('accepts phase: "ship" on phase_end', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, phase: 'ship', event: 'phase_end', data: { phase_name: 'ship', status: 'pass', duration_ms: 1200 } }).isValid).toBe(true);
+  });
+
+  it('phase: "change" still accepted — regression', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, phase: 'change', event: 'phase_start', data: { phase_name: 'change' } }).isValid).toBe(true);
+  });
+});
+
+// req-022–028: new event types
+
+describe('req-022: context_reset', () => {
+  it('accepts a valid context_reset event', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'context_reset', data: { phase_name: 'codegen', reason: 'compaction' } }).isValid).toBe(true);
+  });
+
+  it('rejects missing phase_name', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'context_reset', data: { reason: 'compaction' } as never }).isValid).toBe(false);
+  });
+
+  it('rejects missing reason', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'context_reset', data: { phase_name: 'codegen' } as never }).isValid).toBe(false);
+  });
+});
+
+describe('req-023: approval_requested', () => {
+  it('accepts a valid approval_requested event', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'approval_requested', data: { phase_name: 'codegen', subject: 'drop column users.token', action_id: 'mig-003' } }).isValid).toBe(true);
+  });
+
+  it('rejects missing subject', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'approval_requested', data: { phase_name: 'codegen', action_id: 'mig-003' } as never }).isValid).toBe(false);
+  });
+
+  it('rejects missing action_id', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'approval_requested', data: { phase_name: 'codegen', subject: 'drop column' } as never }).isValid).toBe(false);
+  });
+});
+
+describe('req-024: fast_path_engaged', () => {
+  it('accepts a valid fast_path_engaged event', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'fast_path_engaged', data: { change_type: 'bug-fix', reason: 'isolated pure-function fix' } }).isValid).toBe(true);
+  });
+
+  it('rejects missing change_type', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'fast_path_engaged', data: { reason: 'fix' } as never }).isValid).toBe(false);
+  });
+
+  it('rejects missing reason', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'fast_path_engaged', data: { change_type: 'bug-fix' } as never }).isValid).toBe(false);
+  });
+});
+
+describe('req-025: test_failure', () => {
+  it('accepts a valid test_failure event without optional error_summary', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'test_failure', data: { test_name: 'should return 404', phase_name: 'validate', attempt_number: 1 } }).isValid).toBe(true);
+  });
+
+  it('accepts a valid test_failure event with optional error_summary', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'test_failure', data: { test_name: 'should return 404', phase_name: 'validate', attempt_number: 1, error_summary: 'expected 404, got 200' } }).isValid).toBe(true);
+  });
+
+  it('rejects missing test_name', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'test_failure', data: { phase_name: 'validate', attempt_number: 1 } as never }).isValid).toBe(false);
+  });
+
+  it('rejects attempt_number below 1', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'test_failure', data: { test_name: 'x', phase_name: 'validate', attempt_number: 0 } }).isValid).toBe(false);
+  });
+});
+
+describe('req-026: performance_regression', () => {
+  it('accepts a valid performance_regression event', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'performance_regression', data: { metric: 'p95_latency_ms', threshold: 50, actual: 73.4, phase_name: 'validate' } }).isValid).toBe(true);
+  });
+
+  it('rejects missing metric', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'performance_regression', data: { threshold: 50, actual: 73.4, phase_name: 'validate' } as never }).isValid).toBe(false);
+  });
+
+  it('rejects missing actual', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'performance_regression', data: { metric: 'p95_latency_ms', threshold: 50, phase_name: 'validate' } as never }).isValid).toBe(false);
+  });
+});
+
+describe('req-027: dependency_blocked', () => {
+  it('accepts a valid dependency_blocked event', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'dependency_blocked', data: { phase_name: 'codegen', dependency: 'human: approve migration', reason: 'destructive op' } }).isValid).toBe(true);
+  });
+
+  it('rejects missing dependency', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'dependency_blocked', data: { phase_name: 'codegen', reason: 'destructive op' } as never }).isValid).toBe(false);
+  });
+
+  it('rejects missing reason', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'dependency_blocked', data: { phase_name: 'codegen', dependency: 'human: approve' } as never }).isValid).toBe(false);
+  });
+});
+
+describe('req-028: schema_migration_applied', () => {
+  it('accepts with destructive: false', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'schema_migration_applied', data: { component_id: 'auth', migration_path: 'migrations/0003.sql', destructive: false } }).isValid).toBe(true);
+  });
+
+  it('accepts with destructive: true', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'schema_migration_applied', data: { component_id: 'auth', migration_path: 'migrations/0004.sql', destructive: true } }).isValid).toBe(true);
+  });
+
+  it('rejects missing migration_path', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'schema_migration_applied', data: { component_id: 'auth', destructive: false } as never }).isValid).toBe(false);
+  });
+
+  it('rejects missing destructive', () => {
+    expect(validateEvent({ ...BASE_ENVELOPE, event: 'schema_migration_applied', data: { component_id: 'auth', migration_path: 'migrations/0003.sql' } as never }).isValid).toBe(false);
   });
 });

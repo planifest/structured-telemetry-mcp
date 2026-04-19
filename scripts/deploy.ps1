@@ -16,6 +16,13 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# Require administrator privileges (needed for npm global install + service management)
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host "  ERR This script requires administrator privileges." -ForegroundColor Red
+    Write-Host "      Right-click PowerShell and choose 'Run as Administrator'." -ForegroundColor Yellow
+    exit 1
+}
+
 $RepoRoot = Split-Path $PSScriptRoot -Parent
 
 function Write-Step([string]$msg) { Write-Host "  >> $msg" -ForegroundColor Cyan }
@@ -64,12 +71,17 @@ $ServiceScript = Join-Path $PSScriptRoot 'service.ps1'
 $svc = Get-Service -Name 'structured-telemetry-mcp' -ErrorAction SilentlyContinue
 
 if ($svc) {
-    Write-Step "Service already installed — updating bundle path and restarting..."
+    Write-Step "Service already installed - updating bundle path and restarting..."
     $nssm = Get-Command nssm -ErrorAction SilentlyContinue
     if (-not $nssm) { Write-Err "nssm not found. Install via: choco install nssm"; exit 1 }
-    $bundle = Join-Path $RepoRoot 'server-http.bundle.mjs'
-    & $nssm.Source set structured-telemetry-mcp Application (Get-Command node).Source
-    & $nssm.Source set structured-telemetry-mcp AppParameters $bundle
+    $bundle  = Join-Path $RepoRoot 'server-http.bundle.mjs'
+    $logDir  = Join-Path $RepoRoot 'logs'
+    if (-not (Test-Path $logDir)) { New-Item -Path $logDir -ItemType Directory -Force | Out-Null }
+    & $nssm.Source set structured-telemetry-mcp Application    (Get-Command node).Source
+    & $nssm.Source set structured-telemetry-mcp AppParameters  $bundle
+    & $nssm.Source set structured-telemetry-mcp AppDirectory   $RepoRoot
+    & $nssm.Source set structured-telemetry-mcp AppStdout      (Join-Path $logDir 'service.log')
+    & $nssm.Source set structured-telemetry-mcp AppStderr      (Join-Path $logDir 'service-error.log')
     & $ServiceScript restart
     Write-OK "Service updated and restarted."
 } else {
@@ -78,6 +90,6 @@ if ($svc) {
 }
 
 Write-Host ""
-Write-Host "Done." -ForegroundColor Green
-Write-Host "  Next: .\scripts\setup.ps1 -Tool <claudecode|cursor|antigravity|manual>" -ForegroundColor DarkGray
+Write-Host 'Done.' -ForegroundColor Green
+Write-Host '  Next: .\scripts\setup.ps1 -Tool <tool>' -ForegroundColor DarkGray
 Write-Host ""

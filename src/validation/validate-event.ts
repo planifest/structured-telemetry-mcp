@@ -29,6 +29,13 @@ const EVENT_REQUIRED_DATA_FIELDS: Record<string, readonly string[]> = {
   retry_limit_exceeded: ['phase_name', 'action_id', 'attempt_count'],
   adr_decision:         ['adr_id', 'title', 'chosen_option'],
   doc_gap:              ['component_id', 'description'],
+  context_reset:           ['phase_name', 'reason'],
+  approval_requested:      ['phase_name', 'subject', 'action_id'],
+  fast_path_engaged:       ['change_type', 'reason'],
+  test_failure:            ['test_name', 'phase_name', 'attempt_number'],
+  performance_regression:  ['metric', 'threshold', 'actual', 'phase_name'],
+  dependency_blocked:      ['phase_name', 'dependency', 'reason'],
+  schema_migration_applied: ['component_id', 'migration_path', 'destructive'],
 };
 
 function validateEventDataFields(event: unknown): string | null {

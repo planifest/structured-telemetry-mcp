@@ -38,7 +38,14 @@
         "security_finding",
         "retry_limit_exceeded",
         "adr_decision",
-        "doc_gap"
+        "doc_gap",
+        "context_reset",
+        "approval_requested",
+        "fast_path_engaged",
+        "test_failure",
+        "performance_regression",
+        "dependency_blocked",
+        "schema_migration_applied"
       ],
       "description": "Event type discriminator."
     },
@@ -61,7 +68,8 @@
         "validate",
         "security",
         "docs",
-        "change"
+        "change",
+        "ship"
       ],
       "description": "Pipeline phase in which the event was emitted."
     },
@@ -97,7 +105,7 @@
     },
     "data": {
       "description": "Typed payload. Structure determined by the event field.",
-      "oneOf": [
+      "anyOf": [
         { "$ref": "#/$defs/PhaseStartData" },
         { "$ref": "#/$defs/PhaseEndData" },
         { "$ref": "#/$defs/SpecGapData" },
@@ -111,7 +119,14 @@
         { "$ref": "#/$defs/SecurityFindingData" },
         { "$ref": "#/$defs/RetryLimitExceededData" },
         { "$ref": "#/$defs/AdrDecisionData" },
-        { "$ref": "#/$defs/DocGapData" }
+        { "$ref": "#/$defs/DocGapData" },
+        { "$ref": "#/$defs/ContextResetData" },
+        { "$ref": "#/$defs/ApprovalRequestedData" },
+        { "$ref": "#/$defs/FastPathEngagedData" },
+        { "$ref": "#/$defs/TestFailureData" },
+        { "$ref": "#/$defs/PerformanceRegressionData" },
+        { "$ref": "#/$defs/DependencyBlockedData" },
+        { "$ref": "#/$defs/SchemaMigrationAppliedData" }
       ]
     }
   },
@@ -253,6 +268,76 @@
       "properties": {
         "component_id": { "type": "string", "minLength": 1 },
         "description": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ContextResetData": {
+      "type": "object",
+      "required": ["phase_name", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "phase_name": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "ApprovalRequestedData": {
+      "type": "object",
+      "required": ["phase_name", "subject", "action_id"],
+      "additionalProperties": false,
+      "properties": {
+        "phase_name": { "type": "string", "minLength": 1 },
+        "subject": { "type": "string", "minLength": 1 },
+        "action_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "FastPathEngagedData": {
+      "type": "object",
+      "required": ["change_type", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "change_type": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "TestFailureData": {
+      "type": "object",
+      "required": ["test_name", "phase_name", "attempt_number"],
+      "additionalProperties": false,
+      "properties": {
+        "test_name": { "type": "string", "minLength": 1 },
+        "phase_name": { "type": "string", "minLength": 1 },
+        "attempt_number": { "type": "integer", "minimum": 1 },
+        "error_summary": { "type": "string" }
+      }
+    },
+    "PerformanceRegressionData": {
+      "type": "object",
+      "required": ["metric", "threshold", "actual", "phase_name"],
+      "additionalProperties": false,
+      "properties": {
+        "metric": { "type": "string", "minLength": 1 },
+        "threshold": { "type": "number" },
+        "actual": { "type": "number" },
+        "phase_name": { "type": "string", "minLength": 1 }
+      }
+    },
+    "DependencyBlockedData": {
+      "type": "object",
+      "required": ["phase_name", "dependency", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "phase_name": { "type": "string", "minLength": 1 },
+        "dependency": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "SchemaMigrationAppliedData": {
+      "type": "object",
+      "required": ["component_id", "migration_path", "destructive"],
+      "additionalProperties": false,
+      "properties": {
+        "component_id": { "type": "string", "minLength": 1 },
+        "migration_path": { "type": "string", "minLength": 1 },
+        "destructive": { "type": "boolean" }
       }
     }
   }
