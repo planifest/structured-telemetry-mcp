@@ -8,12 +8,19 @@
     JSON files are written BOM-free so all tools parse them correctly.
 
     Supported tools:
-      claudecode  - merges ~/.claude/settings.json mcpServers
-      cursor      - merges .cursor/mcp.json mcpServers
+      claudecode  - merges ~/.claude/settings.json mcpServers + Claude Desktop
+      cursor      - merges .cursor/mcp.json mcpServers (project-scoped)
+      windsurf    - merges ~/.codeium/windsurf/mcp_config.json mcpServers
+      vscode      - merges ~/.vscode/mcp.json servers
+      codex       - merges ~/.codex/config.toml [mcp_servers.structured-telemetry-mcp]
+      opencode    - merges opencode\config.json mcp (in user AppData)
+      antigravity - merges ~/.gemini/antigravity/mcp_config.json mcpServers
+      jetbrains   - prints manual UI steps (no config file)
       manual      - prints the JSON block to add yourself
 
 .PARAMETER Tool
-    One of: claudecode, cursor, manual. If omitted, shows an interactive menu.
+    One of: claudecode, cursor, windsurf, vscode, codex, opencode, antigravity, jetbrains, manual.
+    If omitted, shows an interactive menu.
 
 .PARAMETER DbPath
     Path for the telemetry DuckDB file.
@@ -31,7 +38,7 @@
 [CmdletBinding()]
 param(
     [Parameter()]
-    [ValidateSet('claudecode', 'cursor', 'antigravity', 'manual')]
+    [ValidateSet('claudecode', 'cursor', 'windsurf', 'vscode', 'codex', 'opencode', 'antigravity', 'jetbrains', 'manual')]
     [string]$Tool,
 
     [string]$DbPath = (Join-Path $HOME '.planifest\telemetry.db'),
@@ -55,18 +62,14 @@ function Ensure-Dir([string]$path) {
     }
 }
 
-# Load JSON from a file, or return an empty PSCustomObject if file doesn't exist.
 function Read-JsonFile([string]$path) {
     if (Test-Path $path) {
-        # Strip BOM if present — PowerShell 5.1 Get-Content can emit BOM-prefixed strings
         $raw = [System.IO.File]::ReadAllText($path, [System.Text.UTF8Encoding]::new($false))
         return $raw.TrimStart([char]0xFEFF) | ConvertFrom-Json
     }
     return [PSCustomObject]@{}
 }
 
-# Write a PSCustomObject to a JSON file, BOM-free.
-# Set-Content -Encoding UTF8 writes a BOM in PS5.1 which breaks JSON parsers.
 function Write-JsonFile([string]$path, $obj) {
     $json = $obj | ConvertTo-Json -Depth 10
     [System.IO.File]::WriteAllText($path, $json, [System.Text.UTF8Encoding]::new($false))
@@ -79,22 +82,38 @@ function Ensure-Prop {
     }
 }
 
-# ── Resolve MCP server entry ───────────────────────────────────────────────────
-# The server runs as a persistent HTTP/SSE daemon (npm start / node server.bundle.mjs).
-# All agent tools connect via SSE URL — no per-session stdio spawning.
+function Get-BundlePath {
+    $globalMod = (& npm root -g 2>$null).Trim()
+    return Join-Path $globalMod 'structured-telemetry-mcp\server.bundle.mjs'
+}
 
 function New-McpEntry {
     param([int]$BackendPort = 3741)
-    $nodePath  = (Get-Command node -ErrorAction Stop).Source
-    $globalMod = (& npm root -g 2>$null).Trim()
-    $bundle    = Join-Path $globalMod 'structured-telemetry-mcp\server.bundle.mjs'
+    $nodePath = (Get-Command node -ErrorAction Stop).Source
+    $bundle   = Get-BundlePath
     return [PSCustomObject]@{
         command = $nodePath
         args    = @($bundle, "http://localhost:$BackendPort")
     }
 }
 
-# ── Per-tool setup functions ───────────────────────────────────────────────────
+function New-VsCodeEntry {
+    param([int]$BackendPort = 3741)
+    $nodePath = (Get-Command node -ErrorAction Stop).Source
+    $bundle   = Get-BundlePath
+    return [PSCustomObject]@{
+        type    = 'stdio'
+        command = $nodePath
+        args    = @($bundle, "http://localhost:$BackendPort")
+    }
+}
+
+function Get-CommandArray {
+    param([int]$BackendPort = 3741)
+    $nodePath = (Get-Command node -ErrorAction Stop).Source
+    $bundle   = Get-BundlePath
+    return @($nodePath, $bundle, "http://localhost:$BackendPort")
+}
 
 function Setup-ClaudeCode([string]$dbPath) {
     Write-Step "Claude Code - merging ~/.claude/settings.json"
@@ -110,8 +129,7 @@ function Setup-ClaudeCode([string]$dbPath) {
     Write-JsonFile $settingsPath $settings
     Write-OK "~/.claude/settings.json"
 
-    # Claude Desktop — same stdio command+args format
-    $desktopCfgPath = Join-Path (Join-Path $env:APPDATA 'Claude') 'claude_desktop_config.json'
+    $desktopCfgPath = Join-Path $HOME 'AppData\Roaming\Claude\claude_desktop_config.json'
     if (Test-Path (Split-Path $desktopCfgPath -Parent)) {
         Write-Step "Claude Desktop - merging claude_desktop_config.json"
         $desktop = Read-JsonFile $desktopCfgPath
@@ -144,6 +162,91 @@ function Setup-Cursor([string]$dbPath, [string]$projectDir) {
     Write-OK "DB path: $dbPath"
 }
 
+function Setup-Windsurf([string]$dbPath) {
+    Write-Step "Windsurf - merging ~/.codeium/windsurf/mcp_config.json"
+
+    $cfgPath = Join-Path $HOME '.codeium\windsurf\mcp_config.json'
+    Ensure-Dir (Split-Path $cfgPath -Parent)
+
+    $cfg = Read-JsonFile $cfgPath
+    Ensure-Prop $cfg 'mcpServers' ([PSCustomObject]@{})
+    $cfg.mcpServers | Add-Member -NotePropertyName 'structured-telemetry-mcp' `
+        -NotePropertyValue (New-McpEntry) -Force
+
+    Write-JsonFile $cfgPath $cfg
+    Write-OK "~/.codeium/windsurf/mcp_config.json"
+    Write-OK "DB path: $dbPath"
+}
+
+function Setup-VSCode([string]$dbPath) {
+    Write-Step "VS Code - merging ~/.vscode/mcp.json"
+
+    $cfgPath = Join-Path $HOME '.vscode\mcp.json'
+    Ensure-Dir (Split-Path $cfgPath -Parent)
+
+    $cfg = Read-JsonFile $cfgPath
+    Ensure-Prop $cfg 'servers' ([PSCustomObject]@{})
+    $cfg.servers | Add-Member -NotePropertyName 'structured-telemetry-mcp' `
+        -NotePropertyValue (New-VsCodeEntry) -Force
+
+    Write-JsonFile $cfgPath $cfg
+    Write-OK "~/.vscode/mcp.json"
+    Write-OK "DB path: $dbPath"
+}
+
+function Setup-Codex([string]$dbPath) {
+    Write-Step "Codex - merging ~/.codex/config.toml"
+
+    $cfgPath  = Join-Path $HOME '.codex\config.toml'
+    Ensure-Dir (Split-Path $cfgPath -Parent)
+
+    $nodePath = (Get-Command node -ErrorAction Stop).Source
+    $bundle   = Get-BundlePath
+
+    $section = @"
+
+[mcp_servers.structured-telemetry-mcp]
+command = "$($nodePath -replace '\\','\\')"
+args = ["$($bundle -replace '\\','\\')","http://localhost:3741"]
+"@
+
+    $existing = ''
+    if (Test-Path $cfgPath) {
+        $existing = [System.IO.File]::ReadAllText($cfgPath, [System.Text.UTF8Encoding]::new($false))
+    }
+
+    $blockPattern = '(?ms)\[mcp_servers\.structured-telemetry-mcp\][^\[]*'
+    if ($existing -match $blockPattern) {
+        $updated = [System.Text.RegularExpressions.Regex]::Replace($existing, $blockPattern, $section.TrimStart())
+    } else {
+        $updated = $existing.TrimEnd() + "`n" + $section
+    }
+
+    [System.IO.File]::WriteAllText($cfgPath, $updated, [System.Text.UTF8Encoding]::new($false))
+    Write-OK "~/.codex/config.toml"
+    Write-OK "DB path: $dbPath"
+}
+
+function Setup-OpenCode([string]$dbPath) {
+    Write-Step "OpenCode - merging opencode\config.json"
+
+    $roaming = [Environment]::GetFolderPath('ApplicationData')
+    $cfgPath = Join-Path $roaming 'opencode\config.json'
+    Ensure-Dir (Split-Path $cfgPath -Parent)
+
+    $cfg = Read-JsonFile $cfgPath
+    Ensure-Prop $cfg 'mcp' ([PSCustomObject]@{})
+    $cfg.mcp | Add-Member -NotePropertyName 'structured-telemetry-mcp' `
+        -NotePropertyValue ([PSCustomObject]@{
+            type    = 'local'
+            command = Get-CommandArray
+        }) -Force
+
+    Write-JsonFile $cfgPath $cfg
+    Write-OK "$cfgPath"
+    Write-OK "DB path: $dbPath"
+}
+
 function Setup-Antigravity([string]$dbPath) {
     Write-Step "Antigravity - merging ~/.gemini/antigravity/mcp_config.json"
 
@@ -161,6 +264,22 @@ function Setup-Antigravity([string]$dbPath) {
     Write-Warn "Note: Antigravity does not support hooks - MCP server only."
 }
 
+function Setup-JetBrains([string]$dbPath) {
+    $bundle   = Get-BundlePath
+    $nodePath = (Get-Command node -ErrorAction Stop).Source
+
+    Write-Host ""
+    Write-Host "JetBrains - manual steps required:" -ForegroundColor White
+    Write-Host "  1. Open Settings > Tools > AI Assistant > Model Context Protocol (MCP)" -ForegroundColor DarkGray
+    Write-Host "  2. Click '+' to add a new server" -ForegroundColor DarkGray
+    Write-Host "  3. Set Name:    structured-telemetry-mcp" -ForegroundColor DarkGray
+    Write-Host "  4. Set Command: $nodePath" -ForegroundColor DarkGray
+    Write-Host "  5. Set Args:    $bundle http://localhost:3741" -ForegroundColor DarkGray
+    Write-Host "  6. Click OK and restart the IDE" -ForegroundColor DarkGray
+    Write-Host ""
+    Write-OK "DB path: $dbPath"
+}
+
 function Setup-Manual([string]$dbPath) {
     Write-Step "Manual configuration"
     $entry = [PSCustomObject]@{
@@ -172,13 +291,16 @@ function Setup-Manual([string]$dbPath) {
     Write-Host ""
 }
 
-# ── Interactive menu ───────────────────────────────────────────────────────────
-
-$allTools = @('claudecode', 'cursor', 'antigravity', 'manual')
+$allTools = @('claudecode', 'cursor', 'windsurf', 'vscode', 'codex', 'opencode', 'antigravity', 'jetbrains', 'manual')
 $toolLabels = @{
     claudecode  = 'Claude Code  (~/.claude/settings.json + Claude Desktop)'
     cursor      = 'Cursor       (.cursor/mcp.json in project dir)'
+    windsurf    = 'Windsurf     (~/.codeium/windsurf/mcp_config.json)'
+    vscode      = 'VS Code      (~/.vscode/mcp.json)'
+    codex       = 'Codex        (~/.codex/config.toml)'
+    opencode    = 'OpenCode     (AppData\Roaming\opencode\config.json)'
     antigravity = 'Antigravity  (~/.gemini/antigravity/mcp_config.json)'
+    jetbrains   = 'JetBrains    (print UI steps)'
     manual      = 'Manual       (print JSON to add yourself)'
 }
 
@@ -196,10 +318,10 @@ if (-not $Tool) {
     }
     Write-Host "  [Q] Quit"
     Write-Host ""
-    $input = Read-Host "Enter number or Q"
+    $sel = Read-Host "Enter number or Q"
 
-    if ($input -match '^[Qq]') { exit 0 }
-    $idx = [int]$input - 1
+    if ($sel -match '^[Qq]') { exit 0 }
+    $idx = [int]$sel - 1
     if ($idx -lt 0 -or $idx -ge $allTools.Count) {
         Write-Err "Invalid selection."
         exit 1
@@ -207,22 +329,24 @@ if (-not $Tool) {
     $Tool = $allTools[$idx]
 }
 
-# Ensure DB directory exists
 Ensure-Dir (Split-Path $DbPath -Parent)
 
 switch ($Tool) {
     'claudecode'  { Setup-ClaudeCode $DbPath }
     'cursor'      { Setup-Cursor $DbPath $ProjectDir }
+    'windsurf'    { Setup-Windsurf $DbPath }
+    'vscode'      { Setup-VSCode $DbPath }
+    'codex'       { Setup-Codex $DbPath }
+    'opencode'    { Setup-OpenCode $DbPath }
     'antigravity' { Setup-Antigravity $DbPath }
+    'jetbrains'   { Setup-JetBrains $DbPath }
     'manual'      { Setup-Manual $DbPath }
 }
 
 Write-Host ""
 Write-Host "Setup complete." -ForegroundColor Green
 
-# Verify server bundle is reachable at the registered path.
-$globalMod  = (& npm root -g 2>$null).Trim()
-$bundlePath = Join-Path $globalMod 'structured-telemetry-mcp\server.bundle.mjs'
+$bundlePath = Get-BundlePath
 if (Test-Path $bundlePath) {
     Write-Host "  server.bundle.mjs found at $bundlePath" -ForegroundColor Green
 } else {
