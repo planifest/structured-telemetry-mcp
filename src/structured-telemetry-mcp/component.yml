@@ -124,7 +124,7 @@ quality:
 
 pipeline:
   templateVersion: "1.0.0"
-  featureMode: "retrofit"
+  featureMode: "standard-iterative"
   domainKnowledgePath: "plan"
 
 metadata:
