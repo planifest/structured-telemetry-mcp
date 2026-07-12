@@ -48,6 +48,36 @@ try {
         throw "FAIL: SKILL.md not copied for cursor"
     }
 
+    Write-Host "--- Testing: --include-full-skill-library ---"
+    & .\planifest-framework\setup.ps1 claude-code --include-full-skill-library
+
+    $extSkillDirs = @(Get-ChildItem -Path ".claude\skills" -Directory | Where-Object {
+        (Test-Path (Join-Path $_.FullName "SKILL.md")) -and
+        (Test-Path (Join-Path $_.FullName "attribution.txt"))
+    })
+    if ($extSkillDirs.Count -eq 0) {
+        throw "FAIL: no external skill dirs with SKILL.md + attribution.txt found after --include-full-skill-library"
+    }
+    Write-Host "  PASS: $($extSkillDirs.Count) external skill(s) installed"
+
+    $manifest = Get-Content -Path ".claude\skills\.planifest-manifest" -Raw
+    $extSkillName = $extSkillDirs[0].Name
+    if ($manifest -notmatch [regex]::Escape($extSkillName)) {
+        throw "FAIL: .planifest-manifest does not contain external skill '$extSkillName'"
+    }
+    Write-Host "  PASS: .planifest-manifest includes external skill path"
+
+    # Re-run without flag — external skills must not remain
+    & .\planifest-framework\setup.ps1 claude-code
+
+    $orphaned = @(Get-ChildItem -Path ".claude\skills" -Directory | Where-Object {
+        Test-Path (Join-Path $_.FullName "attribution.txt")
+    })
+    if ($orphaned.Count -gt 0) {
+        throw "FAIL: external skill dirs remain after plain re-run (orphaned: $($orphaned.Name -join ', '))"
+    }
+    Write-Host "  PASS: external skill dirs removed on plain re-run"
+
     Write-Host "SUCCESS: All setup.ps1 tests passed."
 }
 finally {

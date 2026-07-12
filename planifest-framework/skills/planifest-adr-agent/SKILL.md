@@ -1,8 +1,10 @@
-﻿---
+---
 name: planifest-adr-agent
 description: Produces Architecture Decision Records for each significant decision in the requirements. Invoked by the orchestrator during Phase 2.
 bundle_templates: [adr.template.md]
-bundle_standards: []
+bundle_standards: [formatting-standards.md, telemetry-standards.md]
+hooks:
+  phase: adr
 ---
 
 # Planifest - adr-agent
@@ -11,22 +13,10 @@ bundle_standards: []
 
 ---
 
-## Hard Limits
-
-1. Requirements must be complete before code generation begins.
-2. No direct schema modification - write a migration proposal and stop.
-3. Destructive schema operations require human approval - no exceptions.
-4. Data is owned by one component - never write to data owned by another.
-5. Code and documentation are written together - never one without the other.
-6. Credentials are never in your context.
-
----
-
 ## Input
 
-- Design Requirements at `plan/current/design-requirements.md`
+- Design at `plan/current/design.md`
 - OpenAPI Specification at `plan/current/openapi-spec.yaml`
-- design at `plan/current/design.md` (for stack declaration)
 
 ---
 
@@ -71,6 +61,7 @@ Follow the [ADR Template](../templates/adr.template.md). Key sections:
 
 ## Rules
 
+- **One question at a time.** When you need human input to resolve an ambiguous decision or confirm a trade-off, ask one question, wait for the answer, then continue. Lead with a recommendation where you can derive one from the signals available.
 - Be specific. Vague ADRs are useless. "We chose PostgreSQL" is not an ADR. "We chose PostgreSQL over DynamoDB because the data model is relational and the team has existing expertise" is.
 - Consequences must include at least one positive and one negative consequence. Every decision has trade-offs.
 - Do not write ADRs for decisions that are fixed by the stack declaration - those are already decided. Write one ADR that records the stack choice itself, referencing the design.
@@ -80,5 +71,32 @@ Follow the [ADR Template](../templates/adr.template.md). Key sections:
 
 ---
 
-*This skill is invoked by the orchestrator. See [Orchestrator Skill](../planifest-orchestrator/SKILL.md)*
+## Parallelism Directive
 
+Independent ADRs MUST be written in parallel. Apply the dependency test: does ADR-B reference or depend on a decision in ADR-A? If no — write them in the same parallel batch.
+
+| MUST parallelise | Cannot parallelise |
+|------------------|--------------------|
+| ADRs for stack choices that do not reference each other | ADR-B that says "given the decision in ADR-A, we choose..." |
+| ADRs for independent components (no shared decisions) | ADR for data ownership after component boundaries are settled |
+
+**In practice:** Assess all required ADRs upfront. Group independent ones and write them in a single parallel batch. Write cross-referencing ADRs sequentially after their dependencies.
+
+---
+
+## Telemetry
+
+See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership.
+
+**Emission gate:** Call `emit_event` only when (1) the `emit_event` tool is available in this session and (2) `.claude/telemetry-enabled` exists in the project root. If either condition fails, skip silently — do not emit.
+
+**`adr_decision`** — after each ADR is written to disk:
+```json
+{ "adr_id": "ADR-001", "title": "<decision title>", "chosen_option": "<option selected>" }
+```
+
+---
+
+## Commit Cadence (Hard Limit 7)
+
+Commit after every meaningful artifact write — each requirement doc, ADR, completed TDD cycle, fix batch, or report — not batched to the phase gate. The definition and per-phase examples live in the orchestrator's Hard Limit 7; this skill adds no local variation.

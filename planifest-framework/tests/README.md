@@ -1,4 +1,13 @@
-﻿# Planifest Setup Tests
+﻿# Planifest Tests
+
+## Known Issues (Tech Debt)
+
+| Test | Status | Root cause |
+|---|---|---|
+| `test-setup-telemetry.sh` — 9 tests | ⚠️ Pre-existing failures | `git init` in `mktemp` dirs fails on Windows (dubious ownership / path mapping). `make_workspace()` must use actual project root. |
+| `test-context-pressure.sh` — 6 tests | ⚠️ Pre-existing failures | `node context-pressure.mjs` exits 1 in ctx_execute sandbox environment; works correctly when run from project root directly. |
+
+Both issues pre-date REQ-023/024/025/026 and are not regressions. Fix: refactor `make_workspace()` to use the actual project root with `.claude/` backup/restore, running outside the ctx_execute sandbox.
 
 This directory contains integration tests for the confirmed design framework setup scripts (`setup.sh` and `setup.ps1`).
 

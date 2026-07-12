@@ -25,7 +25,8 @@ Two setup scripts are provided - use whichever matches your OS:
 
 | Flag | Purpose |
 |------|---------|
-| `--context-mode-mcp` | Installs [context-mode](https://github.com/mksglu/context-mode) routing rules (`AGENTS.md`) and enforcement hooks (Claude Code only). |
+| `--context-mode-mcp` | Installs [context-mode](https://github.com/mksglu/context-mode) enforcement hooks (Claude Code only). Routing rules are provided by the plugin's system prompt. |
+| `--structured-telemetry-mcp` | Installs `.claude/telemetry-enabled` sentinel and (with `--context-mode-mcp`) the `context-pressure.mjs` PostToolUse hook. |
 
 ---
 
@@ -38,6 +39,8 @@ For each tool, the script:
 3. **Copies supporting files** (templates, standards, schemas) into the skill directory as `_planifest-*` folders
 4. **Copies workflows** (feature-pipeline, change-pipeline, retrofit) into the tool's workflow directory
 5. **Creates a boot file** (e.g., `CLAUDE.md`) if one doesn't already exist
+6. **Copies capability skills** from `planifest-overrides/capability-skills/` directly into the tool's skill directory — no separate registry file needed; the tool discovers them the same way it discovers built-in skills
+7. **Appends override instructions** from `planifest-overrides/instructions/*.md` to the boot file — idempotent, replaces the previous block on re-run
 
 ---
 
@@ -79,7 +82,6 @@ For each tool, the script:
     ├── block-grep.sh
     └── block-webfetch.sh
 CLAUDE.md
-AGENTS.md (if --context-mode-mcp)
 ```
 
 ---
@@ -204,6 +206,8 @@ GEMINI.md
 │   ├── feature-pipeline.md
 │   ├── change-pipeline.md
 │   └── retrofit.md
+├── hooks/
+│   └── copilot.mjs          ← gate-write + check-design adapter
 └── copilot-instructions.md
 ```
 
@@ -235,7 +239,9 @@ GEMINI.md
 
 ---
 
-### Cline / Roo Code
+### Cline
+
+> **Note:** Roo Code support has been dropped. Roo Code was sunset on 02 May 2026 and had no hook API. Use `cline` for Cline-based setups.
 
 | Item | Detail |
 |------|--------|
@@ -289,13 +295,9 @@ All seven tools share these conventions:
 
 ## Context-Mode Integration
 
-When the `--context-mode-mcp` flag is passed, the setup script performs additional integration steps to protect the agent's context window.
+When the `--context-mode-mcp` flag is passed, the setup script installs enforcement hooks for Claude Code. Routing rules are provided automatically by the context-mode plugin's system prompt — no separate file is needed.
 
-### 1. Routing Rules (All Tools)
-
-A `context-mode-agents.md` template is copied to the project root as `AGENTS.md`. This file contains instructions for the agent to prefer `ctx_*` tools (provided by the context-mode MCP server) over native tools like `Grep` or `Bash`.
-
-### 2. Enforcement Hooks (Claude Code Only)
+### Enforcement Hooks (Claude Code Only)
 
 For Claude Code, the script installs physical guardrails that prevent the agent from bypassing the routing rules.
 

@@ -1,0 +1,12 @@
+{
+  "$schema": "./regression-manifest.schema.json",
+  "description": "Long-term regression pack manifest. Tracks tests promoted from feature pipelines. Managed by promote-to-regression.sh — do not edit manually.",
+  "fields": {
+    "name": "Unique filename of the test (basename)",
+    "sourceFeature": "Feature ID from which the test was promoted (e.g. 0000004-tdd-regression-test-quality)",
+    "promotionDate": "ISO 8601 date of promotion (YYYY-MM-DD)",
+    "promotedBy": "agent | human",
+    "filePath": "Relative path to the test file within tests/regression/"
+  },
+  "tests": []
+}

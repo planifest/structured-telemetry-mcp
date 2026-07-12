@@ -1,0 +1,30 @@
+# product.yml — product-level version manifest (ADR-002, feature 0000016)
+#
+# WHEN THIS FILE APPLIES: projects with 2 or more components. It aggregates one
+# release version across all component.yml files so the ship-agent can tag a
+# single product version at P9.
+#
+# WHEN IT DOES NOT: projects with exactly one component need no product.yml —
+# the ship-agent falls back to the single component.yml version unchanged.
+#
+# The ship-agent creates this file automatically on first multi-component P9
+# (with versionPolicy: max-component-version) if it is absent. The orchestrator
+# reads it at P0 to suggest the next version.
+
+id: "{{product-id}}"                # kebab-case, stable across releases
+name: "{{Product Display Name}}"
+version: "0.1.0"                    # the product release version (semver)
+feature: "{{feature-id of the release that last set this version}}"
+
+# How `version` is derived at P9:
+#   max-component-version — version = the highest version among components[] (default)
+#   explicit              — the human sets `version` directly; ship-agent validates only
+#   external              — an external anchor dictates the version; see
+#                           planifest-overrides/instructions/external-versioning.md
+versionPolicy: "max-component-version"
+
+components:
+  - id: "{{component-id}}"
+    version: "0.1.0"
+  - id: "{{component-id}}"
+    version: "0.1.0"

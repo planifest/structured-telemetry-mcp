@@ -29,23 +29,27 @@ What problem does this feature solve? Who benefits and how?
 Break the feature into discrete features. Each feature should be small enough that an agent can implement it within a single session (roughly: one API endpoint with its data model, validation, tests, and docs - or one UI screen with its state management and tests).
 
 > **Rule of thumb:** If a feature has more than 3 user stories, it's too big. Split it further. Big features should have many small features, not a few large ones.
+>
+> **User story format:** Write each story as "As a [role], I [action], so that [outcome]." Each story becomes one requirement doc. If a story implies more than 3 acceptance criteria, split it into two stories.
 
-| Feature | User Stories | Priority | Phase |
-|---------|-------------|----------|-------|
-| {{feature-name}} | {{story-1}}, {{story-2}} | must-have / should-have / could-have | 1 |
-| {{feature-name}} | {{story-1}}, {{story-2}} | must-have / should-have / could-have | 1 |
-| {{feature-name}} | {{story-1}} | must-have / should-have / could-have | 2 |
+| Feature | User Stories | Priority | Wave |
+|---------|-------------|----------|------|
+| {{feature-name}} | As a developer, I can run setup.ps1 with --include-full-skill-library, so that external skills are installed without manual copying | must-have | 1 |
+| {{feature-name}} | As a [role], I [action], so that [outcome] | should-have | 1 |
+| {{feature-name}} | As a [role], I [action], so that [outcome] | could-have | 2 |
 
 ---
 
-## Phases
+## Waves
 
-If the feature has more than 5-6 features, split it into phases. Each phase becomes a separate iteration of the Agentic Iteration Loop with its own execution plan, ADRs, and codegen pass. Earlier phases ship before later phases begin.
+If the feature has more than 5-6 features, split it into waves. Each wave becomes a separate iteration of the Agentic Iteration Loop with its own execution plan, ADRs, and codegen pass. Earlier waves ship before later waves begin.
 
-> **Why phases matter:** An agent working on phase 2 only needs the context from phase 2's brief plus the component manifests from phase 1. It doesn't need to hold the entire feature in context. This is how Planifest manages context at scale.
+> **Why waves matter:** An agent working on wave 2 only needs the context from wave 2's brief plus the component manifests from wave 1. It doesn't need to hold the entire feature in context. This is how Planifest manages context at scale.
+>
+> (Waves were previously called "Phases" in this template — renamed to avoid collision with the P0–P9 pipeline phases.)
 
-| Phase | Features Included | Ships When |
-|-------|-------------------|------------|
+| Wave | Features Included | Ships When |
+|------|-------------------|------------|
 | 1 | {{feature-list}} | {{criteria}} |
 | 2 | {{feature-list}} | {{criteria}} |
 
@@ -100,6 +104,7 @@ What technology stack has been decided? The agent builds with this - it does not
 | Cloud | {{e.g. GCP, AWS, none}} |
 | Compute | {{e.g. Cloud Run, Lambda, k8s}} |
 | CI | {{e.g. GitHub Actions, GitLab CI}} |
+| Build target | local \| docker \| ci-only |
 
 ---
 
@@ -141,6 +146,28 @@ Anything the agents need to know that doesn't fit elsewhere.
 
 ### Assumptions
 - {{assumptions you've made - agents will flag if these conflict with the spec}}
+
+---
+
+## Scenario Paths
+
+Before writing acceptance criteria, consider the paths your feature must handle. The orchestrator will read these answers and use them to reduce coaching questions and run a more targeted Scope Lock Challenge. Empty entries will be treated as gaps to fill during P0.
+
+**Happy path:** What does success look like end-to-end? Describe the flow from first action to final outcome when everything works.
+
+> {{happy-path}}
+
+**First-run path:** What happens the very first time this feature is used, before any data, state, or prior runs exist? Are there initialisation steps, seed data requirements, or bootstrap sequences?
+
+> {{first-run-path}}
+
+**Error / sad path:** What are the most likely failure modes? What should happen when they occur — fail silently, surface an error, retry, or degrade gracefully?
+
+> {{error-sad-path}}
+
+**Cross-session continuity:** If the pipeline or user session is interrupted mid-run, what state is at risk? How is it recovered? Are there partial-write scenarios that leave inconsistent state?
+
+> {{cross-session-continuity}}
 
 ---
 

@@ -13,15 +13,42 @@
     .\planifest-framework\setup.ps1 all
 #>
 
+# Skill subcommands — delegate to skill-sync.ps1 and exit immediately (TD-006, REQ-024)
+$_skillSubcmds = @('add-skill','remove-skill','preserve-skill','unpreserve-skill')
+if ($args.Count -ge 1 -and $args[0] -in $_skillSubcmds) {
+    $syncOp     = $args[0] -replace '-skill$',''   # add-skill→add, preserve-skill→preserve
+    $syncScript = Join-Path $PSScriptRoot 'scripts\skill-sync.ps1'
+    if (-not (Test-Path $syncScript)) {
+        Write-Host "Error: skill-sync.ps1 not found. Re-run setup.ps1 first."
+        exit 1
+    }
+    $restArgs = if ($args.Count -gt 1) { $args[1..($args.Count - 1)] } else { @() }
+    & $syncScript -Operation $syncOp @restArgs
+    exit $LASTEXITCODE
+}
+
 # Manual arg parsing — supports --flag style for cross-platform consistency
 $Tool = $null
 $ContextModeMcp = $false
-foreach ($arg in $args) {
-    switch ($arg) {
-        '--context-mode-mcp' { $ContextModeMcp = $true }
+$StructuredTelemetryMcp = $false
+$BackendUrl = 'http://localhost:3741'
+$StrictOrchestrator = $false
+$IncludeFullSkillLibrary = $false
+$i = 0
+while ($i -lt $args.Count) {
+    switch ($args[$i]) {
+        '--context-mode-mcp'          { $ContextModeMcp = $true; $i++ }
+        '--structured-telemetry-mcp'  { $StructuredTelemetryMcp = $true; $i++ }
+        '--strict-orchestrator'       { $StrictOrchestrator = $true; $i++ }
+        '--include-full-skill-library' { $IncludeFullSkillLibrary = $true; $i++ }
+        '--backend-url' {
+            $i++
+            if ($i -ge $args.Count) { Write-Host "Error: --backend-url requires a value"; exit 1 }
+            $BackendUrl = $args[$i]; $i++
+        }
         default {
-            if ($arg -like '-*') { Write-Host "Unknown flag: $arg"; exit 1 }
-            else { $Tool = $arg }
+            if ($args[$i] -like '-*') { Write-Host "Unknown flag: $($args[$i])"; exit 1 }
+            else { $Tool = $args[$i]; $i++ }
         }
     }
 }
@@ -34,7 +61,7 @@ $SkillsSrc = Join-Path $ScriptDir 'skills'
 $WorkflowsSrc = Join-Path $ScriptDir 'workflows'
 $SetupDir = Join-Path $ScriptDir 'setup'
 
-$ValidTools = @('claude-code', 'cursor', 'codex', 'antigravity', 'copilot', 'windsurf', 'cline')
+$ValidTools = @('claude-code', 'cursor', 'codex', 'antigravity', 'copilot', 'windsurf', 'cline', 'roo-code', 'opencode')
 
 # --- Shared functions ---
 
@@ -134,6 +161,46 @@ function Copy-PlanifestSkills {
     }
 }
 
+function Copy-ExternalSkills {
+    param($TargetDir)
+
+    $extSkillsDir = Join-Path $ScriptDir 'external-skills'
+    if (-not (Test-Path $extSkillsDir)) {
+        Write-Host "  ! Warning: external-skills/ not found — skipping"
+        return
+    }
+
+    $count = 0
+    Get-ChildItem -Path $extSkillsDir -Directory | ForEach-Object {
+        $skillName = $_.Name
+        $srcDir = $_.FullName
+
+        $srcSkillMd = Join-Path $srcDir 'SKILL.md'
+        if (-not (Test-Path $srcSkillMd)) {
+            Write-Host "  ! [external] $skillName — missing SKILL.md, skipping"
+            return
+        }
+        $srcAttrib = Join-Path $srcDir 'attribution.txt'
+        if (-not (Test-Path $srcAttrib)) {
+            Write-Host "  ! [external] $skillName — missing attribution.txt, skipping"
+            return
+        }
+
+        $destDir = Join-Path $TargetDir $skillName
+        New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+        Copy-Item -Path $srcSkillMd -Destination $destDir -Force
+        Copy-Item -Path $srcAttrib -Destination $destDir -Force
+        Write-Host "  + [external] $skillName/SKILL.md"
+        $count++
+    }
+
+    if ($count -gt 0) {
+        Write-Host "  [external-skills] $count skill(s) installed"
+    } else {
+        Write-Host "  [external-skills] no valid skills found (each needs SKILL.md + attribution.txt)"
+    }
+}
+
 function Write-PlanifestBootFile {
     param($RelPath, $Content)
 
@@ -178,7 +245,7 @@ function Merge-HookSettings {
 
     if (Test-Path $SettingsPath) {
         # Additive merge using PowerShell JSON handling
-        $existing = Get-Content -Raw -Path $SettingsPath | ConvertFrom-Json -Depth 10
+        $existing = Get-Content -Raw -Path $SettingsPath | ConvertFrom-Json
 
         # Ensure hooks.PreToolUse exists
         if (-not $existing.hooks) {
@@ -242,6 +309,331 @@ function Install-ContextModeHooks {
 
     # Merge settings.json wiring
     Merge-HookSettings -SettingsPath $settings -HooksDir $HooksDirRel
+}
+
+function Merge-TelemetryHookSettings {
+    # Merge PostToolUse context-pressure hook entry into .claude/settings.json
+    # Idempotent: removes existing context-pressure entry before re-adding.
+    param(
+        [string]$SettingsPath,
+        [string]$HooksDir,
+        [string]$BackendUrl
+    )
+
+    $hookCmd = "PLANIFEST_TELEMETRY_URL=$BackendUrl node $HooksDir/context-pressure.mjs"
+    $newEntry = @(
+        @{
+            matcher = ".*"
+            hooks = @(@{ type = "command"; command = $hookCmd; async = $true; timeout = 5000 })
+        }
+    )
+
+    if (Test-Path $SettingsPath) {
+        $existing = Get-Content -Raw -Path $SettingsPath | ConvertFrom-Json
+
+        if (-not $existing.hooks) {
+            $existing | Add-Member -NotePropertyName 'hooks' -NotePropertyValue ([PSCustomObject]@{}) -Force
+        }
+        if (-not $existing.hooks.PostToolUse) {
+            $existing.hooks | Add-Member -NotePropertyName 'PostToolUse' -NotePropertyValue @() -Force
+        }
+
+        # Remove existing context-pressure entries then append new one
+        $filtered = @($existing.hooks.PostToolUse | Where-Object {
+            $hooks = $_.hooks
+            -not ($hooks | Where-Object { $_.command -match 'context-pressure' })
+        })
+        $existing.hooks.PostToolUse = $filtered + $newEntry
+
+        $existing | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Encoding UTF8
+        Write-Host "  ~ .claude/settings.json (telemetry PostToolUse hook merged)"
+    }
+    else {
+        $dir = Split-Path -Parent $SettingsPath
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+        $settings = [PSCustomObject]@{
+            hooks = [PSCustomObject]@{ PostToolUse = $newEntry }
+        }
+        $settings | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Encoding UTF8
+        Write-Host "  + .claude/settings.json (created with telemetry PostToolUse hook)"
+    }
+}
+
+function Install-TelemetryHooks {
+    # Copy context-pressure hook and wire PostToolUse in settings.json (REQ-008, REQ-010)
+    # Only called when both --structured-telemetry-mcp and --context-mode-mcp are active.
+    param(
+        [string]$HooksSrcRel,    # relative to ScriptDir  e.g. hooks/telemetry
+        [string]$HooksDirRel,    # relative to ProjectRoot e.g. .claude/hooks/telemetry
+        [string]$SettingsRel,    # relative to ProjectRoot e.g. .claude/settings.json
+        [string]$BackendUrl
+    )
+
+    $src      = Join-Path $ScriptDir $HooksSrcRel
+    $dest     = Join-Path $ProjectRoot $HooksDirRel
+    $settings = Join-Path $ProjectRoot $SettingsRel
+
+    if (-not (Test-Path $src)) {
+        Write-Host "  ! Warning: telemetry hook scripts not found at $src — skipping"
+        return
+    }
+
+    Write-Host ""
+    Write-Host "  Installing structured telemetry hooks"
+
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+
+    Get-ChildItem -Path $src -Filter '*.mjs' | ForEach-Object {
+        $destFile = Join-Path $dest $_.Name
+        Copy-Item -Path $_.FullName -Destination $destFile -Force
+        Write-Host "  + $HooksDirRel/$($_.Name)"
+    }
+
+    Merge-TelemetryHookSettings -SettingsPath $settings -HooksDir $HooksDirRel -BackendUrl $BackendUrl
+}
+
+function Merge-EnforcementHookSettings {
+    # Merge gate-write (PreToolUse), auto-trigger-orchestrator, check-orchestrator-presence,
+    # and check-design (UserPromptSubmit) into settings.json. Idempotent.
+    param(
+        [string]$SettingsPath,
+        [string]$HooksDir
+    )
+
+    $preToolEntry = @{
+        matcher = 'Write|Edit'
+        hooks   = @(@{ type = 'command'; command = "node $HooksDir/gate-write.mjs" })
+    }
+    $autoTriggerEntry = @{
+        matcher = '.*'
+        hooks   = @(@{ type = 'command'; command = "node $HooksDir/auto-trigger-orchestrator.mjs" })
+    }
+    $presenceEntry = @{
+        matcher = '.*'
+        hooks   = @(@{ type = 'command'; command = "node $HooksDir/check-orchestrator-presence.mjs" })
+    }
+    $userPromptEntry = @{
+        matcher = '.*'
+        hooks   = @(@{ type = 'command'; command = "node $HooksDir/check-design.mjs" })
+    }
+
+    if (Test-Path $SettingsPath) {
+        $existing = Get-Content -Raw -Path $SettingsPath | ConvertFrom-Json
+
+        if (-not $existing.hooks) {
+            $existing | Add-Member -NotePropertyName 'hooks' -NotePropertyValue ([PSCustomObject]@{}) -Force
+        }
+
+        # Merge PreToolUse — remove stale gate-write entry, append fresh one
+        if (-not $existing.hooks.PreToolUse) {
+            $existing.hooks | Add-Member -NotePropertyName 'PreToolUse' -NotePropertyValue @() -Force
+        }
+        $filtered = @($existing.hooks.PreToolUse | Where-Object {
+            -not ($_.hooks | Where-Object { $_.command -match 'gate-write' })
+        })
+        $existing.hooks.PreToolUse = $filtered + $preToolEntry
+
+        # Merge UserPromptSubmit — remove stale entries, append fresh ones in order
+        if (-not $existing.hooks.UserPromptSubmit) {
+            $existing.hooks | Add-Member -NotePropertyName 'UserPromptSubmit' -NotePropertyValue @() -Force
+        }
+        $filtered = @($existing.hooks.UserPromptSubmit | Where-Object {
+            -not ($_.hooks | Where-Object {
+                $_.command -match 'auto-trigger-orchestrator' -or
+                $_.command -match 'check-orchestrator-presence' -or
+                $_.command -match 'check-design'
+            })
+        })
+        $existing.hooks.UserPromptSubmit = $filtered + $autoTriggerEntry + $presenceEntry + $userPromptEntry
+
+        $existing | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Encoding UTF8
+        Write-Host "  ~ .claude/settings.json (enforcement hook entries merged)"
+    }
+    else {
+        $dir = Split-Path -Parent $SettingsPath
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+        $settings = [PSCustomObject]@{
+            hooks = [PSCustomObject]@{
+                PreToolUse       = @($preToolEntry)
+                UserPromptSubmit = @($autoTriggerEntry, $presenceEntry, $userPromptEntry)
+            }
+        }
+        $settings | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Encoding UTF8
+        Write-Host "  + .claude/settings.json (created with enforcement hook entries)"
+    }
+}
+
+function Merge-AllowedTools {
+    # Idempotently add "Agent" to allowedTools in .claude/settings.json (REQ-002).
+    # Preserves existing allowedTools entries — additive merge only.
+    param([string]$SettingsPath)
+
+    $settings = @{}
+    if (Test-Path $SettingsPath) {
+        $raw = Get-Content -Raw -Path $SettingsPath -Encoding UTF8
+        $settings = $raw | ConvertFrom-Json -AsHashtable -ErrorAction SilentlyContinue
+        if (-not $settings) { $settings = @{} }
+    }
+
+    $existing = if ($settings.ContainsKey('allowedTools') -and $settings['allowedTools']) {
+        @($settings['allowedTools'])
+    } else { @() }
+
+    if ($existing -notcontains 'Agent') {
+        $settings['allowedTools'] = $existing + @('Agent')
+        $dir = Split-Path -Parent $SettingsPath
+        if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+        $settings | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Encoding UTF8
+        Write-Host "  ~ .claude/settings.json (Agent added to allowedTools)"
+    } else {
+        Write-Host "  - .claude/settings.json (Agent already in allowedTools)"
+    }
+}
+
+function Install-EnforcementHooks {
+    # Copy gate-write.mjs + check-design.mjs and wire settings.json. Always runs — no flag required.
+    param(
+        [string]$HooksSrcRel,
+        [string]$HooksDirRel,
+        [string]$SettingsRel
+    )
+
+    $src      = Join-Path $ScriptDir $HooksSrcRel
+    $dest     = Join-Path $ProjectRoot $HooksDirRel
+    $settings = Join-Path $ProjectRoot $SettingsRel
+
+    if (-not (Test-Path $src)) {
+        Write-Host "  ! Warning: enforcement hook scripts not found at $src — skipping"
+        return
+    }
+
+    Write-Host ""
+    Write-Host "  Installing Planifest enforcement hooks"
+
+    New-Item -ItemType Directory -Path $dest -Force | Out-Null
+
+    Get-ChildItem -Path $src -Filter '*.mjs' | ForEach-Object {
+        $destFile = Join-Path $dest $_.Name
+        Copy-Item -Path $_.FullName -Destination $destFile -Force
+        Write-Host "  + $HooksDirRel/$($_.Name)"
+    }
+
+    Merge-EnforcementHookSettings -SettingsPath $settings -HooksDir $HooksDirRel
+}
+
+function Install-Tier1Hooks {
+    # Copies the Tier 1 adapter + shared enforcement/telemetry scripts (REQ-009).
+    param(
+        [string]$AdapterSrcRel,   # e.g. hooks\adapters\cursor.mjs
+        [string]$AdapterDestRel,  # e.g. .cursor\hooks\adapters\cursor.mjs
+        [string]$HooksInstallDir  # e.g. .cursor\hooks
+    )
+
+    $adapterSrc  = Join-Path $ScriptDir $AdapterSrcRel
+    $adapterDest = Join-Path $ProjectRoot $AdapterDestRel
+    $hooksDir    = Join-Path $ProjectRoot $HooksInstallDir
+
+    if (-not (Test-Path $adapterSrc)) {
+        Write-Host "  ! Warning: Tier 1 adapter not found at $adapterSrc — skipping"
+        return
+    }
+
+    Write-Host ""
+    Write-Host "  Installing Planifest Tier 1 adapter hooks (REQ-009)"
+
+    # Copy adapter
+    $adapterDir = Split-Path -Parent $adapterDest
+    New-Item -ItemType Directory -Path $adapterDir -Force | Out-Null
+    Copy-Item -Path $adapterSrc -Destination $adapterDest -Force
+    Write-Host "  + $AdapterDestRel"
+
+    # Copy enforcement scripts (gate-write, check-design, auto-trigger-orchestrator)
+    $enfSrc  = Join-Path $ScriptDir 'hooks\enforcement'
+    $enfDest = Join-Path $hooksDir 'enforcement'
+    if (Test-Path $enfSrc) {
+        New-Item -ItemType Directory -Path $enfDest -Force | Out-Null
+        Get-ChildItem -Path $enfSrc -Filter '*.mjs' | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination (Join-Path $enfDest $_.Name) -Force
+            Write-Host "  + $HooksInstallDir\enforcement\$($_.Name)"
+        }
+    }
+
+    # Copy telemetry scripts (emit-phase-start, emit-phase-end)
+    $telemSrc  = Join-Path $ScriptDir 'hooks\telemetry'
+    $telemDest = Join-Path $hooksDir 'telemetry'
+    if (Test-Path $telemSrc) {
+        New-Item -ItemType Directory -Path $telemDest -Force | Out-Null
+        Get-ChildItem -Path $telemSrc -Filter 'emit-phase-*.mjs' | ForEach-Object {
+            Copy-Item -Path $_.FullName -Destination (Join-Path $telemDest $_.Name) -Force
+            Write-Host "  + $HooksInstallDir\telemetry\$($_.Name)"
+        }
+    }
+
+    Write-Host "  [Planifest] Tier 1 adapter hooks installed."
+}
+
+function Install-Tier1HookRegistration {
+    # Writes PreToolUse hook registration pointing to the Tier 1 adapter (REQ-009).
+    param(
+        [string]$AdapterDestRel,  # e.g. .cursor\hooks\adapters\cursor.mjs
+        [string]$SettingsRel      # e.g. .cursor\settings.json
+    )
+
+    $settings    = Join-Path $ProjectRoot $SettingsRel
+    $adapterCmd  = "node $AdapterDestRel gate-write"
+
+    $js = @"
+const fs = require('fs'), path = require('path');
+const adapterCmd = '$($adapterCmd.Replace('','\'))';
+const sf = '$($settings.Replace('','\'))';
+let s = {};
+if (fs.existsSync(sf)) s = JSON.parse(fs.readFileSync(sf,'utf8').replace(/^﻿/,''));
+s.hooks = s.hooks || {};
+s.hooks.PreToolUse = (s.hooks.PreToolUse || [])
+  .filter(h => !['Write','Edit'].includes(h.matcher) ||
+               !(h.hooks||[]).some(e => (e.command||'').includes('gate-write')));
+s.hooks.PreToolUse.push(
+  {matcher:'Write', hooks:[{type:'command',command:adapterCmd}]},
+  {matcher:'Edit',  hooks:[{type:'command',command:adapterCmd}]}
+);
+fs.mkdirSync(path.dirname(sf),{recursive:true});
+fs.writeFileSync(sf, JSON.stringify(s,null,2)+'
+');
+"@
+    node -e $js
+    Write-Host "  ~ $SettingsRel (Tier 1 adapter hook registration written)"
+}
+
+function Install-BeforeSubmitHookRegistration {
+    # Wires beforeSubmitPrompt → check-design for tools that expose that event (REQ-018).
+    param(
+        [string]$AdapterDestRel,  # e.g. .cursor\hooks\adapters\cursor.mjs
+        [string]$SettingsRel      # e.g. .cursor\settings.json
+    )
+
+    $settings   = Join-Path $ProjectRoot $SettingsRel
+    $adapterCmd = "node $AdapterDestRel check-design"
+
+    $js = @"
+const fs = require('fs'), path = require('path');
+const adapterCmd = '$($adapterCmd.Replace('','\'))';
+const sf = '$($settings.Replace('','\'))';
+let s = {};
+if (fs.existsSync(sf)) s = JSON.parse(fs.readFileSync(sf,'utf8').replace(/^﻿/,''));
+s.hooks = s.hooks || {};
+s.hooks.beforeSubmitPrompt = (s.hooks.beforeSubmitPrompt || [])
+  .filter(h => !(h.hooks||[]).some(e => (e.command||'').includes('check-design')));
+s.hooks.beforeSubmitPrompt.push(
+  {matcher:'*', hooks:[{type:'command',command:adapterCmd}]}
+);
+fs.mkdirSync(path.dirname(sf),{recursive:true});
+fs.writeFileSync(sf, JSON.stringify(s,null,2)+'
+');
+"@
+    node -e $js
+    Write-Host "  ~ $SettingsRel (beforeSubmitPrompt check-design hook registered)"
 }
 
 function Invoke-PlanifestGuardrails {
@@ -549,6 +941,109 @@ getting-started.md
     }
 }
 
+function Copy-CapabilitySkills {
+    # Copies permanent capability skills from planifest-overrides/capability-skills/
+    # into the tool's skill directory (ADR-006). The tool discovers them the same way
+    # it discovers built-in skills — no separate registry file needed.
+    param($TargetDir)
+
+    $capSkillsDir = Join-Path $ProjectRoot 'planifest-overrides\capability-skills'
+    if (-not (Test-Path $capSkillsDir)) { return }
+
+    $found = @(Get-ChildItem -Path $capSkillsDir -Directory | Where-Object {
+        Test-Path (Join-Path $_.FullName 'SKILL.md')
+    })
+    if ($found.Count -eq 0) { return }
+
+    Write-Host ""
+    Write-Host "  Syncing capability skills from planifest-overrides/capability-skills/"
+    foreach ($dir in $found) {
+        $destDir = Join-Path $TargetDir $dir.Name
+        Copy-Item -Path $dir.FullName -Destination $destDir -Recurse -Force
+        Write-Host "  + capability-skill: $($dir.Name)"
+    }
+}
+
+function Append-OverrideInstructions {
+    # Appends project-specific instructions from planifest-overrides/instructions/
+    # to the tool's boot file. Idempotent — strips and replaces the override block
+    # on every re-run so changes in planifest-overrides/ are always reflected.
+    param($BootFilePath)
+
+    $bootPath = Join-Path $ProjectRoot $BootFilePath
+    if (-not (Test-Path $bootPath)) { return }
+
+    $startMarker = '<!-- planifest-overrides:instructions:start -->'
+    $endMarker   = '<!-- planifest-overrides:instructions:end -->'
+
+    # Strip any existing override block from a previous run
+    $current = Get-Content -Path $bootPath -Raw
+    if ($current -match [regex]::Escape($startMarker)) {
+        $pattern = "(?s)\r?\n$([regex]::Escape($startMarker)).*?$([regex]::Escape($endMarker))\r?\n?"
+        $current = [regex]::Replace($current, $pattern, '')
+        Set-Content -Path $bootPath -Value $current.TrimEnd() -Encoding UTF8 -NoNewline
+    }
+
+    $instrDir = Join-Path $ProjectRoot 'planifest-overrides\instructions'
+    if (-not (Test-Path $instrDir)) { return }
+    $files = @(Get-ChildItem -Path $instrDir -File -Filter '*.md' | Sort-Object Name)
+    if ($files.Count -eq 0) { return }
+
+    Write-Host ""
+    Write-Host "  Appending override instructions from planifest-overrides/instructions/"
+
+    $block = "`n`n$startMarker`n"
+    foreach ($file in $files) {
+        $block += "`n" + (Get-Content -Path $file.FullName -Raw).TrimEnd() + "`n"
+        Write-Host "  + $($file.Name)"
+    }
+    $block += "`n$endMarker"
+
+    Add-Content -Path $bootPath -Value $block -Encoding UTF8
+    Write-Host "  ~ $BootFilePath updated with override instructions"
+}
+
+function Install-WindsurfHookConfig {
+    # Writes .windsurf/hooks.json registering pre_write_code, pre_mcp_tool_use,
+    # and pre_user_prompt (ADR-002, REQ-016). Planifest owns this file entirely.
+    $windsurfDir = Join-Path $ProjectRoot '.windsurf'
+    New-Item -ItemType Directory -Path $windsurfDir -Force | Out-Null
+
+    $cmd = "node planifest-framework/hooks/adapters/windsurf.mjs"
+    $config = @{
+        hooks = @{
+            pre_write_code = @(@{ command = $cmd; powershell = "node planifest-framework/hooks/adapters/windsurf.mjs" })
+            pre_mcp_tool_use = @(@{ command = $cmd; powershell = "node planifest-framework/hooks/adapters/windsurf.mjs" })
+            pre_user_prompt = @(@{ command = $cmd; powershell = "node planifest-framework/hooks/adapters/windsurf.mjs" })
+        }
+    }
+    $configPath = Join-Path $windsurfDir 'hooks.json'
+    $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath -Encoding UTF8
+    Write-Host "  + .windsurf/hooks.json (Windsurf hook registration)"
+}
+
+function Install-CopilotAdapter {
+    # Writes .github/hooks/planifest.json registering both hook events (REQ-015).
+    # The adapter is invoked in-place from planifest-framework/hooks/adapters/copilot.mjs.
+    $hooksDir = Join-Path $ProjectRoot '.github\hooks'
+    New-Item -ItemType Directory -Path $hooksDir -Force | Out-Null
+
+    $configPath = Join-Path $hooksDir 'planifest.json'
+    $config = @{
+        version = 1
+        hooks = @{
+            preToolUse = @(
+                @{ type = "command"; command = "node planifest-framework/hooks/adapters/copilot.mjs" }
+            )
+            userPromptSubmitted = @(
+                @{ type = "command"; command = "node planifest-framework/hooks/adapters/copilot.mjs" }
+            )
+        }
+    }
+    $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath -Encoding UTF8
+    Write-Host "  + .github/hooks/planifest.json (Copilot hook registration)"
+}
+
 function Invoke-PlanifestSetup {
     param($ToolName)
 
@@ -567,8 +1062,31 @@ function Invoke-PlanifestSetup {
     Write-Host "  Setting up $ToolName"
     Write-Host "  Skills directory: $($toolConfig.SkillsDir)/"
 
+    # Manifest cleanup — remove only previously installed directories on re-run
+    $manifest = Join-Path $skillsDir ".planifest-manifest"
+    if (Test-Path $manifest) {
+        Write-Host "  Re-run detected — removing previously installed directories"
+        Get-Content -Path $manifest | Where-Object { $_ -ne '' } | ForEach-Object {
+            if (Test-Path $_) {
+                Remove-Item -Path $_ -Recurse -Force
+                Write-Host "  - removed: $(Split-Path -Leaf $_)"
+            }
+        }
+        Remove-Item -Path $manifest -Force
+    }
+
     # Copy skills (now automatically bundles supporting files)
     Copy-PlanifestSkills -TargetDir $skillsDir
+
+    # Copy external skills if --include-full-skill-library flag is set (REQ-001)
+    if ($IncludeFullSkillLibrary) {
+        Write-Host ""
+        Write-Host "  Installing external skill library"
+        Copy-ExternalSkills -TargetDir $skillsDir
+    }
+
+    # Copy permanent capability skills from planifest-overrides/ (ADR-006)
+    Copy-CapabilitySkills -TargetDir $skillsDir
 
     # Copy workflows (if tool defines a workflow dir)
     if ($toolConfig.WorkflowsDir -and (Test-Path $WorkflowsSrc)) {
@@ -588,11 +1106,23 @@ function Invoke-PlanifestSetup {
         Write-PlanifestBootFile -RelPath $toolConfig.BootFile -Content $bootContent
     }
 
-    # Install context-mode MCP routing rules if --context-mode-mcp flag is set
-    if ($ContextModeMcp -and $toolConfig.AgentsFile -and $toolConfig.AgentsTemplate) {
-        $agentsContentPath = Join-Path $ProjectRoot $toolConfig.AgentsTemplate
-        $agentsContent = Get-Content -Raw -Path $agentsContentPath
-        Write-PlanifestBootFile -RelPath $toolConfig.AgentsFile -Content $agentsContent
+    # Append project-specific instructions to boot file (idempotent on re-run)
+    if ($toolConfig.BootFile) {
+        Append-OverrideInstructions -BootFilePath $toolConfig.BootFile
+    }
+
+    # Install Planifest enforcement hooks unconditionally (gate-write, check-design)
+    if ($toolConfig.EnforcementHooksSrc -and $toolConfig.EnforcementHooksDir -and $toolConfig.SettingsFile) {
+        Install-EnforcementHooks `
+            -HooksSrcRel $toolConfig.EnforcementHooksSrc `
+            -HooksDirRel $toolConfig.EnforcementHooksDir `
+            -SettingsRel $toolConfig.SettingsFile
+    }
+
+    # Add Agent to allowedTools so sub-agent dispatch works without per-use confirmation (REQ-002)
+    if ($toolConfig.SettingsFile) {
+        $settingsPath = Join-Path $ProjectRoot $toolConfig.SettingsFile
+        Merge-AllowedTools -SettingsPath $settingsPath
     }
 
     # Install context-mode enforcement hooks if --context-mode-mcp flag is set (REQ-004)
@@ -601,6 +1131,69 @@ function Invoke-PlanifestSetup {
             -HooksSrcRel  $toolConfig.HooksSrc `
             -HooksDirRel  $toolConfig.HooksDir `
             -SettingsRel  $toolConfig.SettingsFile
+    }
+
+    # Write telemetry opt-in sentinel so skills know emission is authorised (REQ-004)
+    if ($StructuredTelemetryMcp) {
+        $sentinel = Join-Path $ProjectRoot '.claude\telemetry-enabled'
+        $sentinelDir = Split-Path -Parent $sentinel
+        if (-not (Test-Path $sentinelDir)) { New-Item -ItemType Directory -Path $sentinelDir -Force | Out-Null }
+        if (-not (Test-Path $sentinel)) {
+            New-Item -ItemType File -Path $sentinel -Force | Out-Null
+            Write-Host "  + .claude/telemetry-enabled (telemetry opt-in sentinel)"
+        } else {
+            Write-Host "  - .claude/telemetry-enabled (already exists)"
+        }
+    }
+
+    # Install telemetry hooks only when BOTH flags are active (REQ-010)
+    if ($StructuredTelemetryMcp -and $ContextModeMcp -and
+        $toolConfig.TelemetryHooksSrc -and $toolConfig.TelemetryHooksDir -and $toolConfig.SettingsFile) {
+        Install-TelemetryHooks `
+            -HooksSrcRel  $toolConfig.TelemetryHooksSrc `
+            -HooksDirRel  $toolConfig.TelemetryHooksDir `
+            -SettingsRel  $toolConfig.SettingsFile `
+            -BackendUrl   $BackendUrl
+    }
+
+    # Install Copilot adapter when tool is copilot (REQ-015)
+    if ($ToolName -eq 'copilot') {
+        Write-Host ""
+        Write-Host "  Installing Copilot hook registration"
+        Install-CopilotAdapter
+    }
+
+    # Write Windsurf hook config when tool is windsurf (REQ-016)
+    if ($ToolName -eq 'windsurf') {
+        Write-Host ""
+        Write-Host "  Writing Windsurf hook configuration"
+        Install-WindsurfHookConfig
+    }
+
+    # Install Tier 1 adapter for tools with native hook support (REQ-009)
+    if ($toolConfig.Tier -eq 1 -and $toolConfig.HookAdapterSrc) {
+        Install-Tier1Hooks `
+            -AdapterSrcRel  $toolConfig.HookAdapterSrc `
+            -AdapterDestRel $toolConfig.HookAdapterDest `
+            -HooksInstallDir $toolConfig.HooksInstallDir
+        Install-Tier1HookRegistration `
+            -AdapterDestRel $toolConfig.HookAdapterDest `
+            -SettingsRel    $toolConfig.SettingsFile
+
+        # Wire beforeSubmitPrompt → check-design for tools that support it (REQ-018)
+        if ($toolConfig.BeforeSubmitHook -eq $true) {
+            Install-BeforeSubmitHookRegistration `
+                -AdapterDestRel $toolConfig.HookAdapterDest `
+                -SettingsRel    $toolConfig.SettingsFile
+        }
+    }
+
+    # Write manifest listing all installed skill directories (enables safe re-run cleanup)
+    New-Item -ItemType Directory -Path $skillsDir -Force | Out-Null
+    $installedDirs = @(Get-ChildItem -Path $skillsDir -Directory | ForEach-Object { $_.FullName })
+    if ($installedDirs.Count -gt 0) {
+        $installedDirs | Set-Content -Path $manifest -Encoding UTF8
+        Write-Host "  + .planifest-manifest ($($installedDirs.Count) entries)"
     }
 
     Write-Host "  Done."
@@ -621,9 +1214,18 @@ if (-not $Tool) {
     Write-Host "  all"
     Write-Host ""
     Write-Host "Flags:"
-    Write-Host "  --context-mode-mcp   Install context-mode MCP routing rules file"
-    Write-Host "                       (only needed if context-mode MCP plugin is installed)"
-    Write-Host "                       See: https://github.com/mksglu/context-mode"
+    Write-Host "  --context-mode-mcp           Install context-mode enforcement hooks (Claude Code only)"
+    Write-Host "                               (only needed if context-mode MCP plugin is installed)"
+    Write-Host "                               See: https://github.com/mksglu/context-mode"
+    Write-Host "  --structured-telemetry-mcp   Install structured telemetry hooks"
+    Write-Host "                               Requires --context-mode-mcp to also be set."
+    Write-Host "                               Context-pressure hook installed when both flags are active."
+    Write-Host "  --backend-url <url>          Override telemetry backend URL (default: http://localhost:3741)"
+    Write-Host "  --strict-orchestrator        Write plan/.orchestrator-strict to enable strict mode."
+    Write-Host "                               The check-orchestrator-presence hook will require the"
+    Write-Host "                               orchestrator to ack each new session before proceeding."
+    Write-Host "  --include-full-skill-library Copy the curated external skill library into the tool's"
+    Write-Host "                               skill directory (200+ open-source skills). Opt-in only."
     Write-Host ""
     Write-Host "Run from the repository root."
     Write-Host "Each tool's config: planifest-framework\setup\[tool].ps1"
@@ -636,15 +1238,36 @@ Write-Host ("=" * 40)
 Initialize-PlanifestRepo
 Invoke-PlanifestGuardrails
 
+# Write strict-mode sentinel if --strict-orchestrator flag was passed (REQ-008)
+if ($StrictOrchestrator) {
+    $planDir = Join-Path $ProjectRoot 'plan'
+    New-Item -ItemType Directory -Path $planDir -Force | Out-Null
+    $strictPath = Join-Path $planDir '.orchestrator-strict'
+    New-Item -ItemType File -Path $strictPath -Force | Out-Null
+    Write-Host "  + plan/.orchestrator-strict (strict orchestrator mode enabled)"
+}
+
 $ToolLower = $Tool.ToLower()
+
+$_syncScript = Join-Path $ScriptDir 'scripts\skill-sync.ps1'
+
+function Invoke-SkillSync {
+    param($ToolName)
+    if (-not (Test-Path $_syncScript)) { return }
+    try {
+        & $_syncScript sync $ToolName -ErrorAction SilentlyContinue 2>$null
+    } catch { }
+}
 
 if ($ToolLower -eq 'all') {
     foreach ($t in $ValidTools) {
         Invoke-PlanifestSetup -ToolName $t
+        Invoke-SkillSync -ToolName $t
     }
 }
 elseif ($ValidTools -contains $ToolLower) {
     Invoke-PlanifestSetup -ToolName $ToolLower
+    Invoke-SkillSync -ToolName $ToolLower
 }
 else {
     Write-Host "Unknown tool: $Tool"
