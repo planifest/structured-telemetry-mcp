@@ -79,6 +79,20 @@ Scope decision — bundling: `plan/current/emit-event-rca-and-fix-spec.md` (a se
 
 ---
 
+### P2 — ADRs
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-07-12T09:20:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-adr-agent |
+| Agents spawned | `{{count}}` |
+| MCP calls | 0 |
+| Parallel task batches | `{{count}}` |
+| Notes | Continuous run — no P1 gate stop. Produced ADR-013 (emit_event tool-argument schema — Zod gate + envelope rename, related-to but does not supersede ADR-005) and ADR-014 (macOS/Linux user-scoped service supervision, no root daemon, no silent privilege escalation). Numbering continues sequentially from this repo's existing ADR-001..ADR-012 across prior features. The additive anyOf schema extension for the 4 new event types (req-011) was assessed against the "What Requires an ADR" criteria and does not qualify — it's a mechanical continuation of the existing (undocumented, informal) oneOf->anyOf precedent from April 2026, consistent with 0000008c also not writing a dedicated ADR for the same pattern. |
+
+---
+
 ### P1 — Spec
 
 | Field | Value |
