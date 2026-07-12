@@ -36,6 +36,10 @@ const EVENT_REQUIRED_DATA_FIELDS: Record<string, readonly string[]> = {
   performance_regression:  ['metric', 'threshold', 'actual', 'phase_name'],
   dependency_blocked:      ['phase_name', 'dependency', 'reason'],
   schema_migration_applied: ['component_id', 'migration_path', 'destructive'],
+  loop_iteration:              ['loop_id', 'iteration', 'cap', 'decision', 'toggle_level'],
+  phase_reversal_petitioned:   ['report', 'filing_phase', 'binding_artifact'],
+  phase_reversal_granted:      ['report', 'classification', 'cascade_size', 'budget_remaining'],
+  phase_reversal_denied:       ['report', 'classification', 'cascade_size', 'budget_remaining'],
 };
 
 function validateEventDataFields(event: unknown): string | null {

@@ -79,6 +79,20 @@ Scope decision — bundling: `plan/current/emit-event-rca-and-fix-spec.md` (a se
 
 ---
 
+### P3 — Codegen
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-07-12T09:45:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-codegen-agent |
+| Agents spawned | `{{count}}` |
+| MCP calls | 0 |
+| Parallel task batches | `{{count}}` |
+| Notes | Continuous run — no P2 gate stop. Documented deviation from the mandatory per-requirement TDD sub-agent loop: req-001/002/003/005/006/007/008 (bash/plist/systemd) use manual verification per design.md's own declared testing strategy (no shell-script test harness exists in this repo) — dispatched to 2 parallel Agent sub-agents (haiku tier) instead. req-009/010/011/012 (TypeScript, has Vitest infra) went through real TDD directly: wrote 5 test files' worth of new/updated cases first, confirmed RED (15 failing), implemented (schema, types, validate-event, server-factory), confirmed GREEN (317/317, up from 289 baseline), typecheck clean, build succeeds. Parallel batch 1: 2 Agent dispatches (macOS + Linux scripts). README.md/docs/usage-guide.md updated for the envelope rename, 4 new event types, and a troubleshooting note (RCA spec §6). Discovered getting-started.md/mac-setup.md referenced by req-004/req-008 do not exist in this repo — documented deviation: adding a new "Background Service" section to README.md instead (all 3 platforms, since Windows was previously undocumented too). |
+
+---
+
 ### P2 — ADRs
 
 | Field | Value |

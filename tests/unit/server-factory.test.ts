@@ -1,8 +1,10 @@
 import { describe, it, expect, vi } from 'vitest';
+import { z } from 'zod';
 import {
   dispatchQuery,
   createEmitEventHandler,
   createQueryTelemetryHandler,
+  EmitEventEnvelope,
 } from '../../src/server-factory.js';
 import type { IEventRepository } from '../../src/db/repository.js';
 import type { IQueryService, QueryResponse } from '../../src/query/query-service.js';
@@ -168,7 +170,7 @@ describe('createEmitEventHandler', () => {
   it('returns ok:false for an invalid event without calling repo.write', async () => {
     const repo = mockRepository();
     const handler = createEmitEventHandler(repo);
-    const result = await handler({ event: null });
+    const result = await handler({ envelope: null });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
     expect(Array.isArray(parsed.errors)).toBe(true);
@@ -178,7 +180,7 @@ describe('createEmitEventHandler', () => {
   it('returns ok:false for an empty object event', async () => {
     const repo = mockRepository();
     const handler = createEmitEventHandler(repo);
-    const result = await handler({ event: {} });
+    const result = await handler({ envelope: {} });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
   });
@@ -186,7 +188,7 @@ describe('createEmitEventHandler', () => {
   it('calls repo.write and returns ok:true for a valid event', async () => {
     const repo = mockRepository();
     const handler = createEmitEventHandler(repo);
-    const result = await handler({ event: VALID_EVENT });
+    const result = await handler({ envelope: VALID_EVENT });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(true);
     expect(parsed.id).toBe('mock-id-123');
@@ -198,7 +200,7 @@ describe('createEmitEventHandler', () => {
       write: vi.fn().mockResolvedValue({ ok: false, errors: ['storage error'] }),
     });
     const handler = createEmitEventHandler(repo);
-    const result = await handler({ event: VALID_EVENT });
+    const result = await handler({ envelope: VALID_EVENT });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
     expect(parsed.errors).toContain('storage error');
@@ -210,7 +212,29 @@ describe('createEmitEventHandler', () => {
     });
     const handler = createEmitEventHandler(repo);
     // Should propagate — the handler does not catch write errors itself
-    await expect(handler({ event: VALID_EVENT })).rejects.toThrow('DB connection lost');
+    await expect(handler({ envelope: VALID_EVENT })).rejects.toThrow('DB connection lost');
+  });
+});
+
+// ── req-009: EmitEventEnvelope tool-argument schema ───────────────────────────
+
+describe('req-009 — EmitEventEnvelope exposes a real object schema', () => {
+  it('produces type: "object" with properties for every envelope field (regression guard against z.unknown())', () => {
+    const jsonSchema = z.toJSONSchema(EmitEventEnvelope) as { type?: string; properties?: Record<string, unknown> };
+    expect(jsonSchema.type).toBe('object');
+    expect(jsonSchema.properties).toBeDefined();
+    const props = Object.keys(jsonSchema.properties ?? {});
+    for (const field of [
+      'schema_version', 'event', 'session_id', 'initiative_id', 'phase',
+      'agent', 'tool', 'model', 'mcp_mode', 'timestamp', 'model_config', 'data',
+    ]) {
+      expect(props).toContain(field);
+    }
+  });
+
+  it('rejects an argument shape that is not a plain object (expected-object Zod error, not ajv\'s opaque message)', () => {
+    const result = EmitEventEnvelope.safeParse('not-an-object');
+    expect(result.success).toBe(false);
   });
 });
 
@@ -251,7 +275,7 @@ describe('createQueryTelemetryHandler', () => {
   it('accepts context_reset through handler pipeline (REQ-022)', async () => {
     const repo = mockRepository();
     const handler = createEmitEventHandler(repo);
-    const result = await handler({ event: { ...VALID_EVENT, event: 'context_reset', data: { phase_name: 'codegen', reason: 'compaction' } } });
+    const result = await handler({ envelope: { ...VALID_EVENT, event: 'context_reset', data: { phase_name: 'codegen', reason: 'compaction' } } });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(true);
     expect(repo.write).toHaveBeenCalledOnce();
@@ -260,7 +284,7 @@ describe('createQueryTelemetryHandler', () => {
   it('rejects context_reset missing reason — does not call repo.write (REQ-022)', async () => {
     const repo = mockRepository();
     const handler = createEmitEventHandler(repo);
-    const result = await handler({ event: { ...VALID_EVENT, event: 'context_reset', data: { phase_name: 'codegen' } } });
+    const result = await handler({ envelope: { ...VALID_EVENT, event: 'context_reset', data: { phase_name: 'codegen' } } });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
     expect(repo.write).not.toHaveBeenCalled();

@@ -211,3 +211,77 @@ describe('schema_migration_applied — required data fields', () => {
     expect(result.isValid).toBe(true);
   });
 });
+
+// ── 0000010 new event types (req-011) ─────────────────────────────────────────
+
+describe('loop_iteration — required data fields', () => {
+  it('rejects missing loop_id', () => {
+    const result = validateEvent({ ...BASE, event: 'loop_iteration', data: { iteration: 1, cap: 3, decision: 'continue', toggle_level: 'on' } });
+    expect(result.isValid).toBe(false);
+  });
+  it('rejects missing iteration', () => {
+    const result = validateEvent({ ...BASE, event: 'loop_iteration', data: { loop_id: 'design_critic', cap: 3, decision: 'continue', toggle_level: 'on' } });
+    expect(result.isValid).toBe(false);
+  });
+  it('rejects missing cap', () => {
+    const result = validateEvent({ ...BASE, event: 'loop_iteration', data: { loop_id: 'design_critic', iteration: 1, decision: 'continue', toggle_level: 'on' } });
+    expect(result.isValid).toBe(false);
+  });
+  it('rejects missing decision', () => {
+    const result = validateEvent({ ...BASE, event: 'loop_iteration', data: { loop_id: 'design_critic', iteration: 1, cap: 3, toggle_level: 'on' } });
+    expect(result.isValid).toBe(false);
+  });
+  it('rejects missing toggle_level', () => {
+    const result = validateEvent({ ...BASE, event: 'loop_iteration', data: { loop_id: 'design_critic', iteration: 1, cap: 3, decision: 'continue' } });
+    expect(result.isValid).toBe(false);
+  });
+  it('rejects an invalid decision enum value', () => {
+    const result = validateEvent({ ...BASE, event: 'loop_iteration', data: { loop_id: 'design_critic', iteration: 1, cap: 3, decision: 'maybe', toggle_level: 'on' } });
+    expect(result.isValid).toBe(false);
+  });
+});
+
+describe('phase_reversal_petitioned — required data fields', () => {
+  it('rejects missing report', () => {
+    const result = validateEvent({ ...BASE, event: 'phase_reversal_petitioned', data: { filing_phase: 'P4', binding_artifact: 'plan/current/design.md' } });
+    expect(result.isValid).toBe(false);
+  });
+  it('rejects missing filing_phase', () => {
+    const result = validateEvent({ ...BASE, event: 'phase_reversal_petitioned', data: { report: '001-schema-gap', binding_artifact: 'plan/current/design.md' } });
+    expect(result.isValid).toBe(false);
+  });
+  it('rejects missing binding_artifact', () => {
+    const result = validateEvent({ ...BASE, event: 'phase_reversal_petitioned', data: { report: '001-schema-gap', filing_phase: 'P4' } });
+    expect(result.isValid).toBe(false);
+  });
+});
+
+describe('phase_reversal_granted — required data fields', () => {
+  it('rejects missing classification', () => {
+    const result = validateEvent({ ...BASE, event: 'phase_reversal_granted', data: { report: '001-schema-gap', cascade_size: 2, budget_remaining: 1 } });
+    expect(result.isValid).toBe(false);
+  });
+  it('rejects missing cascade_size', () => {
+    const result = validateEvent({ ...BASE, event: 'phase_reversal_granted', data: { report: '001-schema-gap', classification: 'additive', budget_remaining: 1 } });
+    expect(result.isValid).toBe(false);
+  });
+  it('rejects missing budget_remaining', () => {
+    const result = validateEvent({ ...BASE, event: 'phase_reversal_granted', data: { report: '001-schema-gap', classification: 'additive', cascade_size: 2 } });
+    expect(result.isValid).toBe(false);
+  });
+  it('rejects an invalid classification enum value', () => {
+    const result = validateEvent({ ...BASE, event: 'phase_reversal_granted', data: { report: '001-schema-gap', classification: 'moderate', cascade_size: 2, budget_remaining: 1 } });
+    expect(result.isValid).toBe(false);
+  });
+});
+
+describe('phase_reversal_denied — required data fields', () => {
+  it('rejects missing report', () => {
+    const result = validateEvent({ ...BASE, event: 'phase_reversal_denied', data: { classification: 'additive', cascade_size: 2, budget_remaining: 1 } });
+    expect(result.isValid).toBe(false);
+  });
+  it('accepts a valid denied payload', () => {
+    const result = validateEvent({ ...BASE, event: 'phase_reversal_denied', data: { report: '001-schema-gap', classification: 'altering', cascade_size: 5, budget_remaining: 0 } });
+    expect(result.isValid).toBe(true);
+  });
+});
