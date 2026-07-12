@@ -1,23 +1,24 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000009-ship-phase-enum"
+feature: "0000010-macos-launchd-service"
 version: "0.3.0"
 status: "active"
 type: "microservice"
 domain: "observability"
 summary: "MCP server that ingests and queries structured telemetry events from Planifest pipeline runs."
-systemContext: "Runs as a local MCP server alongside the developer's agent tool (Claude Code, Cursor, etc.). Planifest-compliant agents call emit_event to record pipeline telemetry. The human on the loop calls query_telemetry to analyse bottlenecks, failures, and token efficiency. The DuckDB store is the data source for the future 0024 observability dashboard."
+systemContext: "Runs as a local MCP server alongside the developer's agent tool (Claude Code, Cursor, etc.). Planifest-compliant agents call emit_event to record pipeline telemetry. The human on the loop calls query_telemetry to analyse bottlenecks, failures, and token efficiency. The DuckDB store is the data source for the future 0024 observability dashboard. As of 0000010, also installs as a boot-surviving background service on macOS (launchd) and Linux (systemd --user), alongside the existing Windows (nssm) path."
 
 responsibilities:
-  - "Accept and validate telemetry events via the emit_event MCP tool (22 event types as of 0.3.0)"
+  - "Accept and validate telemetry events via the emit_event MCP tool (25 event types as of 0.10.0)"
   - "Persist all valid events to a DuckDB store with temporal optimisation"
   - "Answer structured queries via the query_telemetry MCP tool across three query families plus event_log"
-  - "Enforce JSON Schema validation for all event types at ingestion"
+  - "Enforce JSON Schema validation for all event types at ingestion, backed by a real object-shaped Zod tool-argument schema (not z.unknown())"
   - "Provide setup and doctor CLI commands for installation and diagnostics"
   - "Expose a build and bundle pipeline producing server.bundle.mjs, server-http.bundle.mjs, and cli.bundle.mjs"
   - "Support initiative_id-scoped filtering on all query families"
   - "Provide human-only post-deployment truncation scripts with admin/sudo gate and interactive phrase confirmation"
+  - "Install, manage, and supervise itself as a user-scoped background service on macOS (launchd) and Linux (systemd --user), mirroring the existing Windows (nssm) service scripts"
 
 exceptions:
   - "Does not emit telemetry itself — it is the sink, not a source"
@@ -27,6 +28,8 @@ exceptions:
   - "Does not publish to npm this pipeline run"
   - "Does not run in the cloud or as a hosted service"
   - "Does not authenticate callers — bound to 127.0.0.1, no auth model required"
+  - "Does not install a system-level (root) launchd daemon or root systemd unit — user-scoped service only"
+  - "Does not auto-fix a root-owned ~/Library/LaunchAgents or auto-enable systemd lingering — both require explicit human action"
 
 stack:
   language: "typescript"
@@ -48,7 +51,7 @@ contract:
   inputs:
     - name: "emit_event"
       type: "event"
-      description: "Accepts a telemetry event envelope + typed payload; validates and writes to DuckDB"
+      description: "Accepts an `envelope` argument (renamed from `event` in 0.10.0) — a real object-shaped Zod schema, not z.unknown(); validates and writes to DuckDB"
     - name: "query_telemetry"
       type: "event"
       description: "Accepts a structured query; returns aggregated Markdown + JSON + raw event sample"
@@ -73,18 +76,21 @@ data:
 
 scope:
   inScope:
-    - "emit_event MCP tool — 22 event types (9 from 0008a + 5 from 0008c + 1 phase enum + 7 new in 0000009)"
+    - "emit_event MCP tool — 25 event types (9 from 0008a + 5 from 0008c + 1 phase enum + 7 from 0000009 + 4 loop/reversal types from 0000010)"
+    - "emit_event tool argument — real object-shaped Zod schema (EmitEventEnvelope), replacing z.unknown(); argument renamed event -> envelope"
     - "query_telemetry MCP tool — bottlenecks, failures, token-efficiency, event_log"
     - "initiative_id filter on all query families"
     - "group_by: mcp_mode and group_by: initiative_id for bottleneck queries"
     - "DuckDB storage layer"
-    - "JSON Schema validation for all 22 event types"
+    - "JSON Schema validation for all 25 event types"
     - "Setup and doctor CLI commands"
     - "HTTP/SSE daemon transport on 127.0.0.1:3741"
     - "Build and bundle pipeline (server.bundle.mjs, server-http.bundle.mjs, cli.bundle.mjs)"
     - "GitHub Actions CI with platform matrix (ubuntu/macos/windows × node20/22)"
     - "Performance test (p95 < 100ms gate)"
     - "Human-only post-deployment truncation scripts with admin/sudo and interactive phrase gate"
+    - "macOS launchd user LaunchAgent install/uninstall/status/restart scripts, with locked-LaunchAgents detection + sudo fallback"
+    - "Linux systemd --user unit install/uninstall/status/restart scripts, with missing-systemctl detection and lingering detection + guidance"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
@@ -92,9 +98,14 @@ scope:
     - "Web dashboard"
     - "Server-side loop detection"
     - "Authentication or access control"
+    - "System-level (root) launchd daemon or root systemd unit"
+    - "Distro-specific packaging (.deb/.rpm)"
+    - "ratchet_blocked event type (not yet emitted by any framework skill — speculative)"
   deferred:
     - "npm publish — blocked on: decision to make package public"
     - "Plugin marketplace manifests — blocked on: marketplace listing decision"
+    - "Auto-fixing a root-owned ~/Library/LaunchAgents — blocked on: human confirmation it's safe to override a possible MDM control"
+    - "Auto-enabling systemd lingering — blocked on: human decision to accept an account-wide setting change"
 
 risk:
   level: "low"
@@ -104,6 +115,11 @@ risk:
     - "event_log dispatch order — must precede existing checks in dispatchQuery (R-003)"
     - "AJV recompilation — schema additions only active after daemon restart (R-004)"
     - "Truncation script DB path resolution — must print path before prompting (R-006)"
+    - "~/Library/LaunchAgents root-owned by MDM policy on some machines — pre-flight write-test + sudo fallback required (plan/current/risk-register.md R-001)"
+    - "Linux systemd unit design untested on real hardware this session — verify before shipping Phase 2 (R-002)"
+    - "systemd --user lingering disabled by default on headless/dev boxes — post-install check required (R-003)"
+    - "emit_event's 3 enforcement points (Zod enum, ajv schema, EVENT_REQUIRED_DATA_FIELDS) must land together or they drift out of sync (R-004)"
+    - "emit_event argument rename (event -> envelope) is a breaking change for any caller on the old shape (R-005)"
 
 quality:
   testCoverage:
@@ -129,9 +145,9 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-04-18T00:00:00Z"
+  updatedAt: "2026-07-12T00:00:00Z"
   createdBy: "agent"
   lastModifiedBy: "agent"
-  skill: "planifest-codegen-agent"
+  skill: "planifest-spec-agent"
   tool: "claude-code"
-  model: "claude-sonnet-4-6"
+  model: "claude-sonnet-5"

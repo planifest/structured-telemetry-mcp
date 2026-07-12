@@ -23,7 +23,7 @@ The single table that stores all telemetry events. One row per event.
 |--------|------|----------|---------|-------------|
 | `id` | VARCHAR | no | `gen_random_uuid()` | PK |
 | `schema_version` | VARCHAR | no | — | NOT NULL |
-| `event` | VARCHAR | no | — | NOT NULL; one of the 14 event types |
+| `event` | VARCHAR | no | — | NOT NULL; one of the 25 event types |
 | `session_id` | VARCHAR | no | — | NOT NULL |
 | `initiative_id` | VARCHAR | yes | NULL | — |
 | `phase` | VARCHAR | no | — | NOT NULL |
@@ -47,7 +47,8 @@ The single table that stores all telemetry events. One row per event.
 
 ## Schema Invariants
 
-1. Every row has a non-null `event` value matching one of the 14 defined event types.
+1. Every row has a non-null `event` value matching one of the 25 defined event types.
+   > Doc debt: the 7 event types added in `0000009-ship-phase-enum` (`context_reset`, `approval_requested`, `fast_path_engaged`, `test_failure`, `performance_regression`, `dependency_blocked`, `schema_migration_applied`) were never backfilled into the sub-schema list below. Flagged for the P6 docs-agent pass on this feature, alongside the 4 new types this feature adds.
 2. Every row has a non-null `session_id`.
 3. `timestamp` is the agent-reported event time; `inserted_at` is the server ingestion time. They may differ.
 4. `data` column is nullable to allow forward-compatibility with new event types before their schema is finalised. All current event types have a non-null `data` payload.
@@ -169,6 +170,42 @@ The single table that stores all telemetry events. One row per event.
 ### `doc_gap` _(added 0.2.0)_
 ```json
 { "component_id": "string", "description": "string" }
+```
+
+### `loop_iteration` _(added 0.10.0)_
+```json
+{
+  "loop_id": "p0_completeness | design_critic | reversal_protocol | verify_by_execution | cross_model_review",
+  "iteration": "integer",
+  "cap": "integer",
+  "decision": "continue | done | escalate",
+  "toggle_level": "report-only | on"
+}
+```
+
+### `phase_reversal_petitioned` _(added 0.10.0)_
+```json
+{ "report": "string", "filing_phase": "string", "binding_artifact": "string" }
+```
+
+### `phase_reversal_granted` _(added 0.10.0)_
+```json
+{
+  "report": "string",
+  "classification": "additive | altering",
+  "cascade_size": "integer",
+  "budget_remaining": "integer"
+}
+```
+
+### `phase_reversal_denied` _(added 0.10.0)_
+```json
+{
+  "report": "string",
+  "classification": "additive | altering",
+  "cascade_size": "integer",
+  "budget_remaining": "integer"
+}
 ```
 
 ---

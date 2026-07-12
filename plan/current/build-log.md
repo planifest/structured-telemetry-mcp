@@ -79,6 +79,20 @@ Scope decision — bundling: `plan/current/emit-event-rca-and-fix-spec.md` (a se
 
 ---
 
+### P1 — Spec
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-07-12T08:55:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-spec-agent |
+| Agents spawned | `{{count}}` |
+| MCP calls | 0 |
+| Parallel task batches | `{{count}}` |
+| Notes | Run mode: continuous — proceeding without phase-gate confirmation per human instruction, except P9. Produced: execution-plan.md, requirements/req-001..req-012, scope.md, risk-register.md (7 risks + 3 assumptions), domain-glossary.md (10 terms), operational-model.md, slo-definitions.md, cost-model.md. Updated src/structured-telemetry-mcp/component.yml (responsibilities, exceptions, contract, scope, risk, metadata) and data-contract.md (4 new event sub-schemas, event-count fix, doc-debt flag for 0000009's unbackfilled 7 types — noted for P6). No OpenAPI spec — feature adds no HTTP/REST endpoint. |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
