@@ -2,7 +2,7 @@
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
 feature: "0000010-macos-launchd-service"
-version: "0.3.0"
+version: "0.10.0"
 status: "active"
 type: "microservice"
 domain: "observability"
