@@ -177,15 +177,15 @@ Scope decision — bundling: `plan/current/emit-event-rca-and-fix-spec.md` (a se
 
 ---
 
-## Summary (filled at P7)
+## Summary (filled at P9 — see P8 build-report.md for the same file's `{{count}}` placeholders being flagged as a process gap)
 
 | Metric | Value |
 |--------|-------|
-| Total phases completed | `{{count}}` |
-| Total agents spawned | `{{count}}` |
-| Total MCP calls | `{{count}}` |
-| Phases using parallelism | `{{count}}` |
-| Primary tier agent calls | `{{count}}` |
-| Cheaper tier agent calls | `{{count}}` |
-| Self-corrections | `{{count}}` |
-| Phases skipped | `{{list or "none"}}` |
+| Total phases completed | 10 (P0–P9) |
+| Total agents spawned | 3 (2× P3 service-script implementers, 1× P8 build-assessment-agent) |
+| Total MCP calls | 0 (`emit_event` telemetry emission gate not met — no `.claude/telemetry-enabled` file in this project) |
+| Phases using parallelism | 1 (P3 — 2 parallel Agent dispatches for macOS/Linux scripts). Per the P8 build report, P1 (12 requirement files) and P2 (2 ADRs) missed clear parallel-dispatch opportunities and were written sequentially/inline instead — recorded as a process finding, not re-litigated retroactively |
+| Primary tier agent calls | 0 spawned (P0/P1/P2/P4/P5/P6/P7/P9 work was done inline by the primary-tier orchestrator session, not via spawned Agent calls) |
+| Cheaper tier agent calls | 3 (all at haiku — 2× P3, 1× P8) |
+| Self-corrections | 0 CI-failure-driven (P4 passed all checks first attempt); 2 proactive test-coverage strengthenings during P4's traceability pass, not failure fixes |
+| Phases skipped | none |

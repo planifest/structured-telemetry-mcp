@@ -2,7 +2,7 @@
 
 **Feature:** macOS + Linux Background Service + emit_event Envelope Fix (bundled scope)
 **Pipeline run:** P0 Assess → P1 Spec → P2 ADRs → P3 Codegen → P4 Validate → P5 Security → P6 Docs → P7 Archive (P8/P9 to follow)
-**PR:** pending — updated after PR is raised in Step 9
+**PR:** https://github.com/planifest/structured-telemetry-mcp/pull/4
 
 ## What Was Built
 
