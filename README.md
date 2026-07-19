@@ -604,6 +604,8 @@ npm run service:restart     # restart without reinstalling
 
 `npm run service:*` detects your platform automatically (`scripts/service-manager.mjs`) and dispatches to the right script — you don't need to call the platform scripts directly.
 
+**After changing code, run `npm run deploy` instead of `npm run build` alone.** The running service has the old code loaded in memory — rebuilding the files on disk doesn't do anything until the process reloads them. `npm run deploy` builds, then automatically restarts the service if one is currently running (on Windows this is handled by `scripts/deploy.ps1`; on macOS/Linux by `scripts/service-manager.mjs`). If no service is installed, it just builds and stops there — nothing to restart.
+
 ### Windows
 
 Uses `nssm` via `scripts/service.ps1`, registered as a Windows service named `structured-telemetry-mcp`.
