@@ -108,7 +108,11 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=$node_path $repo_dir/server-http.bundle.mjs
+ExecStart="$node_path" "$repo_dir/server-http.bundle.mjs"
+# WorkingDirectory intentionally unquoted: unlike ExecStart (argv-style,
+# word-split), systemd takes single-value assignments like this one verbatim
+# for the rest of the line, spaces included — quoting would embed literal
+# quote characters into the path instead of escaping it.
 WorkingDirectory=$repo_dir
 Restart=on-failure
 RestartSec=2
