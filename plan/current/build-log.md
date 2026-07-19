@@ -89,7 +89,7 @@ Scope decision — bundling: `plan/current/emit-event-rca-and-fix-spec.md` (a se
 | Agents spawned | 0 |
 | MCP calls | 0 |
 | Parallel task batches | 0 |
-| Notes | Continuous run — no P5 gate stop (Low risk, 0 findings). |
+| Notes | Gate A passed (docs/ exists). Gate B: human confirmed creating all 5 living docs + feature doc (pre-existing gap — none existed across 3 prior features). Produced: 5 living docs, docs/0000010--feature--....md, 6 per-component docs (purpose/interface-contract/dependencies/risk/scope/test-coverage — none existed before), recommendations.md (7 items), iteration log. Drift check: confirmed the Zod gate (MCP ingress only) vs HTTP /emit (ajv only) split is intentional and consistent, not a bug — verified by reading server.ts/server-http.ts/http-repo.ts directly. cross_model_review toggle default off (ADR-003) — skipped silently, not enabled this run. |
 
 ---
 
