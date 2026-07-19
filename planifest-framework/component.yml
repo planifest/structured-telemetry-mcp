@@ -1,0 +1,151 @@
+id: "planifest-framework"
+name: "Planifest Framework"
+feature: "backlog-triage-2026-07-11"
+version: "0.16.1"
+status: "active"
+type: "component-pack"
+domain: "developer-tooling"
+summary: "Core standards, skills, hooks, and setup scripts that enforce the Planifest confirmed-design pipeline."
+systemContext: "Installed into any AI-assisted project via setup.ps1/setup.sh. Provides enforcement hooks, structured standards, and agent skills consumed by Claude Code, Cursor, Windsurf, and GitHub Copilot."
+
+responsibilities:
+  - "Enforce confirmed-design gate: block writes outside declared component scope"
+  - "Inject active scope context on every agent turn via check-design hook"
+  - "Emit structured telemetry for context pressure and pipeline phase events"
+  - "Declare preferred and avoided libraries per language via library-standards docs"
+  - "Provide formatting standards: date format (DD MMM YYYY), locale (British English), verbosity"
+  - "Supply migration files for propagating standards changes across existing repos"
+  - "Register and sync capability skills from planifest-overrides/"
+  - "Maintain build log throughout pipeline run for P8 build assessment"
+  - "Direct model tier selection (primary vs cheaper) for all spawned subagents"
+  - "Enforce parallelism directives across all phase skills"
+  - "Declare build target tier (local/docker/ci-only) in feature brief and design; enforce per-tier agent behaviour in codegen and validate phases"
+  - "Centralise telemetry envelope and emission gate in telemetry-standards.md"
+  - "Provide language quirks reference (language-quirks-en-gb.md) for British English with documented American exceptions"
+  - "Track installed skill directories via .planifest-manifest for safe re-runs"
+  - "Present one-at-a-time skill optimisation suggestions via planifest-optimise-agent (never modifies files)"
+  - "Detect and recommend adoption mode at P0 (Greenfield, Standard Iterative, Retrofit, External Anchor)"
+  - "Suggest and confirm version number at P0 based on pipeline track"
+  - "Run Scope Lock Challenge before design confirmation to surface happy/sad/bad path gaps"
+  - "Enforce one-question-at-a-time across all phase skills"
+  - "Maintain docs/about.md for project version tracking (read at P0, written at P7)"
+  - "Delete plan/.run-mode at P9 so next P0 always asks run-mode fresh"
+  - "Detect stale plan/.run-mode at P0 fresh start and auto-clear with visible warning"
+  - "Detect interrupted P9 on resume (empty plan/current/ + .orchestrator-active present) and complete cleanup"
+  - "Recommend new session to human after P9 completes (advisory, not blocking)"
+  - "Enforce build log phase block at every phase P0–P9 before doing phase work"
+  - "Provide plan/backlog/ convention for deferred work with P0 pickup protocol"
+  - "Derive product-level release version from product.yml per versionPolicy at P9"
+  - "Commit after every meaningful artifact write, not only at phase gates (Hard Limit 7)"
+  - "Provide canonical loop mechanics (state, run log, stop rules, toggles) via planifest-loop-runner"
+  - "Run REJECT-default fresh-context verifiers: design-critic, reversal-assessor, cross-model review gate (pre-P7)"
+  - "Govern P0-P6 phase reversals: defect report, assessor verdict, scoped correction, 2/feature budget"
+  - "Block silent weakening of acceptance criteria/scope during loops via ratchet-check hook"
+  - "Verify acceptance criteria by executing the software at P4 via planifest-verify-by-execution"
+
+exceptions:
+  - "Does not write to planifest-overrides/ — that directory is user-owned"
+  - "Does not store or transmit credentials"
+  - "Does not modify application source code directly"
+
+stack:
+  language: "javascript"
+  runtime: "node"
+  framework: "none"
+  frontend: "none"
+  styling: "none"
+  componentLibrary: "none"
+  database: "none"
+  orm: "none"
+  testing: "bash (bespoke test harness)"
+  iac: "none"
+  cloud: "none"
+  compute: "none"
+  ci: "github-actions"
+
+contract:
+  inputs:
+    - name: "stdin (hook payload)"
+      type: "event"
+      description: "JSON hook payload from Claude Code / Copilot / Cursor lifecycle events"
+  outputs:
+    - name: "stdout (additionalContext or block message)"
+      type: "event"
+      description: "Gate-write block message or check-design scope injection"
+    - name: "PLANIFEST_TELEMETRY_URL /emit"
+      type: "http"
+      description: "context_pressure events posted to structured telemetry backend"
+  consumedBy: ["claude-code-hooks", "copilot-agent-hooks"]
+  consumes: []
+  breakingChangePolicy: "requires-adr"
+
+data:
+  ownsData: false
+  tables: []
+  schemaVersion: "0.0.0"
+  migrationPath: "planifest-framework/migrations/"
+
+scope:
+  inScope:
+    - "Library standards docs for TypeScript, Python, Go, Java, databases"
+    - "Formatting standards: date format, locale, verbosity"
+    - "gate-write and check-design enforcement hooks"
+    - "context-pressure telemetry hook"
+    - "GitHub Copilot adapter"
+    - "Orchestrator sentinel enforcement"
+    - "Capability skill intake via planifest-overrides/capability-skills/"
+    - "Migration infrastructure for standards propagation"
+    - "setup.ps1 / setup.sh for tool registration"
+    - "P8 Build Assessment phase and planifest-build-assessment-agent skill"
+    - "build-log.template.md and build log maintenance across pipeline phases"
+    - "Model tier decision table and parallelism directives in all phase skills"
+    - "Build target field in feature-brief and design templates"
+    - "telemetry-standards.md, build-target-standards.md, language-quirks-en-gb.md standards files"
+    - "planifest-optimise-agent skill for interactive skill file review"
+    - "design.template.md extracted from orchestrator inline block"
+    - "setup.sh/.ps1 .planifest-manifest tracking for idempotent re-runs"
+    - "plan/backlog/ entries, product.yml template, loop-state/run-log/defect-report/revision-log templates"
+    - "ratchet-check.mjs enforcement hook, consistency-check.mjs and product-version.mjs scripts"
+    - "planifest-loop-runner, planifest-design-critic, planifest-reversal-assessor, planifest-verify-by-execution skills"
+    - "Loop/reversal telemetry event types and planifest-overrides/loop-toggles.yml (all default off)"
+  outOfScope:
+    - "Application-level code generation (handled by planifest-codegen-agent)"
+    - "CI pipeline configuration for consumer projects"
+  deferred:
+    - "Windsurf native hook wiring (hooks API not yet stable)"
+    - "Roo-Code support (tool sunset 02 May 2026)"
+
+risk:
+  level: "low"
+  items:
+    - "Path translation on Windows/Git Bash requires cygpath guards in tests"
+    - "Telemetry backend URL is env-var controlled — misconfiguration sends events to wrong endpoint"
+
+quality:
+  testCoverage:
+    unit: 0
+    integration: 316
+    e2e: 0
+  techDebt: []
+  quirks:
+    - "context-pressure fill% is a proxy metric based on transcript file size, not actual token count"
+    - "gate-write component path matching is prefix-based; very short prefixes may over-permit"
+    - "ratchet-check treats a reworded criterion as remove+add and blocks it (conservative); the .ratchet-approve marker is the intended path for legitimate rewording"
+    - "ratchet-check cannot verify who wrote .ratchet-approve (ADR-004 same-changeset detection not implemented in 0.16.0); marker forgery is audit-detected via ratchet-log.md and P8, not prevented"
+    - "product-version.mjs parses only the constrained product.template.yml shape, not arbitrary YAML"
+
+pipeline:
+  templateVersion: "1.0.0"
+  featureMode: "retrofit"
+  domainKnowledgePath: "plan/current"
+
+metadata:
+  createdAt: "2026-05-02"
+  updatedAt: "2026-07-11"
+  # Updated by backlog-triage-2026-07-11 (change-agent): fixed test-harness
+  # portability bugs and doc drift from backlog 0000001/0000003/0000004/0000006/0000007
+  createdBy: "agent"
+  lastModifiedBy: "agent"
+  skill: "planifest-change-agent"
+  tool: "claude-code"
+  model: "claude-sonnet-5"

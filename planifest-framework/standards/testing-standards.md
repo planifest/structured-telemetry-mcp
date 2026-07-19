@@ -6,7 +6,7 @@
 
 ## Why This Matters for Agent-Generated Code
 
-Agents generate tests alongside code. Without clear standards, agent-generated tests tend toward two failure modes: (1) trivial tests that assert implementation details rather than behavior, or (2) sprawling integration tests that are slow, flaky, and unmaintainable. These standards prevent both.
+Agents generate tests alongside code. Without clear standards, agent-generated tests tend toward two failure modes: (1) trivial tests that assert implementation details rather than behaviour, or (2) sprawling integration tests that are slow, flaky, and unmaintainable. These standards prevent both.
 
 ---
 
@@ -50,7 +50,7 @@ describe("req-001-auth: user login flow", () => {
 ```
 
 **Rules:**
-- Test names describe behavior, not implementation: "returns 404 when order does not exist" not "test getOrder"
+- Test names describe behaviour, not implementation: "returns 404 when order does not exist" not "test getOrder"
 - One assertion concept per test. Multiple `expect` calls are fine if they verify the same logical assertion.
 - No shared mutable state between tests. Each test sets up its own data.
 - No test interdependence. Tests must pass in any order.
@@ -68,7 +68,7 @@ describe("req-001-auth: user login flow", () => {
 **Never test:**
 - Framework internals (don't test that Express calls your handler)
 - Private implementation details (test the public interface)
-- Third-party library behavior (trust it or replace it)
+- Third-party library behaviour (trust it or replace it)
 - Trivial getters/setters with no logic
 
 ---
@@ -87,7 +87,7 @@ describe("req-001-auth: user login flow", () => {
 
 - **Mock at the boundary, not inside the component.** Mock external services, databases (for unit tests), and third-party APIs. Do not mock internal modules.
 - **Integration tests use real dependencies.** Database integration tests hit a real database (test instance). API tests hit the real API server.
-- **Contract tests verify the mock matches reality.** If you mock a service in a consumer test, the provider must have a corresponding contract test that verifies the mock's behavior.
+- **Contract tests verify the mock matches reality.** If you mock a service in a consumer test, the provider must have a corresponding contract test that verifies the mock's behaviour.
 
 ---
 

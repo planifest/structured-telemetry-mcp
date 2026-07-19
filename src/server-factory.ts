@@ -13,6 +13,38 @@ import type { TelemetryEvent } from './types/events.js';
 
 export type McpTextResult = { content: Array<{ type: 'text'; text: string }> };
 
+// ── emit_event tool-argument schema (ADR-013) ──────────────────────────────────
+
+/**
+ * Mirrors schemas/telemetry-event.schema.json's top-level envelope shape.
+ * This is an argument-shape gate for the emit_event MCP tool, not a
+ * replacement for validateEvent()/ajv — ajv remains the source of truth for
+ * cross-field rules on `data` (ADR-005). Giving the MCP tool a real Zod
+ * object here (instead of z.unknown()) is what lets calling models see a
+ * structural type: "object" schema with properties, per ADR-013.
+ */
+export const EmitEventEnvelope = z.object({
+  schema_version: z.literal('1.0'),
+  event: z.enum([
+    'phase_start', 'phase_end', 'spec_gap', 'validation_failure', 'deviation',
+    'migration_proposal', 'context_pressure', 'mcp_impact', 'self_correction',
+    'phase_skip', 'security_finding', 'retry_limit_exceeded', 'adr_decision', 'doc_gap',
+    'context_reset', 'approval_requested', 'fast_path_engaged', 'test_failure',
+    'performance_regression', 'dependency_blocked', 'schema_migration_applied',
+    'loop_iteration', 'phase_reversal_petitioned', 'phase_reversal_granted', 'phase_reversal_denied',
+  ]),
+  session_id: z.string().min(1),
+  initiative_id: z.string().optional(),
+  phase: z.enum(['orchestrator', 'spec', 'adr', 'codegen', 'validate', 'security', 'docs', 'change', 'ship']),
+  agent: z.string().min(1),
+  tool: z.string().min(1),
+  model: z.string().min(1),
+  mcp_mode: z.enum(['none', 'workspace', 'context', 'workspace+context']),
+  timestamp: z.string(),
+  model_config: z.record(z.string(), z.unknown()).optional(),
+  data: z.record(z.string(), z.unknown()),
+}).strict();
+
 // ── Dispatch ──────────────────────────────────────────────────────────────────
 
 /**
@@ -68,12 +100,26 @@ export async function dispatchQuery(qs: IQueryService, q: Record<string, unknown
 /**
  * Returns the emit_event tool handler bound to the given repository.
  * Exported for unit testing.
+ *
+ * Argument named `envelope` (not `event`) to avoid colliding with the
+ * envelope's own `event` discriminator field (ADR-013, req-012).
  */
 export function createEmitEventHandler(
   repo: IEventRepository,
-): (args: { event: unknown }) => Promise<McpTextResult> {
+): (args: { envelope: unknown }) => Promise<McpTextResult> {
   return async (args) => {
-    const validation = validateEvent(args.event);
+    // Argument-shape gate (ADR-013): rejects a malformed envelope (string,
+    // undefined, null, array, wrong nesting) with a specific Zod error
+    // before validateEvent()/ajv ever runs.
+    const shapeCheck = EmitEventEnvelope.safeParse(args.envelope);
+    if (!shapeCheck.success) {
+      const errors = shapeCheck.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`);
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, errors }) }],
+      };
+    }
+
+    const validation = validateEvent(shapeCheck.data);
 
     if (!validation.isValid) {
       return {
@@ -81,7 +127,7 @@ export function createEmitEventHandler(
       };
     }
 
-    const result = await repo.write(args.event as TelemetryEvent);
+    const result = await repo.write(shapeCheck.data as unknown as TelemetryEvent);
     return {
       content: [{ type: 'text' as const, text: JSON.stringify(result) }],
     };
@@ -137,8 +183,8 @@ export function createServer(
 
   server.tool(
     'emit_event',
-    'Ingest a structured telemetry event into the Planifest telemetry store.',
-    { event: z.unknown().describe('The telemetry event envelope. Must conform to schemas/telemetry-event.schema.json.') },
+    'Ingest a structured telemetry event into the Planifest telemetry store. Pass the full event envelope as the `envelope` argument — it must be a JSON object (not a string) with the fields shown in this tool\'s schema.',
+    { envelope: EmitEventEnvelope },
     createEmitEventHandler(repo),
   );
 

@@ -62,11 +62,11 @@ npm run doctor
 
 ### `emit_event`
 
-Ingests a validated telemetry event.
+Ingests a validated telemetry event. Pass the full event envelope as the **`envelope`** argument — it must be a JSON object (not a string). The tool's argument schema is a real object schema (not an opaque blob), so MCP-aware clients render the full field list to the calling model.
 
 ```json
 {
-  "event": {
+  "envelope": {
     "schema_version": "1.0",
     "event": "phase_end",
     "session_id": "uuid-here",
@@ -86,6 +86,8 @@ Ingests a validated telemetry event.
 ```
 
 Returns `{ ok: true, id: "..." }` on success, or `{ ok: false, errors: [...] }` on validation failure.
+
+> **Common mistake:** passing the envelope as a JSON string (`"envelope": "{...}"`) instead of a JSON object produces `errors: ["(root): Invalid input: expected object, received string"]` — pass a bare object, not a serialized string. See [docs/usage-guide.md](docs/usage-guide.md) for the full troubleshooting note.
 
 ### `query_telemetry`
 
@@ -120,7 +122,7 @@ All events share a common envelope. The `data` field is typed per event.
 | `model_config` | object | No | Tool-specific model attributes (see below) |
 | `data` | object | No | Typed payload (structure depends on `event`) |
 
-**`phase` values:** `orchestrator` `spec` `adr` `codegen` `validate` `security` `docs` `change`
+**`phase` values:** `orchestrator` `spec` `adr` `codegen` `validate` `security` `docs` `change` `ship`
 
 **`mcp_mode` values:** `none` `workspace` `context` `workspace+context`
 
@@ -240,6 +242,64 @@ Emitted when the agent self-corrects without external validation failure.
   "attempt_number": 1,
   "action_id": "implement-auth-middleware",
   "correction_type": "logic_error"
+}
+```
+
+> **Doc debt:** the 12 event types added between 0.2.0 and 0.3.0 (`phase_skip` through `schema_migration_applied`) aren't documented here yet — flagged for the docs-agent to backfill. The 4 types below (added in 0.10.0) are new with this release.
+
+#### `loop_iteration`
+
+Emitted after every RECORD step of a governed pipeline loop.
+
+```json
+{
+  "loop_id": "design_critic",
+  "iteration": 2,
+  "cap": 3,
+  "decision": "continue",
+  "toggle_level": "on"
+}
+```
+
+`loop_id`: `p0_completeness` `design_critic` `reversal_protocol` `verify_by_execution` `cross_model_review`. `decision`: `continue` `done` `escalate`. `toggle_level`: `report-only` `on`.
+
+#### `phase_reversal_petitioned`
+
+Emitted when a P3–P6 agent files a defect report petitioning for a scoped correction of an upstream artifact.
+
+```json
+{
+  "report": "001-schema-gap",
+  "filing_phase": "P4",
+  "binding_artifact": "plan/current/design.md"
+}
+```
+
+#### `phase_reversal_granted`
+
+Emitted when the reversal assessor grants a petitioned reversal.
+
+```json
+{
+  "report": "001-schema-gap",
+  "classification": "additive",
+  "cascade_size": 2,
+  "budget_remaining": 1
+}
+```
+
+`classification`: `additive` `altering`.
+
+#### `phase_reversal_denied`
+
+Emitted when the reversal assessor denies a petitioned reversal. Same shape as `phase_reversal_granted`.
+
+```json
+{
+  "report": "001-schema-gap",
+  "classification": "altering",
+  "cascade_size": 5,
+  "budget_remaining": 0
 }
 ```
 
@@ -383,6 +443,45 @@ All context pressure and MCP impact events for a specific session.
 ### Manual
 
 `setup.ps1 -Tool manual` prints the JSON block to add to any `mcpServers` config yourself.
+
+---
+
+## Background Service
+
+The telemetry backend (`server-http.bundle.mjs`) needs to run continuously for `emit_event`/`query_telemetry` to work. Running `npm start` in a foreground terminal works but doesn't survive logout/reboot. Each platform has a service option that does, all reachable through the same command surface:
+
+```
+npm run service:install     # install + start, auto-restart on crash
+npm run service:uninstall   # stop + remove
+npm run service:status      # check whether it's running and healthy
+npm run service:restart     # restart without reinstalling
+```
+
+`npm run service:*` detects your platform automatically (`scripts/service-manager.mjs`) and dispatches to the right script — you don't need to call the platform scripts directly.
+
+### Windows
+
+Uses `nssm` via `scripts/service.ps1`, registered as a Windows service named `structured-telemetry-mcp`.
+
+### macOS
+
+Uses a **user** LaunchAgent (`~/Library/LaunchAgents/com.planifest.telemetry-mcp.plist`), loaded via `launchctl bootstrap`/`enable` in the `gui/$(id -u)` domain — not a system-wide LaunchDaemon, so no root is required for the common case. Restarts automatically on crash (`KeepAlive.SuccessfulExit: false`), not on a clean `service:uninstall`/manual stop. Logs: `~/Library/Logs/planifest-telemetry-mcp.log` (and `.err.log`).
+
+**If install fails with a permissions error:** your `~/Library/LaunchAgents` directory may be locked by MDM/endpoint-security policy (seen on real machines — not a bug). The install script detects this, explains it, and prints the exact `sudo`-prefixed commands to run yourself — it never escalates privileges silently.
+
+### Linux
+
+Uses a **user** `systemd` service (`~/.config/systemd/user/planifest-telemetry-mcp.service`), never a system-wide unit — no root required. Restarts automatically on crash (`Restart=on-failure`), not on a clean stop. Logs are captured by `journalctl --user -u planifest-telemetry-mcp`.
+
+**Requires `systemd`.** If `systemctl` isn't found, install exits with a clear "not supported on this system" message rather than a raw command-not-found error.
+
+**Survives logout only if lingering is enabled.** By default, a user's `systemd --user` instance (and anything running under it) stops when their last session ends — meaning the service would go down on SSH disconnect. `service:install` and `service:status` check this (`loginctl show-user $USER --property=Linger`) and print a warning with the exact fix if it's off:
+
+```
+loginctl enable-linger $USER
+```
+
+This is never run automatically — it's a persistent, account-wide setting change, left to you to decide.
 
 ---
 

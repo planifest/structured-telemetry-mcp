@@ -1,9 +1,10 @@
-# GitHub Copilot - tool configuration
-# https://docs.github.com/en/copilot
+# GitHub Copilot - tool configuration (REQ-015)
+# https://docs.github.com/en/copilot/reference/hooks-configuration
 #
 # Skills:    .github/skills/{name}/SKILL.md       (auto-discovered)
-# Workflows: .github/copilot-workflows/{name}.md   (natural language workflows - avoids GitHub Actions conflict)
+# Workflows: .github/copilot-workflows/{name}.md
 # Boot file: .github/copilot-instructions.md
+# Hooks:     .github/hooks/planifest.json  (preToolUse + userPromptSubmitted)
 
 TOOL_SKILLS_DIR=".github/skills"
 TOOL_WORKFLOWS_DIR=".github/copilot-workflows"
@@ -12,6 +13,32 @@ TOOL_BOOT_FILE=".github/copilot-instructions.md"
 
 TOOL_BOOT_TEMPLATE="planifest-framework/templates/standard-boot.md"
 
-# context-mode MCP routing rules — installed when --context-mode-mcp is passed
-TOOL_AGENTS_FILE=".github/instructions/context-mode.md"
-TOOL_AGENTS_TEMPLATE="planifest-framework/templates/context-mode-agents.md"
+# Enforcement tier — native hooks (Tier 1, REQ-015)
+PLANIFEST_TIER=1
+TOOL_HOOK_ADAPTER_SRC="hooks/adapters/copilot.mjs"
+TOOL_HOOK_ADAPTER_DEST="planifest-framework/hooks/adapters/copilot.mjs"
+TOOL_HOOKS_INSTALL_DIR=".github/hooks"
+
+# Write .github/hooks/planifest.json (Copilot hook registration)
+_copilot_hooks_dir="$PROJECT_ROOT/.github/hooks"
+mkdir -p "$_copilot_hooks_dir"
+cat > "$_copilot_hooks_dir/planifest.json" << 'EOF'
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "type": "command",
+        "command": "node planifest-framework/hooks/adapters/copilot.mjs"
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "command": "node planifest-framework/hooks/adapters/copilot.mjs"
+      }
+    ]
+  }
+}
+EOF
+echo "  + .github/hooks/planifest.json (Copilot hook registration)"

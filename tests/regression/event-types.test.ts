@@ -44,6 +44,11 @@ describe('known event types — valid minimal payloads accepted', () => {
     ['performance_regression',  { metric: 'p95_latency_ms', threshold: 50, actual: 73.4, phase_name: 'validate' }],
     ['dependency_blocked',      { phase_name: 'codegen', dependency: 'human: approve migration', reason: 'destructive op requires consent' }],
     ['schema_migration_applied',{ component_id: 'auth-service', migration_path: 'migrations/0003.sql', destructive: false }],
+    // 0000010 — 4 new event types (req-011)
+    ['loop_iteration',            { loop_id: 'design_critic', iteration: 2, cap: 3, decision: 'continue', toggle_level: 'on' }],
+    ['phase_reversal_petitioned', { report: '001-schema-gap', filing_phase: 'P4', binding_artifact: 'plan/current/design.md' }],
+    ['phase_reversal_granted',    { report: '001-schema-gap', classification: 'additive', cascade_size: 2, budget_remaining: 1 }],
+    ['phase_reversal_denied',     { report: '001-schema-gap', classification: 'altering', cascade_size: 5, budget_remaining: 0 }],
   ];
 
   for (const [event, data] of cases) {

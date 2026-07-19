@@ -45,7 +45,11 @@
         "test_failure",
         "performance_regression",
         "dependency_blocked",
-        "schema_migration_applied"
+        "schema_migration_applied",
+        "loop_iteration",
+        "phase_reversal_petitioned",
+        "phase_reversal_granted",
+        "phase_reversal_denied"
       ],
       "description": "Event type discriminator."
     },
@@ -126,7 +130,11 @@
         { "$ref": "#/$defs/TestFailureData" },
         { "$ref": "#/$defs/PerformanceRegressionData" },
         { "$ref": "#/$defs/DependencyBlockedData" },
-        { "$ref": "#/$defs/SchemaMigrationAppliedData" }
+        { "$ref": "#/$defs/SchemaMigrationAppliedData" },
+        { "$ref": "#/$defs/LoopIterationData" },
+        { "$ref": "#/$defs/PhaseReversalPetitionedData" },
+        { "$ref": "#/$defs/PhaseReversalGrantedData" },
+        { "$ref": "#/$defs/PhaseReversalDeniedData" }
       ]
     }
   },
@@ -338,6 +346,50 @@
         "component_id": { "type": "string", "minLength": 1 },
         "migration_path": { "type": "string", "minLength": 1 },
         "destructive": { "type": "boolean" }
+      }
+    },
+    "LoopIterationData": {
+      "type": "object",
+      "required": ["loop_id", "iteration", "cap", "decision", "toggle_level"],
+      "additionalProperties": false,
+      "properties": {
+        "loop_id": { "type": "string", "enum": ["p0_completeness", "design_critic", "reversal_protocol", "verify_by_execution", "cross_model_review"] },
+        "iteration": { "type": "integer", "minimum": 1 },
+        "cap": { "type": "integer", "minimum": 1 },
+        "decision": { "type": "string", "enum": ["continue", "done", "escalate"] },
+        "toggle_level": { "type": "string", "enum": ["report-only", "on"] }
+      }
+    },
+    "PhaseReversalPetitionedData": {
+      "type": "object",
+      "required": ["report", "filing_phase", "binding_artifact"],
+      "additionalProperties": false,
+      "properties": {
+        "report": { "type": "string", "minLength": 1 },
+        "filing_phase": { "type": "string", "minLength": 1 },
+        "binding_artifact": { "type": "string", "minLength": 1 }
+      }
+    },
+    "PhaseReversalGrantedData": {
+      "type": "object",
+      "required": ["report", "classification", "cascade_size", "budget_remaining"],
+      "additionalProperties": false,
+      "properties": {
+        "report": { "type": "string", "minLength": 1 },
+        "classification": { "type": "string", "enum": ["additive", "altering"] },
+        "cascade_size": { "type": "integer", "minimum": 0 },
+        "budget_remaining": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "PhaseReversalDeniedData": {
+      "type": "object",
+      "required": ["report", "classification", "cascade_size", "budget_remaining"],
+      "additionalProperties": false,
+      "properties": {
+        "report": { "type": "string", "minLength": 1 },
+        "classification": { "type": "string", "enum": ["additive", "altering"] },
+        "cascade_size": { "type": "integer", "minimum": 0 },
+        "budget_remaining": { "type": "integer", "minimum": 0 }
       }
     }
   }

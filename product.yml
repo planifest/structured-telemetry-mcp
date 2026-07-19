@@ -1,0 +1,22 @@
+# product.yml — product-level version manifest (ADR-002, feature 0000016)
+#
+# Single-component project today (structured-telemetry-mcp). Created ahead of
+# the framework's own "2+ components" threshold at explicit human request, so
+# version tracking is manifest-driven from this feature onward rather than
+# package.json (which had drifted to a stale 0.1.0 — see plan/current/build-log.md).
+
+id: "planifest-telemetry-mcp"
+name: "Planifest Structured Telemetry MCP"
+version: "0.10.0"                   # current shipped version
+feature: "0000010-macos-launchd-service"  # feature that last set this version
+
+# How `version` is derived at P9:
+#   max-component-version — version = the highest version among components[] (default)
+#   explicit              — the human sets `version` directly; ship-agent validates only
+#   external               — an external anchor dictates the version; see
+#                           planifest-overrides/instructions/external-versioning.md
+versionPolicy: "max-component-version"
+
+components:
+  - id: "structured-telemetry-mcp"
+    version: "0.10.0"

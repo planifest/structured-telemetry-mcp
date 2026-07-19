@@ -1,24 +1,15 @@
-﻿---
+---
 name: planifest-spec-agent
 description: Produces requirements artifacts (execution plan, OpenAPI spec (if applicable), scope, risk register, domain glossary) for a feature. Invoked by the orchestrator during the Requirements step.
 bundle_templates: [component.template.yml, component-guide.md, data-contract.template.md, data-contract-guide.md, requirement.template.md, execution-plan.template.md, scope.template.md, risk-register.template.md, domain-glossary.template.md]
-bundle_standards: []
+bundle_standards: [formatting-standards.md, telemetry-standards.md]
+hooks:
+  phase: spec
 ---
 
 # Planifest - spec-agent
 
 > You produce the requirements artifacts for a feature. You work from a confirmed design and Feature Brief. You do not invent requirements - you derive them.
-
----
-
-## Hard Limits
-
-1. Requirements set must be complete before code generation begins.
-2. No direct schema modification - write a migration proposal and stop.
-3. Destructive schema operations require human approval - no exceptions.
-4. Data is owned by one component - never write to data owned by another.
-5. Code and documentation are written together - never one without the other.
-6. Credentials are never in your context.
 
 ---
 
@@ -51,6 +42,8 @@ Write each spec artifact to `plan/` as you complete it. Write the component mani
 ---
 
 ## Rules
+
+**One question at a time.** When you need human input — to resolve an ambiguity, confirm a gap, or clarify a requirement — ask one question, wait for the answer, then continue. Lead with a recommendation where you can derive one. Never present a list of questions.
 
 **Functional requirements:**
 - Derive directly from user stories in the brief. Do not invent requirements not stated or implied.
@@ -93,15 +86,15 @@ Write each spec artifact to `plan/` as you complete it. Write the component mani
 
 ---
 
-## Phased Features
+## Waved Features
 
-When the confirmed design indicates a phased feature (features grouped into phases):
+When the confirmed design indicates a waved feature (features grouped into waves — the decomposition grouping formerly called "phases", renamed to avoid collision with the P0–P9 pipeline phases):
 
-- **Produce spec artifacts for the current phase only.** Do not spec features in later phases - they may change based on what Phase 1 reveals.
-- **Name phase-specific artifacts with the phase suffix:** `execution-plan-phase-2.md`, `scope-phase-2.md`, etc. The confirmed design itself is updated per phase, not duplicated.
-- **Reference prior phase artifacts.** Phase 2's design requirements should reference Phase 1's component manifests and data contracts as existing context, not re-specify them.
-- **Carry forward the domain glossary.** The glossary is cumulative - add new terms from each phase, never remove terms from prior phases.
-- **Carry forward the risk register.** Prior phase risks remain unless explicitly mitigated. Add new risks from the current phase.
+- **Produce spec artifacts for the current wave only.** Do not spec features in later waves - they may change based on what Wave 1 reveals.
+- **Name wave-specific artifacts with the wave suffix:** `execution-plan-wave-2.md`, `scope-wave-2.md`, etc. The confirmed design itself is updated per wave, not duplicated.
+- **Reference prior wave artifacts.** Wave 2's design requirements should reference Wave 1's component manifests and data contracts as existing context, not re-specify them.
+- **Carry forward the domain glossary.** The glossary is cumulative - add new terms from each wave, never remove terms from prior waves.
+- **Carry forward the risk register.** Prior wave risks remain unless explicitly mitigated. Add new risks from the current wave.
 
 ---
 
@@ -109,9 +102,35 @@ When the confirmed design indicates a phased feature (features grouped into phas
 
 When the confirmed design indicates `adoption_mode: retrofit`, read the existing codebase before producing artifacts. Infer the existing architecture, identify components, surface undocumented decisions. Reconcile the Feature Brief against the discovered reality. The execution plan must describe the system as it exists and what is changing - not just the change in isolation.
 
-> **Context-Mode Protocol:** When `ctx_batch_execute` is available, use it for codebase discovery — pass shell commands (find, grep, ls) in `commands` and your architectural questions in `queries`. Use `ctx_execute_file` to analyze individual files without flooding context. Only summaries enter context.
+---
+
+## Parallelism Directive
+
+Independent spec artifacts MUST be written in parallel. Apply the dependency test: "Can I start writing artifact B before artifact A is complete?" If yes, dispatch in parallel.
+
+| MUST parallelise | Cannot parallelise |
+|------------------|--------------------|
+| Requirement files for independent features | Requirements that reference each other |
+| Scope, Risk Register, and Domain Glossary (all independent) | Execution Plan summary before requirements are drafted |
+| Multiple component manifest drafts | Data contract before data ownership is confirmed |
+
+**In practice:** Write all independent requirement files in a single pass. Write scope, risk register, and glossary together in a single parallel batch.
 
 ---
 
-*This skill is invoked by the orchestrator. See [Orchestrator Skill](../planifest-orchestrator/SKILL.md)*
+## Telemetry
 
+See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership.
+
+**Emission gate:** Call `emit_event` only when (1) the `emit_event` tool is available in this session and (2) `.claude/telemetry-enabled` exists in the project root. If either condition fails, skip silently — do not emit.
+
+**`spec_gap`** — when the spec cannot proceed without human input:
+```json
+{ "question": "<blocking question>", "phase_name": "spec" }
+```
+
+---
+
+## Commit Cadence (Hard Limit 7)
+
+Commit after every meaningful artifact write — each requirement doc, ADR, completed TDD cycle, fix batch, or report — not batched to the phase gate. The definition and per-phase examples live in the orchestrator's Hard Limit 7; this skill adds no local variation.

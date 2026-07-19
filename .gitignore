@@ -14,6 +14,9 @@ build/
 # Service logs
 logs/
 
+# OS cruft
+.DS_Store
+
 # Agent tool config (local to each developer)
 .claude/
 .cursor/

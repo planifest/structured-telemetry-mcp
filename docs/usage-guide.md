@@ -75,12 +75,12 @@ Once registered with your agent tool, two MCP tools are available.
 
 ### Tool: `emit_event`
 
-Ingests a structured telemetry event.
+Ingests a structured telemetry event. The argument is `envelope` (renamed from `event` in 0.10.0 to avoid colliding with the envelope's own `event` discriminator field) and must be a JSON object, not a string.
 
 **Input schema:**
 ```json
 {
-  "event": { /* TelemetryEvent envelope — see Section 5 */ }
+  "envelope": { /* TelemetryEvent envelope — see Section 5 */ }
 }
 ```
 
@@ -96,7 +96,7 @@ or on validation failure:
 **Example — emit a phase_start:**
 ```json
 {
-  "event": {
+  "envelope": {
     "schema_version": "1.0",
     "event": "phase_start",
     "session_id": "session-abc-123",
@@ -110,6 +110,12 @@ or on validation failure:
   }
 }
 ```
+
+#### Troubleshooting: `"(root): must be object"` / `"expected object, received string"`
+
+If `emit_event` rejects a call with an error like `(root): must be object` (pre-0.10.0) or `expected object, received string` (0.10.0+), the calling model passed the envelope as a **JSON string** instead of a bare object — a common tool-calling failure mode against an under-specified argument schema (root-caused as R-009). Fix: pass `envelope` as an actual JSON object, not `JSON.stringify()`'d text. As of 0.10.0, the tool's argument schema is a real object schema with full `properties`, which should guide correctly-behaving MCP clients to construct the right shape; if you still hit this, check whether your client is manually serializing tool arguments before sending them.
+
+A related but distinct error — `(root): must have required property 'schema_version'` or similar — means the envelope was double-wrapped (e.g. `{ envelope: { event: {...} } }`). Un-nest it: the envelope's own fields (`schema_version`, `event`, `session_id`, ...) go directly under `envelope`, not under a second `event` key.
 
 ---
 
@@ -515,6 +521,62 @@ A database schema migration was applied.
 | `component_id` | string | yes |
 | `migration_path` | string | yes |
 | `destructive` | boolean | yes |
+
+---
+
+### `loop_iteration` _(added 0.10.0)_
+Emitted after every RECORD step of a governed pipeline loop.
+```json
+{ "data": { "loop_id": "design_critic", "iteration": 2, "cap": 3, "decision": "continue", "toggle_level": "on" } }
+```
+| Field | Type | Required |
+|---|---|---|
+| `loop_id` | enum: `p0_completeness` \| `design_critic` \| `reversal_protocol` \| `verify_by_execution` \| `cross_model_review` | yes |
+| `iteration` | integer | yes |
+| `cap` | integer | yes |
+| `decision` | enum: `continue` \| `done` \| `escalate` | yes |
+| `toggle_level` | enum: `report-only` \| `on` | yes |
+
+---
+
+### `phase_reversal_petitioned` _(added 0.10.0)_
+A P3–P6 agent files a defect report petitioning for a scoped correction of an upstream artifact.
+```json
+{ "data": { "report": "001-schema-gap", "filing_phase": "P4", "binding_artifact": "plan/current/design.md" } }
+```
+| Field | Type | Required |
+|---|---|---|
+| `report` | string | yes |
+| `filing_phase` | string | yes |
+| `binding_artifact` | string | yes |
+
+---
+
+### `phase_reversal_granted` _(added 0.10.0)_
+The reversal assessor grants a petitioned reversal.
+```json
+{ "data": { "report": "001-schema-gap", "classification": "additive", "cascade_size": 2, "budget_remaining": 1 } }
+```
+| Field | Type | Required |
+|---|---|---|
+| `report` | string | yes |
+| `classification` | enum: `additive` \| `altering` | yes |
+| `cascade_size` | integer | yes |
+| `budget_remaining` | integer | yes |
+
+---
+
+### `phase_reversal_denied` _(added 0.10.0)_
+The reversal assessor denies a petitioned reversal. Same shape as `phase_reversal_granted`.
+```json
+{ "data": { "report": "001-schema-gap", "classification": "altering", "cascade_size": 5, "budget_remaining": 0 } }
+```
+| Field | Type | Required |
+|---|---|---|
+| `report` | string | yes |
+| `classification` | enum: `additive` \| `altering` | yes |
+| `cascade_size` | integer | yes |
+| `budget_remaining` | integer | yes |
 
 ---
 

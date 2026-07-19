@@ -1,24 +1,13 @@
-﻿---
+---
 name: planifest-change-agent
-description: Handles modifications to existing features - loads domain context, implements the minimum change, validates, and updates documentation.
+description: Handles targeted modifications to existing features — loads domain context, implements the minimum change, validates, and updates documentation. Invoked via the Change Pipeline route.
 bundle_templates: [component.template.yml, change-summary.template.md]
-bundle_standards: [code-quality-standards.md]
+bundle_standards: [code-quality-standards.md, telemetry-standards.md]
 ---
 
 # Planifest - change-agent
 
 > You make targeted changes to existing features. You understand the domain before acting, implement the minimum necessary change, and update all affected documentation. You do not refactor beyond scope.
-
----
-
-## Hard Limits
-
-1. Requirements must be complete before code generation begins.
-2. No direct schema modification - write a migration proposal and stop.
-3. Destructive schema operations require human approval - no exceptions.
-4. Data is owned by one component - never write to data owned by another.
-5. Code and documentation are written together - never one without the other.
-6. Credentials are never in your context.
 
 ---
 
@@ -58,7 +47,7 @@ Do not exhaust token limits by loading all files. Read top-down selectively:
    - **Shared type consumer** - imports types from the affected component's shared package
 3. Determine impact level per dependent component:
    - **Direct** - the change modifies an interface, schema, or type that this component uses
-   - **Indirect** - the change modifies internal behavior but the interface is unchanged
+   - **Indirect** - the change modifies internal behaviour but the interface is unchanged
    - **None** - no coupling to the changed surface area
 4. Only components with **Direct** impact require contract test updates and consumer notification
 5. Record the full blast radius in the Change Summary (Phase 2 output header)
@@ -68,6 +57,7 @@ Do not exhaust token limits by loading all files. Read top-down selectively:
 Implement the minimum necessary change.
 
 **Rules:**
+- **One question at a time.** When you need human input — to resolve an ambiguity, confirm a migration proposal, or clarify scope — ask one question, wait for the answer, then continue. Lead with a recommendation where you can derive one. Never present a list of questions.
 - Do not refactor code outside the scope of the change request. Scope creep is a process violation.
 - If the change request is ambiguous, implement the narrowest interpretation and document your reasoning.
 - If you discover tech debt or quirks while working, write them to `src/{component-id}/docs/quirks.md` or `src/{component-id}/docs/tech-debt.md` - do not fix them as part of this change.
@@ -158,5 +148,28 @@ If a relevant capability skill exists for the technology being modified (e.g. `f
 
 ---
 
-*This skill is invoked by the orchestrator for change requests. See [Orchestrator Skill](../planifest-orchestrator/SKILL.md)*
+## Telemetry
 
+See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership.
+
+**Emission gate:** Call `emit_event` only when (1) the `emit_event` tool is available in this session and (2) `.claude/telemetry-enabled` exists in the project root. If either condition fails, skip silently — do not emit.
+
+**`deviation`** — when implementation diverges from the confirmed design:
+```json
+{ "component_id": "<component>", "description": "<what changed and why>", "severity": "low" | "medium" | "high" }
+```
+
+**`migration_proposal`** — before writing a migration proposal file:
+```json
+{ "component_id": "<component>", "proposal_path": "src/<id>/docs/migrations/proposed-<desc>.md", "destructive": true | false }
+```
+
+**`self_correction`** — when retrying a failed action:
+```json
+{ "phase_name": "change", "attempt_number": <n>, "action_id": "<action>", "correction_type": "<type>" }
+```
+
+**`retry_limit_exceeded`** — when the 5-attempt escalation ceiling is hit:
+```json
+{ "phase_name": "change", "action_id": "<action>", "attempt_count": 5 }
+```

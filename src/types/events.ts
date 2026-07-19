@@ -24,7 +24,11 @@ export type EventType =
   | 'test_failure'
   | 'performance_regression'
   | 'dependency_blocked'
-  | 'schema_migration_applied';
+  | 'schema_migration_applied'
+  | 'loop_iteration'
+  | 'phase_reversal_petitioned'
+  | 'phase_reversal_granted'
+  | 'phase_reversal_denied';
 
 export type Phase =
   | 'orchestrator'
@@ -166,6 +170,34 @@ export interface SchemaMigrationAppliedData {
   readonly destructive: boolean;
 }
 
+export interface LoopIterationData {
+  readonly loop_id: 'p0_completeness' | 'design_critic' | 'reversal_protocol' | 'verify_by_execution' | 'cross_model_review';
+  readonly iteration: number;
+  readonly cap: number;
+  readonly decision: 'continue' | 'done' | 'escalate';
+  readonly toggle_level: 'report-only' | 'on';
+}
+
+export interface PhaseReversalPetitionedData {
+  readonly report: string;
+  readonly filing_phase: string;
+  readonly binding_artifact: string;
+}
+
+export interface PhaseReversalGrantedData {
+  readonly report: string;
+  readonly classification: 'additive' | 'altering';
+  readonly cascade_size: number;
+  readonly budget_remaining: number;
+}
+
+export interface PhaseReversalDeniedData {
+  readonly report: string;
+  readonly classification: 'additive' | 'altering';
+  readonly cascade_size: number;
+  readonly budget_remaining: number;
+}
+
 export type EventData =
   | PhaseStartData
   | PhaseEndData
@@ -187,7 +219,11 @@ export type EventData =
   | TestFailureData
   | PerformanceRegressionData
   | DependencyBlockedData
-  | SchemaMigrationAppliedData;
+  | SchemaMigrationAppliedData
+  | LoopIterationData
+  | PhaseReversalPetitionedData
+  | PhaseReversalGrantedData
+  | PhaseReversalDeniedData;
 
 // ── Common envelope ───────────────────────────────────────────────────────────
 

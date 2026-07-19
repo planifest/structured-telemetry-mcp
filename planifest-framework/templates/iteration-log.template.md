@@ -6,6 +6,8 @@ version: "0.1.0"
 ---
 # Iteration Log - {{feature-id}}
 
+> **Audience:** Build-assessment-agent (P8) and post-run technical review. This is the machine-readable execution trace — it records *how* the pipeline ran. It is NOT the PR changelog. The PR changelog (written by ship-agent Step 1) is the human-readable audit trail for PR reviewers.
+
 **Skill:** [docs-agent](../skills/planifest-docs-agent/SKILL.md) (or whichever agent completes the final iteration step)
 **Date:** {{ISO-8601}}
 **Tool:** {{agentic-tool-name}} (local)
