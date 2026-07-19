@@ -5,6 +5,7 @@ import {
   createEmitEventHandler,
   createQueryTelemetryHandler,
   EmitEventEnvelope,
+  QueryShape,
 } from '../../src/server-factory.js';
 import type { IEventRepository } from '../../src/db/repository.js';
 import type { IQueryService, QueryResponse } from '../../src/query/query-service.js';
@@ -238,6 +239,31 @@ describe('req-009 — EmitEventEnvelope exposes a real object schema', () => {
   });
 });
 
+// ── req-0000011-01: QueryShape tool-argument schema ───────────────────────────
+
+describe('req-0000011-01 — QueryShape exposes a real object schema for query_telemetry', () => {
+  it('produces type: "object" with properties for every known query field (regression guard against z.unknown())', () => {
+    const jsonSchema = z.toJSONSchema(QueryShape) as { type?: string; properties?: Record<string, unknown> };
+    expect(jsonSchema.type).toBe('object');
+    expect(jsonSchema.properties).toBeDefined();
+    const props = Object.keys(jsonSchema.properties ?? {});
+    for (const field of ['group_by', 'mode', 'session_id', 'initiative_id', 'event_type', 'limit', 'loop_threshold']) {
+      expect(props).toContain(field);
+    }
+  });
+
+  it('rejects a non-object root value (string, null, array) — the R-009-class failure mode', () => {
+    for (const badShape of ['not-an-object', null, [1, 2]]) {
+      expect(QueryShape.safeParse(badShape).success).toBe(false);
+    }
+  });
+
+  it('accepts an object with additional unrecognised keys (passthrough)', () => {
+    const result = QueryShape.safeParse({ group_by: 'phase', some_future_field: 'x' });
+    expect(result.success).toBe(true);
+  });
+});
+
 // ── createQueryTelemetryHandler ───────────────────────────────────────────────
 
 describe('createQueryTelemetryHandler', () => {
@@ -279,6 +305,38 @@ describe('createQueryTelemetryHandler', () => {
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(true);
     expect(repo.write).toHaveBeenCalledOnce();
+  });
+
+  // req-0000011-01: QueryShape tool-argument schema (same bug class as R-009/ADR-013)
+  it('rejects a stringified query — same R-009-class bug, now fixed for query_telemetry (req-0000011-01)', async () => {
+    const qs = mockQueryService();
+    const handler = createQueryTelemetryHandler(qs);
+    const result = await handler({ query: JSON.stringify({ group_by: 'phase' }) as unknown });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.errors[0]).not.toContain('Unrecognised query shape');
+    expect(qs.bottlenecks).not.toHaveBeenCalled();
+  });
+
+  it('rejects undefined/null/array query shapes with a specific error, not dispatchQuery\'s generic one (req-0000011-01)', async () => {
+    const qs = mockQueryService();
+    const handler = createQueryTelemetryHandler(qs);
+    for (const badShape of [undefined, null, [{ group_by: 'phase' }]]) {
+      const result = await handler({ query: badShape as unknown });
+      const parsed = JSON.parse(result.content[0].text);
+      expect(parsed.ok).toBe(false);
+      expect(parsed.errors[0]).not.toContain('Unrecognised query shape');
+    }
+  });
+
+  it('still accepts an object with unrecognised keys (passthrough — dispatchQuery remains the semantic validator) (req-0000011-01)', async () => {
+    const qs = mockQueryService();
+    const handler = createQueryTelemetryHandler(qs);
+    const result = await handler({ query: { completely_unknown: true } });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.errors[0]).toContain('query error');
+    expect(parsed.errors[0]).toContain('Unrecognised query shape');
   });
 
   it('rejects context_reset missing reason — does not call repo.write (REQ-022)', async () => {
