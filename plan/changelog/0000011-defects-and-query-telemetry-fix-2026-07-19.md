@@ -2,7 +2,7 @@
 
 **Feature:** Defects and query_telemetry Fix
 **Pipeline run:** Change Pipeline (precedent: `0000009-ship-phase-enum`) — Phase 1 Domain Context → Phase 2 Targeted Change → Phase 3 Validate → Phase 4 ADR Check → Phase 5 Documentation
-**PR:** pending — updated after PR is raised
+**PR:** https://github.com/planifest/structured-telemetry-mcp/pull/6
 
 ## What Was Built
 
