@@ -110,7 +110,6 @@ scope:
 risk:
   level: "low"
   items:
-    - "express missing from package.json dependencies — build fails if not present (R-005)"
     - "initiative_id nullable — COALESCE required in group_by to avoid null group keys (R-002)"
     - "event_log dispatch order — must precede existing checks in dispatchQuery (R-003)"
     - "AJV recompilation — schema additions only active after daemon restart (R-004)"
