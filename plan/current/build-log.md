@@ -79,6 +79,20 @@ Scope decision — bundling: `plan/current/emit-event-rca-and-fix-spec.md` (a se
 
 ---
 
+### P6 — Docs
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-07-19T00:30:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-docs-agent |
+| Agents spawned | 0 |
+| MCP calls | 0 |
+| Parallel task batches | 0 |
+| Notes | Continuous run — no P5 gate stop (Low risk, 0 findings). |
+
+---
+
 ### P5 — Security
 
 | Field | Value |
@@ -89,7 +103,7 @@ Scope decision — bundling: `plan/current/emit-event-rca-and-fix-spec.md` (a se
 | Agents spawned | 0 |
 | MCP calls | 0 |
 | Parallel task batches | 0 |
-| Notes | Continuous run — no P4 gate stop (zero self-corrections). |
+| Notes | Continuous run — no P4 gate stop (zero self-corrections). Overall risk: Low, 0 critical/high/medium findings — all STRIDE items either mitigated (confirmed by code inspection + tests) or low-severity/self-inflicted-only. R-002 (Linux untested on real hardware) remains the top open item — operational, not a security defect. |
 
 ---
 
