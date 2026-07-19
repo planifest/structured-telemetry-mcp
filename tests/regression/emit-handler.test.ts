@@ -110,46 +110,68 @@ describe('req-010 — malformed envelope shapes rejected with a clear error', ()
     expect(parsed.ok).toBe(true);
   });
 
-  it('case B: stringified envelope — rejected with a clear error, not ajv\'s opaque message', async () => {
+  it('case B: stringified envelope — rejected with a clear, specific error, not ajv\'s opaque "(root): must be object"', async () => {
     const repo = mockRepository();
     const handler = createEmitEventHandler(repo);
     const result = await handler({ envelope: JSON.stringify(VALID_EVENT) as unknown });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
     expect(repo.write).not.toHaveBeenCalled();
+    expect(parsed.errors[0]).not.toBe('(root): must be object');
+    expect(parsed.errors[0]).toMatch(/expected object.*received string/i);
   });
 
-  it('case C: undefined — rejected', async () => {
+  it('case C: undefined — rejected with a specific error', async () => {
     const repo = mockRepository();
     const handler = createEmitEventHandler(repo);
     const result = await handler({ envelope: undefined });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
     expect(repo.write).not.toHaveBeenCalled();
+    expect(parsed.errors[0]).not.toBe('(root): must be object');
   });
 
-  it('case D: double-wrapped { event: envelope } — rejected with a distinct shape-mismatch error', async () => {
+  it('case D: double-wrapped { event: envelope } — rejected with an error distinct from cases B/C/E/F', async () => {
     const repo = mockRepository();
     const handler = createEmitEventHandler(repo);
     const result = await handler({ envelope: { event: VALID_EVENT } as unknown });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
     expect(repo.write).not.toHaveBeenCalled();
+    // Distinct from the "expected object, received string" class of error (B/C/E/F) —
+    // this is a shape mismatch on a real object (wrong nesting), not a wrong root type.
+    expect(parsed.errors.some((e: string) => !e.match(/expected object.*received string/i))).toBe(true);
   });
 
-  it('case E: null — rejected', async () => {
+  it('case E: null — rejected with a specific error', async () => {
     const repo = mockRepository();
     const handler = createEmitEventHandler(repo);
     const result = await handler({ envelope: null });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
     expect(repo.write).not.toHaveBeenCalled();
+    expect(parsed.errors[0]).not.toBe('(root): must be object');
   });
 
-  it('case F: array-wrapped — rejected', async () => {
+  it('case F: array-wrapped — rejected with a specific error', async () => {
     const repo = mockRepository();
     const handler = createEmitEventHandler(repo);
     const result = await handler({ envelope: [VALID_EVENT] as unknown });
+    const parsed = JSON.parse(result.content[0].text);
+    expect(parsed.ok).toBe(false);
+    expect(repo.write).not.toHaveBeenCalled();
+    expect(parsed.errors[0]).not.toBe('(root): must be object');
+  });
+});
+
+// ── req-012: old `{ event: ... }` top-level argument shape no longer valid ────
+
+describe('req-012 — old { event: ... } tool argument shape is rejected', () => {
+  it('rejects the pre-0.10.0 { event: envelope } call shape (envelope is now required)', async () => {
+    const repo = mockRepository();
+    const handler = createEmitEventHandler(repo);
+    // Simulates a caller still using the old argument name — envelope is absent.
+    const result = await handler({ event: VALID_EVENT } as unknown as { envelope: unknown });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
     expect(repo.write).not.toHaveBeenCalled();
