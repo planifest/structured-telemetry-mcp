@@ -3,7 +3,7 @@
 > Living document. Index of every component in this repository. Updated after every pipeline run.
 > Do not archive this file — update it in place.
 
-Last updated: 0000010-macos-launchd-service
+Last updated: 0000011-defects-and-query-telemetry-fix
 
 ---
 

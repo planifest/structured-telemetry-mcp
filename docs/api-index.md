@@ -3,7 +3,7 @@
 > Living document. Index of all public API endpoints across all components.
 > Updated after every pipeline run — do not archive.
 
-Last updated: 0000010-macos-launchd-service
+Last updated: 0000011-defects-and-query-telemetry-fix
 
 ---
 
@@ -14,7 +14,7 @@ The primary interface. Registered by `src/server-factory.ts`'s `createServer()`.
 | Tool | Argument | Component | Description | Auth |
 |------|----------|-----------|-------------|------|
 | `emit_event` | `envelope` (object, `EmitEventEnvelope` Zod schema — renamed from `event` in 0.10.0, ADR-013) | structured-telemetry-mcp | Ingests a validated telemetry event envelope; returns `{ ok, id }` or `{ ok: false, errors }` | none — bound to `127.0.0.1`, no auth model (ADR-005 trust boundary) |
-| `query_telemetry` | `query` (object) | structured-telemetry-mcp | Runs a structured query (bottlenecks, failures, token efficiency, event_log); returns Markdown + JSON + raw sample | none |
+| `query_telemetry` | `query` (object, permissive `QueryShape` Zod schema — real object schema as of 0.10.1, ADR-015, was `z.unknown()`) | structured-telemetry-mcp | Runs a structured query (bottlenecks, failures, token efficiency, event_log); returns Markdown + JSON + raw sample | none |
 
 ## HTTP REST Endpoints (local backend only, `127.0.0.1:3741`)
 
