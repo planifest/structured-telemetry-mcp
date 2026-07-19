@@ -446,6 +446,45 @@ All context pressure and MCP impact events for a specific session.
 
 ---
 
+## Background Service
+
+The telemetry backend (`server-http.bundle.mjs`) needs to run continuously for `emit_event`/`query_telemetry` to work. Running `npm start` in a foreground terminal works but doesn't survive logout/reboot. Each platform has a service option that does, all reachable through the same command surface:
+
+```
+npm run service:install     # install + start, auto-restart on crash
+npm run service:uninstall   # stop + remove
+npm run service:status      # check whether it's running and healthy
+npm run service:restart     # restart without reinstalling
+```
+
+`npm run service:*` detects your platform automatically (`scripts/service-manager.mjs`) and dispatches to the right script — you don't need to call the platform scripts directly.
+
+### Windows
+
+Uses `nssm` via `scripts/service.ps1`, registered as a Windows service named `structured-telemetry-mcp`.
+
+### macOS
+
+Uses a **user** LaunchAgent (`~/Library/LaunchAgents/com.planifest.telemetry-mcp.plist`), loaded via `launchctl bootstrap`/`enable` in the `gui/$(id -u)` domain — not a system-wide LaunchDaemon, so no root is required for the common case. Restarts automatically on crash (`KeepAlive.SuccessfulExit: false`), not on a clean `service:uninstall`/manual stop. Logs: `~/Library/Logs/planifest-telemetry-mcp.log` (and `.err.log`).
+
+**If install fails with a permissions error:** your `~/Library/LaunchAgents` directory may be locked by MDM/endpoint-security policy (seen on real machines — not a bug). The install script detects this, explains it, and prints the exact `sudo`-prefixed commands to run yourself — it never escalates privileges silently.
+
+### Linux
+
+Uses a **user** `systemd` service (`~/.config/systemd/user/planifest-telemetry-mcp.service`), never a system-wide unit — no root required. Restarts automatically on crash (`Restart=on-failure`), not on a clean stop. Logs are captured by `journalctl --user -u planifest-telemetry-mcp`.
+
+**Requires `systemd`.** If `systemctl` isn't found, install exits with a clear "not supported on this system" message rather than a raw command-not-found error.
+
+**Survives logout only if lingering is enabled.** By default, a user's `systemd --user` instance (and anything running under it) stops when their last session ends — meaning the service would go down on SSH disconnect. `service:install` and `service:status` check this (`loginctl show-user $USER --property=Linger`) and print a warning with the exact fix if it's off:
+
+```
+loginctl enable-linger $USER
+```
+
+This is never run automatically — it's a persistent, account-wide setting change, left to you to decide.
+
+---
+
 ## Development
 
 ### Prerequisites

@@ -123,13 +123,14 @@ risk:
 
 quality:
   testCoverage:
-    unit: 98   # 258 total tests across 13 files as of 0.3.0 (unit + integration + regression)
-    integration: 54
+    unit: 122   # 317 total tests across 14 files as of 0.10.0 (122 unit + 60 integration + 134 regression + 1 performance)
+    integration: 60
     e2e: 0
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
     - "data.anyOf in telemetry-event.schema.json is not discriminated by event type — addressed by cross-field validation in src/validation/validate-event.ts (EVENT_REQUIRED_DATA_FIELDS map). Changed from oneOf to anyOf in 0.3.0 when ContextResetData and PhaseSkipData became structurally identical; anyOf is correct since cross-field validation handles semantic discrimination. Future improvement: if/then/else or unevaluatedProperties in JSON Schema."
+    - "See src/structured-telemetry-mcp/docs/tech-debt.md — README.md and data-contract.md event-payload docs are missing backfill for the 12 event types added in 0000009 (pre-existing gap, surfaced but not fixed in 0000010; flagged for P6 docs-agent)."
   quirks:
     - "@duckdb/node-api named params require prepare().bind({name}).runAndReadAll() — positional ? binding is unsupported in this version."
     - "DuckDB does not support PRAGMA wal_mode — WAL is managed internally, pragma removed from schema init."
@@ -137,6 +138,7 @@ quality:
     - "Vitest 4 (Rolldown) does not transform .cts files — .cts adapters cannot be used for CJS interop in this project."
     - "TypeScript 6 no longer implicitly includes Node.js types — requires explicit types: [node] in tsconfig.json."
     - "sampleEvents helpers in failures.ts and token-efficiency.ts accept a WHERE clause string — callers must always use named params ($param) rather than string interpolation for any user-supplied values."
+    - "See src/structured-telemetry-mcp/docs/quirks.md — macOS/Linux service scripts use manual verification (no shell-script TDD harness in this repo); service-linux.sh is untested against real systemd hardware (risk-register R-002)."
 
 pipeline:
   templateVersion: "1.0.0"
