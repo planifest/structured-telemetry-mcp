@@ -3,7 +3,7 @@
 > Living document. Reflects current system state. Updated after every pipeline run.
 > Do not archive this file — update it in place.
 
-Last updated: 0000010-macos-launchd-service
+Last updated: 0000011-defects-and-query-telemetry-fix
 
 ---
 
@@ -64,6 +64,7 @@ Reference `docs/decisions-index.md` for the full list.
 - **ADR-009:** stdio proxy + persistent HTTP backend — the architecture 0000010's service scripts supervise.
 - **ADR-013:** `emit_event`'s MCP tool *argument* now uses a real Zod object schema (distinct from ADR-005's wire-schema decision) — gives calling models a structural scaffold instead of an opaque `z.unknown()`.
 - **ADR-014:** Background service supervision is always user-scoped (never a root daemon), and never silently escalates privileges or changes persistent account settings — explains and prints the remediation command instead.
+- **ADR-015:** `query_telemetry` gets the same tool-argument treatment as ADR-013, but permissively (`.passthrough()`, no enum, no rename) — `dispatchQuery`'s existing validation remains the semantic source of truth for query shape.
 
 ---
 

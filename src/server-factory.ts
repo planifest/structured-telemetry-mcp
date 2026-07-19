@@ -45,6 +45,27 @@ export const EmitEventEnvelope = z.object({
   data: z.record(z.string(), z.unknown()),
 }).strict();
 
+// ── query_telemetry tool-argument schema (ADR-015, extends ADR-013) ───────────
+
+/**
+ * Permissive object schema for the query_telemetry tool argument — fixes the
+ * same R-009-class bug as EmitEventEnvelope (ADR-013), but scoped more loosely:
+ * query shapes genuinely vary across the four query families, and dispatchQuery
+ * already validates cross-field rules (unrecognised shape, missing session_id,
+ * etc.) with clear thrown errors. This schema's only job is to guarantee the
+ * argument actually arrives as an object — .passthrough() so it never rejects
+ * a shape dispatchQuery would otherwise accept.
+ */
+export const QueryShape = z.object({
+  group_by: z.string().optional(),
+  mode: z.string().optional(),
+  session_id: z.string().optional(),
+  initiative_id: z.string().optional(),
+  event_type: z.string().optional(),
+  limit: z.number().optional(),
+  loop_threshold: z.number().optional(),
+}).passthrough();
+
 // ── Dispatch ──────────────────────────────────────────────────────────────────
 
 /**
@@ -142,8 +163,20 @@ export function createQueryTelemetryHandler(
   qs: IQueryService,
 ): (args: { query: unknown }) => Promise<McpTextResult> {
   return async (args) => {
+    // Argument-shape gate (ADR-015): rejects a non-object query (string,
+    // undefined, null, array) with a specific error before dispatchQuery
+    // ever runs — same root cause as R-009/ADR-013, scoped permissively
+    // since dispatchQuery remains the semantic validator for query shape.
+    const shapeCheck = QueryShape.safeParse(args.query);
+    if (!shapeCheck.success) {
+      const errors = shapeCheck.error.issues.map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`);
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, errors }) }],
+      };
+    }
+
     try {
-      const q = args.query as Record<string, unknown>;
+      const q = shapeCheck.data as Record<string, unknown>;
       const response = await dispatchQuery(qs, q);
 
       const text = [
@@ -190,8 +223,8 @@ export function createServer(
 
   server.tool(
     'query_telemetry',
-    'Query structured telemetry data. Returns Markdown table, JSON aggregation, and raw event sample.',
-    { query: z.unknown().describe('Query parameters. See README for full schema.') },
+    'Query structured telemetry data. Returns Markdown table, JSON aggregation, and raw event sample. Pass `query` as a JSON object (not a string) — see README for the full field reference.',
+    { query: QueryShape },
     createQueryTelemetryHandler(qs),
   );
 

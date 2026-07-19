@@ -1,6 +1,6 @@
 {
   "name": "structured-telemetry-mcp",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "MCP server for structured telemetry ingestion and querying in Planifest pipeline runs.",
   "type": "module",
   "author": "Planifest",
@@ -33,6 +33,7 @@
     "service:uninstall": "node scripts/service-manager.mjs uninstall",
     "service:status": "node scripts/service-manager.mjs status",
     "service:restart": "node scripts/service-manager.mjs restart",
+    "deploy": "node scripts/service-manager.mjs deploy",
     "build": "tsc && npm run bundle",
     "bundle": "esbuild src/server.ts --bundle --platform=node --target=node18 --format=esm --outfile=server.bundle.mjs --minify && esbuild src/server-http.ts --bundle --platform=node --target=node18 --format=esm --outfile=server-http.bundle.mjs --external:@duckdb/node-api --minify && esbuild src/cli.ts --bundle --platform=node --target=node18 --format=esm --outfile=cli.bundle.mjs --external:@duckdb/node-api --minify",
     "dev": "npx tsx src/server.ts",

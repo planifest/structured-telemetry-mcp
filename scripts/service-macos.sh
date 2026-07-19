@@ -51,6 +51,18 @@ log_err() {
     exit 1
 }
 
+# Escape a string for safe embedding in plist XML text content.
+# Order matters: & must be escaped first, or subsequent escapes double-escape it.
+xml_escape() {
+    local s="$1"
+    s="${s//&/&amp;}"
+    s="${s//</&lt;}"
+    s="${s//>/&gt;}"
+    s="${s//\"/&quot;}"
+    s="${s//\'/&apos;}"
+    echo "$s"
+}
+
 # Resolve the Node.js binary path dynamically.
 # Checks: command -v node, /opt/homebrew/bin/node (Apple Silicon), /usr/local/bin/node (Intel).
 resolve_node_path() {
@@ -132,7 +144,13 @@ EOF
 
 # Generate the plist XML content. Takes the node path as argument.
 _generate_plist() {
-    local node_path="$1"
+    local node_path
+    node_path="$(xml_escape "$1")"
+    local bundle_path stdout_log stderr_log repo_root
+    bundle_path="$(xml_escape "$BUNDLE_PATH")"
+    repo_root="$(xml_escape "$REPO_ROOT")"
+    stdout_log="$(xml_escape "$STDOUT_LOG")"
+    stderr_log="$(xml_escape "$STDERR_LOG")"
     cat << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -144,11 +162,11 @@ _generate_plist() {
 	<key>ProgramArguments</key>
 	<array>
 		<string>${node_path}</string>
-		<string>${BUNDLE_PATH}</string>
+		<string>${bundle_path}</string>
 	</array>
 
 	<key>WorkingDirectory</key>
-	<string>${REPO_ROOT}</string>
+	<string>${repo_root}</string>
 
 	<key>RunAtLoad</key>
 	<true/>
@@ -160,10 +178,10 @@ _generate_plist() {
 	</dict>
 
 	<key>StandardOutPath</key>
-	<string>${STDOUT_LOG}</string>
+	<string>${stdout_log}</string>
 
 	<key>StandardErrorPath</key>
-	<string>${STDERR_LOG}</string>
+	<string>${stderr_log}</string>
 
 	<key>ProcessType</key>
 	<string>Background</string>

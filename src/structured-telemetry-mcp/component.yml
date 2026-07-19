@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000010-macos-launchd-service"
-version: "0.10.0"
+feature: "0000011-defects-and-query-telemetry-fix"
+version: "0.10.1"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -12,7 +12,7 @@ systemContext: "Runs as a local MCP server alongside the developer's agent tool 
 responsibilities:
   - "Accept and validate telemetry events via the emit_event MCP tool (25 event types as of 0.10.0)"
   - "Persist all valid events to a DuckDB store with temporal optimisation"
-  - "Answer structured queries via the query_telemetry MCP tool across three query families plus event_log"
+  - "Answer structured queries via the query_telemetry MCP tool across three query families plus event_log, backed by a real permissive object-shaped Zod tool-argument schema (not z.unknown()) as of 0.10.1"
   - "Enforce JSON Schema validation for all event types at ingestion, backed by a real object-shaped Zod tool-argument schema (not z.unknown())"
   - "Provide setup and doctor CLI commands for installation and diagnostics"
   - "Expose a build and bundle pipeline producing server.bundle.mjs, server-http.bundle.mjs, and cli.bundle.mjs"
@@ -34,7 +34,7 @@ exceptions:
 stack:
   language: "typescript"
   runtime: "node"
-  framework: "express"
+  framework: "none"
   frontend: "none"
   styling: "none"
   componentLibrary: "none"
@@ -54,7 +54,7 @@ contract:
       description: "Accepts an `envelope` argument (renamed from `event` in 0.10.0) — a real object-shaped Zod schema, not z.unknown(); validates and writes to DuckDB"
     - name: "query_telemetry"
       type: "event"
-      description: "Accepts a structured query; returns aggregated Markdown + JSON + raw event sample"
+      description: "Accepts a structured query via a permissive object-shaped Zod schema (QueryShape, not z.unknown() as of 0.10.1); returns aggregated Markdown + JSON + raw event sample"
   outputs:
     - name: "emit_event response"
       type: "event"
@@ -91,6 +91,9 @@ scope:
     - "Human-only post-deployment truncation scripts with admin/sudo and interactive phrase gate"
     - "macOS launchd user LaunchAgent install/uninstall/status/restart scripts, with locked-LaunchAgents detection + sudo fallback"
     - "Linux systemd --user unit install/uninstall/status/restart scripts, with missing-systemctl detection and lingering detection + guidance"
+    - "query_telemetry tool argument — real permissive object-shaped Zod schema (QueryShape), replacing z.unknown(); non-breaking (0000011)"
+    - "npm run deploy — cross-platform build + auto-restart-if-running, closing the daemon-staleness-after-deploy gap (0000011)"
+    - "XML/shell-escaping hardening in service-macos.sh's plist generator and service-linux.sh's ExecStart line (0000011)"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
@@ -110,10 +113,9 @@ scope:
 risk:
   level: "low"
   items:
-    - "express missing from package.json dependencies — build fails if not present (R-005)"
     - "initiative_id nullable — COALESCE required in group_by to avoid null group keys (R-002)"
     - "event_log dispatch order — must precede existing checks in dispatchQuery (R-003)"
-    - "AJV recompilation — schema additions only active after daemon restart (R-004)"
+    - "AJV recompilation — schema additions only active after daemon restart; mitigated by `npm run deploy` auto-restarting an active service, but the underlying fact (compiled validator lives in memory until reload) remains true (R-004)"
     - "Truncation script DB path resolution — must print path before prompting (R-006)"
     - "~/Library/LaunchAgents root-owned by MDM policy on some machines — pre-flight write-test + sudo fallback required (plan/current/risk-register.md R-001)"
     - "Linux systemd unit design untested on real hardware this session — verify before shipping Phase 2 (R-002)"
@@ -123,14 +125,13 @@ risk:
 
 quality:
   testCoverage:
-    unit: 122   # 318 total tests across 14 files as of 0.10.0 (122 unit + 60 integration + 135 regression + 1 performance)
+    unit: 128   # 324 total tests across 14 files as of 0.10.1 (128 unit + 60 integration + 135 regression + 1 performance)
     integration: 60
     e2e: 0
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
     - "data.anyOf in telemetry-event.schema.json is not discriminated by event type — addressed by cross-field validation in src/validation/validate-event.ts (EVENT_REQUIRED_DATA_FIELDS map). Changed from oneOf to anyOf in 0.3.0 when ContextResetData and PhaseSkipData became structurally identical; anyOf is correct since cross-field validation handles semantic discrimination. Future improvement: if/then/else or unevaluatedProperties in JSON Schema."
-    - "See src/structured-telemetry-mcp/docs/tech-debt.md — README.md and data-contract.md event-payload docs are missing backfill for the 12 event types added in 0000009 (pre-existing gap, surfaced but not fixed in 0000010; flagged for P6 docs-agent)."
   quirks:
     - "@duckdb/node-api named params require prepare().bind({name}).runAndReadAll() — positional ? binding is unsupported in this version."
     - "DuckDB does not support PRAGMA wal_mode — WAL is managed internally, pragma removed from schema init."
@@ -147,9 +148,9 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-07-12T00:00:00Z"
+  updatedAt: "2026-07-19T00:00:00Z"
   createdBy: "agent"
   lastModifiedBy: "agent"
-  skill: "planifest-spec-agent"
+  skill: "planifest-change-agent"
   tool: "claude-code"
   model: "claude-sonnet-5"

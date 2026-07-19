@@ -7,8 +7,8 @@
 
 id: "planifest-telemetry-mcp"
 name: "Planifest Structured Telemetry MCP"
-version: "0.10.0"                   # current shipped version
-feature: "0000010-macos-launchd-service"  # feature that last set this version
+version: "0.10.1"                   # current shipped version
+feature: "0000011-defects-and-query-telemetry-fix"  # feature that last set this version
 
 # How `version` is derived at P9:
 #   max-component-version — version = the highest version among components[] (default)
@@ -19,4 +19,4 @@ versionPolicy: "max-component-version"
 
 components:
   - id: "structured-telemetry-mcp"
-    version: "0.10.0"
+    version: "0.10.1"

@@ -245,9 +245,154 @@ Emitted when the agent self-corrects without external validation failure.
 }
 ```
 
-> **Doc debt:** the 12 event types added between 0.2.0 and 0.3.0 (`phase_skip` through `schema_migration_applied`) aren't documented here yet — flagged for the docs-agent to backfill. The 4 types below (added in 0.10.0) are new with this release.
+#### `phase_skip` _(added 0.2.0)_
 
-#### `loop_iteration`
+A phase was intentionally skipped.
+
+```json
+{
+  "phase_name": "security",
+  "reason": "no network-facing changes"
+}
+```
+
+#### `security_finding` _(added 0.2.0)_
+
+A security issue was identified.
+
+```json
+{
+  "component_id": "api-gateway",
+  "title": "SQL injection via unescaped input",
+  "severity": "high",
+  "cwe": "CWE-89"
+}
+```
+
+`severity`: `"low"` `"medium"` `"high"` `"critical"`. `cwe` is optional.
+
+#### `retry_limit_exceeded` _(added 0.2.0)_
+
+Maximum retry attempts reached for an action.
+
+```json
+{
+  "phase_name": "validate",
+  "action_id": "test-run-001",
+  "attempt_count": 5
+}
+```
+
+#### `adr_decision` _(added 0.2.0)_
+
+An architectural decision was recorded.
+
+```json
+{
+  "adr_id": "ADR-007",
+  "title": "Use DuckDB for local storage",
+  "chosen_option": "DuckDB embedded"
+}
+```
+
+#### `doc_gap` _(added 0.2.0)_
+
+Documentation is missing or insufficient for a component.
+
+```json
+{
+  "component_id": "query-service",
+  "description": "No usage examples in README"
+}
+```
+
+#### `context_reset` _(added 0.3.0)_
+
+Context window was reset (e.g. compaction or `/clear`).
+
+```json
+{
+  "phase_name": "codegen",
+  "reason": "compaction"
+}
+```
+
+#### `approval_requested` _(added 0.3.0)_
+
+The agent has paused and is requesting human approval.
+
+```json
+{
+  "phase_name": "codegen",
+  "subject": "drop column users.token",
+  "action_id": "mig-003"
+}
+```
+
+#### `fast_path_engaged` _(added 0.3.0)_
+
+A fast path was used, bypassing standard validation steps.
+
+```json
+{
+  "change_type": "bug-fix",
+  "reason": "isolated pure-function fix, no schema changes"
+}
+```
+
+#### `test_failure` _(added 0.3.0)_
+
+A test failed during a validation phase.
+
+```json
+{
+  "test_name": "should return 404 for unknown id",
+  "phase_name": "validate",
+  "attempt_number": 1,
+  "error_summary": "expected 404, got 200"
+}
+```
+
+`error_summary` is optional.
+
+#### `performance_regression` _(added 0.3.0)_
+
+A performance metric exceeded its threshold.
+
+```json
+{
+  "metric": "p95_latency_ms",
+  "threshold": 50,
+  "actual": 73.4,
+  "phase_name": "validate"
+}
+```
+
+#### `dependency_blocked` _(added 0.3.0)_
+
+Progress is blocked waiting on an external dependency or human action.
+
+```json
+{
+  "phase_name": "codegen",
+  "dependency": "human: approve migration",
+  "reason": "destructive op requires consent"
+}
+```
+
+#### `schema_migration_applied` _(added 0.3.0)_
+
+A database schema migration was applied.
+
+```json
+{
+  "component_id": "auth-service",
+  "migration_path": "migrations/0004-drop-legacy.sql",
+  "destructive": true
+}
+```
+
+#### `loop_iteration` _(added 0.10.0)_
 
 Emitted after every RECORD step of a governed pipeline loop.
 
@@ -263,7 +408,7 @@ Emitted after every RECORD step of a governed pipeline loop.
 
 `loop_id`: `p0_completeness` `design_critic` `reversal_protocol` `verify_by_execution` `cross_model_review`. `decision`: `continue` `done` `escalate`. `toggle_level`: `report-only` `on`.
 
-#### `phase_reversal_petitioned`
+#### `phase_reversal_petitioned` _(added 0.10.0)_
 
 Emitted when a P3–P6 agent files a defect report petitioning for a scoped correction of an upstream artifact.
 
@@ -275,7 +420,7 @@ Emitted when a P3–P6 agent files a defect report petitioning for a scoped corr
 }
 ```
 
-#### `phase_reversal_granted`
+#### `phase_reversal_granted` _(added 0.10.0)_
 
 Emitted when the reversal assessor grants a petitioned reversal.
 
@@ -290,7 +435,7 @@ Emitted when the reversal assessor grants a petitioned reversal.
 
 `classification`: `additive` `altering`.
 
-#### `phase_reversal_denied`
+#### `phase_reversal_denied` _(added 0.10.0)_
 
 Emitted when the reversal assessor denies a petitioned reversal. Same shape as `phase_reversal_granted`.
 
@@ -458,6 +603,8 @@ npm run service:restart     # restart without reinstalling
 ```
 
 `npm run service:*` detects your platform automatically (`scripts/service-manager.mjs`) and dispatches to the right script — you don't need to call the platform scripts directly.
+
+**After changing code, run `npm run deploy` instead of `npm run build` alone.** The running service has the old code loaded in memory — rebuilding the files on disk doesn't do anything until the process reloads them. `npm run deploy` builds, then automatically restarts the service if one is currently running (on Windows this is handled by `scripts/deploy.ps1`; on macOS/Linux by `scripts/service-manager.mjs`). If no service is installed, it just builds and stops there — nothing to restart.
 
 ### Windows
 
