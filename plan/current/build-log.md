@@ -1,8 +1,8 @@
 ---
-title: "Build Log - pending"
+title: "Build Log - 0000011-defects-and-query-telemetry-fix"
 summary: "Working telemetry file maintained by the orchestrator throughout the pipeline run."
 ---
-# Build Log - pending
+# Build Log - 0000011-defects-and-query-telemetry-fix
 
 > Created at P0. Appended by the orchestrator at each phase boundary. Survives session changes.
 > Filed to the archive at P7. Read by the build-assessment-agent at P8.
@@ -11,7 +11,7 @@ summary: "Working telemetry file maintained by the orchestrator throughout the p
 
 | Field | Value |
 |-------|-------|
-| Feature ID | `pending` |
+| Feature ID | `0000011-defects-and-query-telemetry-fix` |
 | Pipeline start | `2026-07-19T19:05:00Z` |
 | Tool | `Claude Code` |
 | Primary model | `claude-sonnet-5` |
