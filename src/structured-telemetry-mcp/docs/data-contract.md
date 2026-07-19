@@ -48,7 +48,6 @@ The single table that stores all telemetry events. One row per event.
 ## Schema Invariants
 
 1. Every row has a non-null `event` value matching one of the 25 defined event types.
-   > Doc debt: the 7 event types added in `0000009-ship-phase-enum` (`context_reset`, `approval_requested`, `fast_path_engaged`, `test_failure`, `performance_regression`, `dependency_blocked`, `schema_migration_applied`) were never backfilled into the sub-schema list below. Flagged for the P6 docs-agent pass on this feature, alongside the 4 new types this feature adds.
 2. Every row has a non-null `session_id`.
 3. `timestamp` is the agent-reported event time; `inserted_at` is the server ingestion time. They may differ.
 4. `data` column is nullable to allow forward-compatibility with new event types before their schema is finalised. All current event types have a non-null `data` payload.
@@ -170,6 +169,55 @@ The single table that stores all telemetry events. One row per event.
 ### `doc_gap` _(added 0.2.0)_
 ```json
 { "component_id": "string", "description": "string" }
+```
+
+### `context_reset` _(added 0.3.0)_
+```json
+{ "phase_name": "string", "reason": "string" }
+```
+
+### `approval_requested` _(added 0.3.0)_
+```json
+{ "phase_name": "string", "subject": "string", "action_id": "string" }
+```
+
+### `fast_path_engaged` _(added 0.3.0)_
+```json
+{ "change_type": "string", "reason": "string" }
+```
+
+### `test_failure` _(added 0.3.0)_
+```json
+{
+  "test_name": "string",
+  "phase_name": "string",
+  "attempt_number": "integer",
+  "error_summary": "string (optional)"
+}
+```
+
+### `performance_regression` _(added 0.3.0)_
+```json
+{
+  "metric": "string",
+  "threshold": "number",
+  "actual": "number",
+  "phase_name": "string"
+}
+```
+
+### `dependency_blocked` _(added 0.3.0)_
+```json
+{ "phase_name": "string", "dependency": "string", "reason": "string" }
+```
+
+### `schema_migration_applied` _(added 0.3.0)_
+```json
+{
+  "component_id": "string",
+  "migration_path": "string",
+  "destructive": "boolean"
+}
 ```
 
 ### `loop_iteration` _(added 0.10.0)_
