@@ -35,33 +35,29 @@ summary: "Working telemetry file maintained by the orchestrator throughout the p
 
 ---
 
-<!-- Copy and fill in this block at each phase boundary:
-
-### Px — {Phase Name}
+### PC — Change Pipeline (change-agent)
 
 | Field | Value |
 |-------|-------|
-| Start | `{{timestamp}}` |
-| Model tier | primary / cheaper |
-| Skills loaded | `{{skill names}}` |
-| Agents spawned | `{{count}}` |
-| MCP calls | `{{count}}` |
-| Parallel task batches | `{{count}}` |
-| Notes | `{{free text or "none"}}` |
-
--->
+| Start | `2026-07-19T22:00:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-change-agent |
+| Agents spawned | 0 |
+| MCP calls | 2 (live emit_event verification of item 1, post-deploy health checks) |
+| Parallel task batches | 0 — 5 items implemented sequentially by design (each touches shared files: server-factory.ts for item 1, component.yml for items 4/5's manifest updates; low enough total volume that parallel sub-agent dispatch wasn't warranted per the codegen-agent's own "stay inline when too small to justify overhead" guidance) |
+| Notes | Change Pipeline route, not full P0-P9 Feature Pipeline — no separate P1/P2/P4/P5/P6 artifact sets; change-agent's own 5-phase process (Domain Context → Targeted Change → Validate → ADR Check → Documentation) substitutes. Phase 1: read server-factory.ts, dispatchQuery, existing query tests, deploy.ps1, component.yml — confirmed blast radius is single-component, no dependents. Phase 2: item 1 via real TDD (RED: 5 failing tests confirmed, GREEN: 324/324); items 2-5 implemented directly (mechanical/config, no TDD harness applicable — item 5 verified via live functional test instead: build+restart+health-check against the real running daemon). Phase 3: typecheck clean, 324/324 tests, build succeeds — 0 self-corrections, all passed first attempt. Phase 4: ADR-015 written (extends ADR-013). Phase 5: this build-log, changelog, feature doc, 5 living docs updated, component.yml/product.yml/package.json version-bumped to 0.10.1. |
 
 ---
 
-## Summary (filled at P7)
+## Summary
 
 | Metric | Value |
 |--------|-------|
-| Total phases completed | `{{count}}` |
-| Total agents spawned | `{{count}}` |
-| Total MCP calls | `{{count}}` |
-| Phases using parallelism | `{{count}}` |
-| Primary tier agent calls | `{{count}}` |
-| Cheaper tier agent calls | `{{count}}` |
-| Self-corrections | `{{count}}` |
-| Phases skipped | `{{list or "none"}}` |
+| Total phases completed | 6 (P0 + change-agent's 5 internal phases) |
+| Total agents spawned | 0 — all work done inline by the primary session (Change Pipeline's smaller scope didn't warrant sub-agent decomposition) |
+| Total MCP calls | 2 (live `emit_event`/health-check verification, not telemetry self-emission — `.claude/telemetry-enabled` absent, so no `emit_event` telemetry calls were made by this pipeline run itself) |
+| Phases using parallelism | 0 (see PC block note — items implemented sequentially given shared-file overlap and total volume) |
+| Primary tier agent calls | 0 spawned (all inline) |
+| Cheaper tier agent calls | 0 |
+| Self-corrections | 0 — all CI checks (typecheck, test, build) passed on first attempt throughout |
+| Phases skipped | none |
