@@ -1,72 +1,33 @@
----
-title: "Iteration Log - 0000010-macos-launchd-service"
-summary: "Execution log for the agent session."
-status: "active"
-version: "0.1.0"
----
-# Iteration Log - 0000010-macos-launchd-service
+# Changelog — 0000010-macos-launchd-service — 19 Jul 2026
 
-> **Audience:** Build-assessment-agent (P8) and post-run technical review. This is the machine-readable execution trace — it records *how* the pipeline ran, not the PR-facing changelog.
+**Feature:** macOS + Linux Background Service + emit_event Envelope Fix (bundled scope)
+**Pipeline run:** P0 Assess → P1 Spec → P2 ADRs → P3 Codegen → P4 Validate → P5 Security → P6 Docs → P7 Archive (P8/P9 to follow)
+**PR:** pending — updated after PR is raised in Step 9
 
-**Skill:** [docs-agent](../../planifest-framework/skills/planifest-docs-agent/SKILL.md)
-**Date:** 2026-07-19
-**Tool:** claude-code (local)
-**Model:** claude-sonnet-5
+## What Was Built
 
----
+Two bundled scopes, by explicit human decision (see `build-log.md`'s P0 entry for the full rationale):
 
-## Iteration Steps Completed
+1. **macOS + Linux background service.** The telemetry backend previously only had a boot-surviving service option on Windows (`nssm`). Adds `scripts/service-macos.sh` (user-scoped `launchd` LaunchAgent) and `scripts/service-linux.sh` (user-scoped `systemd --user` unit), both reachable via the same `npm run service:install|uninstall|status|restart` surface through a new cross-platform dispatcher, `scripts/service-manager.mjs`. Neither script escalates privileges or changes persistent account settings silently — both detect known failure modes (locked `~/Library/LaunchAgents`, disabled `systemd` lingering) and print exact remediation commands for the human to run themselves.
 
-| Phase | Status | Gate Result | Notes |
-|-------|--------|-------------|-------|
-| 0 - Assess & Coach | pass | Design confirmed: yes | Bundled two scopes (macOS/Linux service + emit_event RCA fix) by explicit human decision; standard-iterative adoption mode; version 0.10.0; continuous run mode set |
-| 1 - Specification | pass | All artifacts produced: yes | 12 requirements, scope, risk register (7 risks + 3 assumptions), domain glossary (10 terms), execution plan, operational/SLO/cost models; no OpenAPI spec (no new HTTP surface) |
-| 2 - ADRs | pass | 2 ADRs generated | ADR-013 (emit_event tool-argument schema), ADR-014 (service supervision); numbered sequentially from this repo's existing ADR-001..012 |
-| 3 - Code Generation | pass | Implementation complete: yes | 0 escalations. Documented deviation: req-001–008 (bash/plist/systemd) used manual verification + parallel sub-agent dispatch instead of the mandatory TDD loop (no shell-test harness in this repo, per design.md's own declared strategy); req-009–012 (TypeScript) went through full TDD (RED confirmed at 15 failures, GREEN at 317/317) |
-| 4 - Validation | pass | CI clean: yes | 0 self-correct cycles for CI failures (all passed first attempt: typecheck, 317→318 tests, build). 2 semantic-coverage gaps closed proactively (req-010, req-012 error-message/old-shape assertions) during the requirement-traceability pass |
-| 5 - Security | pass | Critical findings: 0 | Overall risk: Low. 0 critical/high/medium findings. Top open item: R-002 (Linux service untested on real hardware) — operational, not a security defect |
-| 6 - Docs & Ship | pass | All docs synced: yes | Backfilled all 5 mandatory living docs (never existed before this feature, across 3 prior pipeline runs) by explicit human confirmation at the P6 gate; new feature doc; 6 new per-component docs; 2 pre-existing doc-debt gaps surfaced (not fixed) and flagged |
+2. **`emit_event` envelope-rejection fix (R-009).** Root-caused by a sibling-repo (`planifest-framework`) investigation: the `emit_event` MCP tool argument was `z.unknown()`, giving calling models no structural schema — a common tool-calling failure mode was serializing the envelope to a string, which then failed with an opaque ajv error. Fixed by replacing the argument with a real `EmitEventEnvelope` Zod object schema and renaming the argument `event`→`envelope` (resolving a name collision with the envelope's own `event` discriminator field). Also adds 4 event types (`loop_iteration`, `phase_reversal_petitioned`/`_granted`/`_denied`) that `planifest-framework` already emits but this repo's schema was missing.
 
----
+## Artifacts Produced
 
-## Requirement Changes During Run
+- `plan/current/design.md` — confirmed P0 design (standard-iterative, version 0.10.0)
+- 12 requirement files (`req-001`–`req-012`), `scope.md`, `risk-register.md` (7 risks, 3 assumptions), `domain-glossary.md` (10 terms), `execution-plan.md`, `operational-model.md`, `slo-definitions.md`, `cost-model.md`
+- `adr/ADR-013-emit-event-tool-argument-schema.md`, `adr/ADR-014-macos-linux-service-supervision.md`
+- `security-report.md` — Low risk, 0 critical/high/medium findings
+- `recommendations.md` — 7 items for future iterations
+- 5 living docs at `docs/` (component-registry, dependency-graph, architecture-overview, decisions-index, api-index) — backfilled, none existed before this feature across 3 prior pipeline runs
+- `docs/0000010--feature--macos-linux-service-and-emit-event-fix.md`
+- 6 new per-component docs at `src/structured-telemetry-mcp/docs/` (purpose, interface-contract, dependencies, risk, scope, test-coverage) plus updates to the pre-existing `data-contract.md`, `quirks.md`, `tech-debt.md`
 
-None — no mid-pipeline requirement changes. The two-scope bundling decision was made at P0, before requirements were written, not as a later change.
+## Decisions
 
----
+- **ADR-013:** `emit_event`'s tool argument gets a real Zod object schema (`EmitEventEnvelope`); argument renamed `event`→`envelope`. Related to, does not supersede, ADR-005 (JSON Schema/ajv remains the wire-validation source of truth).
+- **ADR-014:** Background service supervision is always user-scoped (never a root daemon on either platform), and never silently escalates privileges or changes persistent account settings.
 
-## Self-Correct Log
+## Skipped Phases
 
-No CI-failure self-correct cycles were needed (P4: all checks passed first attempt). Two proactive test-coverage strengthenings during P4's requirement-traceability pass (not failure fixes):
-1. `tests/regression/emit-handler.test.ts` cases B/C/D/E/F — added specific error-message assertions (`not.toBe('(root): must be object')`, pattern match on the actual Zod message) instead of only asserting `ok: false`, closing req-010 AC2/AC3.
-2. Added an explicit test for the old `{ event: ... }` argument shape being rejected post-rename, closing req-012 AC1.
-
----
-
-## Quirks
-
-See `src/structured-telemetry-mcp/docs/quirks.md` (full detail) — summary:
-- No automated TDD for the macOS/Linux service scripts (documented deviation, design.md's own declared strategy).
-- `getting-started.md`/`mac-setup.md` (assumed by req-004/req-008) don't exist in this repo — resolved by adding a "Background Service" section to README.md instead.
-- `scripts/service-linux.sh` untested against real systemd hardware.
-- `ajv` (direct) flagged by P4's library audit against the TypeScript prefer-avoid list — confirmed as a pre-existing, ADR-005-justified exception, not a violation.
-
----
-
-## Recommended Improvements
-
-See `plan/current/recommendations.md` for the full list (7 items). Top 3: verify the Linux script on real hardware; backfill the pre-existing README/data-contract event-payload doc gap (12 types from `0000009`); consider XML/shell-escaping hardening in the two service scripts (Low severity, not exploitable remotely).
-
----
-
-## Next Step
-
-```bash
-git push origin feat/0000010-bckgrnd-srv-and-json-fix
-```
-
-P7 Archive → P8 Build Assessment → P9 Ship follow, via the ship-agent. P9 always stops for human confirmation regardless of continuous-run mode.
-
----
-
-*Written by the agent at the end of every Agentic Iteration Loop. This is the audit trail.*
+None.

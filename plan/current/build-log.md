@@ -79,6 +79,20 @@ Scope decision — bundling: `plan/current/emit-event-rca-and-fix-spec.md` (a se
 
 ---
 
+### P7 — Archive
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-07-19T18:20:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-ship-agent |
+| Agents spawned | 0 |
+| MCP calls | 0 |
+| Parallel task batches | 0 |
+| Notes | Found a path collision between docs-agent's P6 iteration-log instruction and ship-agent's P7 changelog instruction — both target `plan/changelog/{feature-id}-{YYYY-MM-DD}.md`. Resolved by renaming the P6 iteration log to add an `-iteration-log` suffix before writing P7's changelog to the canonical path. |
+
+---
+
 ### P6 — Docs
 
 | Field | Value |
