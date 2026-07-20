@@ -2,7 +2,7 @@
 
 **Feature:** Test Harness and SDK Audit
 **Pipeline run:** Change Pipeline (precedent: `0000009-ship-phase-enum`, `0000011-defects-and-query-telemetry-fix`)
-**PR:** pending — updated after PR is raised
+**PR:** https://github.com/planifest/structured-telemetry-mcp/pull/7
 
 ## What Was Built
 
