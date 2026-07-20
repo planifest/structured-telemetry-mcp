@@ -75,3 +75,25 @@ jobs:
         run: |
           test -f server.bundle.mjs || (echo "server.bundle.mjs missing" && exit 1)
           test -f cli.bundle.mjs    || (echo "cli.bundle.mjs missing"    && exit 1)
+
+  bats:
+    name: bats (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install bats
+        run: |
+          if [ "${{ runner.os }}" = "macOS" ]; then
+            brew install bats-core
+          else
+            sudo apt-get update && sudo apt-get install -y bats
+          fi
+
+      - name: Run service script tests
+        run: bats tests/bats/
