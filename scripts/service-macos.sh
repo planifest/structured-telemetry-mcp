@@ -432,4 +432,8 @@ EOF
     esac
 }
 
-main "$@"
+# Only run main when executed directly, not when sourced (e.g. by tests/bats/
+# to unit-test individual functions like xml_escape() or resolve_node_path()).
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

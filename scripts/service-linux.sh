@@ -261,4 +261,8 @@ main() {
     echo "" >&2
 }
 
-main "$@"
+# Only run main when executed directly, not when sourced (e.g. by tests/bats/
+# to unit-test individual functions like resolve_repo_dir() or check_lingering()).
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
