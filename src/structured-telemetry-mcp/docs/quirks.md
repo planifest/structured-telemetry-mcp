@@ -8,7 +8,7 @@
 
 ## Pre-existing (surfaced by P4's library audit, not introduced by 0000010)
 
-- **`ajv` (direct) is used for wire-schema validation**, which `planifest-framework/standards/library-standards/typescript/prefer-avoid.md` lists as avoided in favour of `zod`. This is a deliberate, documented exception: ADR-005 (`plan/0000008-mcp-server-foundation/adr/`) chose JSON Schema/`ajv` specifically because the schema must be shareable with the sibling `planifest-framework` repo without a TypeScript dependency — Zod schemas are TypeScript code and cannot be introspected by non-TypeScript tooling. ADR-013 (this feature) builds on and reaffirms that boundary rather than reopening it — Zod is used only as an MCP tool-argument gate, not as a wire-schema replacement.
+- **`ajv` (direct) is used for wire-schema validation**, which `planifest-framework/standards/library-standards/typescript/prefer-avoid.md` lists as avoided in favour of `zod`. This is a deliberate, documented exception: ADR-005 (`plan/_archive/0000008-mcp-server-foundation-2026-04-19/adr/`) chose JSON Schema/`ajv` specifically because the schema must be shareable with the sibling `planifest-framework` repo without a TypeScript dependency — Zod schemas are TypeScript code and cannot be introspected by non-TypeScript tooling. ADR-013 (this feature) builds on and reaffirms that boundary rather than reopening it — Zod is used only as an MCP tool-argument gate, not as a wire-schema replacement.
 
 ## 0000012-test-harness-and-sdk-audit
 
