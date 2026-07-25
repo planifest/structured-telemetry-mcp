@@ -52,15 +52,18 @@ log_err() {
 }
 
 # Escape a string for safe embedding in plist XML text content.
-# Order matters: & must be escaped first, or subsequent escapes double-escape it.
+# Uses sed rather than ${var//pat/rep}: bash 5.2's default patsub_replacement
+# option expands unquoted & in the replacement to the matched text, silently
+# corrupting the entities on modern bash (macOS's bash 3.2 is unaffected —
+# caught by the bats suite on the Ubuntu CI runner). sed's s/// with \& is
+# identical on BSD and GNU. & first, or later escapes get double-escaped.
 xml_escape() {
-    local s="$1"
-    s="${s//&/&amp;}"
-    s="${s//</&lt;}"
-    s="${s//>/&gt;}"
-    s="${s//\"/&quot;}"
-    s="${s//\'/&apos;}"
-    echo "$s"
+    printf '%s' "$1" | sed \
+        -e 's/&/\&amp;/g' \
+        -e 's/</\&lt;/g' \
+        -e 's/>/\&gt;/g' \
+        -e 's/"/\&quot;/g' \
+        -e "s/'/\\&apos;/g"
 }
 
 # Resolve the Node.js binary path dynamically.
