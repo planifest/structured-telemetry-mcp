@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000011-defects-and-query-telemetry-fix"
-version: "0.10.1"
+feature: "0000012-test-harness-and-sdk-audit"
+version: "0.10.2"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -94,6 +94,7 @@ scope:
     - "query_telemetry tool argument — real permissive object-shaped Zod schema (QueryShape), replacing z.unknown(); non-breaking (0000011)"
     - "npm run deploy — cross-platform build + auto-restart-if-running, closing the daemon-staleness-after-deploy gap (0000011)"
     - "XML/shell-escaping hardening in service-macos.sh's plist generator and service-linux.sh's ExecStart line (0000011)"
+    - "bats test harness for service-macos.sh / service-linux.sh pure-logic paths — 23 tests, wired into CI (0000012)"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
@@ -125,7 +126,7 @@ risk:
 
 quality:
   testCoverage:
-    unit: 128   # 324 total tests across 14 files as of 0.10.1 (128 unit + 60 integration + 135 regression + 1 performance)
+    unit: 128   # 324 Vitest tests across 14 files as of 0.10.2 (128 unit + 60 integration + 135 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
     integration: 60
     e2e: 0
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
@@ -139,7 +140,7 @@ quality:
     - "Vitest 4 (Rolldown) does not transform .cts files — .cts adapters cannot be used for CJS interop in this project."
     - "TypeScript 6 no longer implicitly includes Node.js types — requires explicit types: [node] in tsconfig.json."
     - "sampleEvents helpers in failures.ts and token-efficiency.ts accept a WHERE clause string — callers must always use named params ($param) rather than string interpolation for any user-supplied values."
-    - "See src/structured-telemetry-mcp/docs/quirks.md — macOS/Linux service scripts use manual verification (no shell-script TDD harness in this repo); service-linux.sh is untested against real systemd hardware (risk-register R-002)."
+    - "See src/structured-telemetry-mcp/docs/quirks.md — macOS/Linux service scripts have a bats harness (tests/bats/, 23 tests as of 0000012) covering pure-logic paths only; real install/uninstall against a live launchctl/systemd service remains manual verification. service-linux.sh is still untested against real systemd hardware (risk-register R-002, backlog 00001, blocked on a host-level Multipass networking issue as of 0000012)."
 
 pipeline:
   templateVersion: "1.0.0"
@@ -148,7 +149,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-07-19T00:00:00Z"
+  updatedAt: "2026-07-20T00:00:00Z"
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-change-agent"

@@ -36,4 +36,4 @@ Three items deferred to `plan/backlog/` (00001 Linux hardware verification, 0000
 
 ## Skipped Phases
 
-None. (Full P0–P9 Feature Pipeline phases — P1 Spec, P2 ADRs as a full artifact set, P5 Security as a standalone report, P7 Archive to `plan/_archive/` — do not apply to Change Pipeline runs; see routing rationale in `plan/0000011-defects-and-query-telemetry-fix/build-log.md`'s P0 entry.)
+None. (Full P0–P9 Feature Pipeline phases — P1 Spec, P2 ADRs as a full artifact set, P5 Security as a standalone report, P7 Archive to `plan/_archive/` — do not apply to Change Pipeline runs; see routing rationale in `plan/_archive/0000011-defects-and-query-telemetry-fix-2026-07-19/build-log.md`'s P0 entry.)
