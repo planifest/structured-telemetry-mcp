@@ -11,7 +11,7 @@ Fix: `buildScopeHint()` added to `src/query/format-results.ts` — on the zero-r
 
 ## Artifacts Produced
 
-- `plan/current/change-summary.md`
+- `plan/_archive/0000014-zero-result-scope-hint-2026-07-27/change-summary.md`
 - Updated: `src/query/format-results.ts`, `src/query/bottlenecks.ts`, `src/query/failures.ts`, `src/query/token-efficiency.ts`, `tests/integration/query-telemetry.test.ts`, `component.yml`, `product.yml`, `package.json`, `README.md`, `src/structured-telemetry-mcp/docs/quirks.md`
 
 ## Decisions
