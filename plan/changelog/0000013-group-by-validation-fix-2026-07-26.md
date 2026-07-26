@@ -11,7 +11,7 @@ Fix: `BOTTLENECK_GROUP_BY_VALUES` exported from `src/query/bottlenecks.ts` as th
 
 ## Artifacts Produced
 
-- `plan/current/change-summary.md`
+- `plan/_archive/0000013-group-by-validation-fix-2026-07-26/change-summary.md`
 - Updated: `src/server-factory.ts`, `src/query/bottlenecks.ts`, `tests/regression/query-routing.test.ts`, `component.yml`, `product.yml`, `package.json`, `src/structured-telemetry-mcp/docs/quirks.md`
 
 ## Decisions
