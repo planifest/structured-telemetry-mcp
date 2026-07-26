@@ -43,6 +43,21 @@ describe('bottleneck routing — group_by values', () => {
   }
 });
 
+describe('R-009-class — invalid group_by rejected with a clear error', () => {
+  it('throws for an invalid group_by value instead of reaching the DB layer', async () => {
+    const qs = mockQueryService();
+    await expect(dispatchQuery(qs, { group_by: 'event_type' })).rejects.toThrow(
+      'Invalid group_by: "event_type". Valid values: phase, agent, tool, run_id, content_type, mcp_mode, initiative_id',
+    );
+    expect(qs.bottlenecks).not.toHaveBeenCalled();
+  });
+
+  it('throws for an empty-string group_by', async () => {
+    const qs = mockQueryService();
+    await expect(dispatchQuery(qs, { group_by: '' })).rejects.toThrow('Invalid group_by: ""');
+  });
+});
+
 // ── Failure routing ───────────────────────────────────────────────────────────
 
 describe('failure routing — mode values', () => {

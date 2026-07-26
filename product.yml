@@ -7,8 +7,8 @@
 
 id: "planifest-telemetry-mcp"
 name: "Planifest Structured Telemetry MCP"
-version: "0.10.2"                   # current shipped version
-feature: "0000012-test-harness-and-sdk-audit"  # feature that last set this version
+version: "0.10.3"                   # current shipped version
+feature: "0000013-group-by-validation-fix"  # feature that last set this version
 
 # How `version` is derived at P9:
 #   max-component-version — version = the highest version among components[] (default)
@@ -19,4 +19,4 @@ versionPolicy: "max-component-version"
 
 components:
   - id: "structured-telemetry-mcp"
-    version: "0.10.2"
+    version: "0.10.3"

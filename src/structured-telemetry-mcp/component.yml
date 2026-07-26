@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000012-test-harness-and-sdk-audit"
-version: "0.10.2"
+feature: "0000013-group-by-validation-fix"
+version: "0.10.3"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -95,6 +95,7 @@ scope:
     - "npm run deploy — cross-platform build + auto-restart-if-running, closing the daemon-staleness-after-deploy gap (0000011)"
     - "XML/shell-escaping hardening in service-macos.sh's plist generator and service-linux.sh's ExecStart line (0000011)"
     - "bats test harness for service-macos.sh / service-linux.sh pure-logic paths — 23 tests, wired into CI (0000012)"
+    - "bottleneck query group_by validated against its 7-value allow-list before dispatch, replacing a silent undefined-SQL-column failure with a clear error naming the invalid value and valid options (0000013)"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
@@ -126,7 +127,7 @@ risk:
 
 quality:
   testCoverage:
-    unit: 128   # 324 Vitest tests across 14 files as of 0.10.2 (128 unit + 60 integration + 135 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
+    unit: 128   # 326 Vitest tests across 14 files as of 0.10.3 (128 unit + 60 integration + 137 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
     integration: 60
     e2e: 0
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
@@ -149,7 +150,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-07-20T00:00:00Z"
+  updatedAt: "2026-07-26T00:00:00Z"
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-change-agent"
