@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { validateEvent } from './validation/validate-event.js';
 import type { IEventRepository } from './db/repository.js';
 import type { IQueryService, BottleneckQuery, FailureQuery, TokenEfficiencyQuery, EventLogQuery, QueryResponse } from './query/query-service.js';
+import { BOTTLENECK_GROUP_BY_VALUES } from './query/bottlenecks.js';
 import type { TelemetryEvent } from './types/events.js';
 
 export type McpTextResult = { content: Array<{ type: 'text'; text: string }> };
@@ -110,6 +111,11 @@ export async function dispatchQuery(qs: IQueryService, q: Record<string, unknown
   }
 
   if (typeof q['group_by'] === 'string') {
+    if (!(BOTTLENECK_GROUP_BY_VALUES as readonly string[]).includes(q['group_by'])) {
+      throw new Error(
+        `Invalid group_by: "${q['group_by']}". Valid values: ${BOTTLENECK_GROUP_BY_VALUES.join(', ')}`,
+      );
+    }
     return qs.bottlenecks(q as unknown as BottleneckQuery);
   }
 

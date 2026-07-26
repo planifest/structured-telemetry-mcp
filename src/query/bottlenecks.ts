@@ -6,7 +6,9 @@
 import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
 import { buildQueryResponse, type QueryResponse } from './format-results.js';
 
-export type BottleneckGroupBy = 'phase' | 'agent' | 'tool' | 'run_id' | 'content_type' | 'mcp_mode' | 'initiative_id';
+export const BOTTLENECK_GROUP_BY_VALUES = ['phase', 'agent', 'tool', 'run_id', 'content_type', 'mcp_mode', 'initiative_id'] as const;
+
+export type BottleneckGroupBy = typeof BOTTLENECK_GROUP_BY_VALUES[number];
 
 export interface BottleneckQuery {
   readonly group_by: BottleneckGroupBy;
