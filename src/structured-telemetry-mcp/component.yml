@@ -2,7 +2,7 @@
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
 feature: "0000014-zero-result-scope-hint"
-version: "0.10.3"
+version: "0.10.4"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -95,6 +95,7 @@ scope:
     - "npm run deploy — cross-platform build + auto-restart-if-running, closing the daemon-staleness-after-deploy gap (0000011)"
     - "XML/shell-escaping hardening in service-macos.sh's plist generator and service-linux.sh's ExecStart line (0000011)"
     - "bats test harness for service-macos.sh / service-linux.sh pure-logic paths — 23 tests, wired into CI (0000012)"
+    - "bottleneck query group_by validated against its 7-value allow-list before dispatch, replacing a silent undefined-SQL-column failure with a clear error naming the invalid value and valid options (0000013)"
     - "zero-result scope hint on bottlenecks/failures/token-efficiency: a session_id/initiative_id-scoped query that matches zero rows for its event-type/family now surfaces a hint naming other event types found for that exact scope, distinguishing 'wrong event type for this query' from 'no data at all' (0000014)"
   outOfScope:
     - "0008b framework integration"
@@ -127,7 +128,7 @@ risk:
 
 quality:
   testCoverage:
-    unit: 128   # 330 Vitest tests across 14 files as of 0.10.3 (128 unit + 66 integration + 135 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
+    unit: 128   # 332 Vitest tests across 14 files as of 0.10.4 (128 unit + 66 integration + 137 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
     integration: 66
     e2e: 0
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
