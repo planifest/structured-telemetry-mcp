@@ -1,6 +1,6 @@
 {
   "name": "structured-telemetry-mcp",
-  "version": "0.10.2",
+  "version": "0.10.3",
   "description": "MCP server for structured telemetry ingestion and querying in Planifest pipeline runs.",
   "type": "module",
   "author": "Planifest",

@@ -65,6 +65,14 @@ beforeAll(async () => {
 
   // Seed: event with no initiative_id to test COALESCE null handling.
   await repo.write({ ...BASE, initiative_id: undefined, event: 'phase_end', phase: 'adr', data: { phase_name: 'adr', status: 'pass', duration_ms: 500 } });
+
+  // Seed: a session with only a phase_start (never a phase_end) — for the
+  // zero-result scope hint tests. Real data exists for this scope, but no
+  // event of the type any query family aggregates.
+  await repo.write({
+    ...BASE, session_id: 'hint-test-session', initiative_id: 'init-gamma',
+    event: 'phase_start', phase: 'orchestrator', data: { phase_name: 'orchestrator' },
+  });
 });
 
 afterAll(() => {
@@ -325,5 +333,49 @@ describe('req-006-initiative-id-filter: initiative_id filter across query famili
     const response = await qs.tokenEfficiency({ mode: 'context_pressure', initiative_id: 'nonexistent' });
     const result = response.json as { results: unknown[] };
     expect(result.results).toHaveLength(0);
+  });
+});
+
+// 0000014-zero-result-scope-hint
+describe('zero-result scope hint: distinguishes "no data" from "wrong event type for this query"', () => {
+  it('bottlenecks: includes a hint naming the actual event type when the scope has data of a different type', async () => {
+    const response = await qs.bottlenecks({ group_by: 'phase', session_id: 'hint-test-session' });
+    const result = response.json as { results: unknown[]; hint?: string };
+    expect(result.results).toHaveLength(0);
+    expect(result.hint).toBeDefined();
+    expect(result.hint).toContain('phase_start');
+  });
+
+  it('bottlenecks: no hint when the scope truly has no events at all', async () => {
+    const response = await qs.bottlenecks({ group_by: 'phase', session_id: 'nonexistent-session-entirely' });
+    const result = response.json as { results: unknown[]; hint?: string };
+    expect(result.results).toHaveLength(0);
+    expect(result.hint).toBeUndefined();
+  });
+
+  it('bottlenecks: no hint when results are non-empty', async () => {
+    const response = await qs.bottlenecks({ group_by: 'phase' });
+    const result = response.json as { results: unknown[]; hint?: string };
+    expect(result.results.length).toBeGreaterThan(0);
+    expect(result.hint).toBeUndefined();
+  });
+
+  it('failures: includes a hint for a scope with only phase_start events', async () => {
+    const response = await qs.failures({ mode: 'retry_summary', initiative_id: 'init-gamma' });
+    const result = response.json as { results: unknown[]; hint?: string };
+    expect(result.results).toHaveLength(0);
+    expect(result.hint).toContain('phase_start');
+  });
+
+  it('tokenEfficiency: includes a hint for a scope with only phase_start events', async () => {
+    const response = await qs.tokenEfficiency({ mode: 'context_pressure', initiative_id: 'init-gamma' });
+    const result = response.json as { results: unknown[]; hint?: string };
+    expect(result.results).toHaveLength(0);
+    expect(result.hint).toContain('phase_start');
+  });
+
+  it('markdown output includes the hint text on the empty-result path', async () => {
+    const response = await qs.bottlenecks({ group_by: 'phase', session_id: 'hint-test-session' });
+    expect(response.markdown).toContain('phase_start');
   });
 });

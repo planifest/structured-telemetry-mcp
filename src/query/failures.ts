@@ -4,7 +4,7 @@
  */
 
 import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
-import { buildQueryResponse, type QueryResponse } from './format-results.js';
+import { buildQueryResponse, buildScopeHint, type QueryResponse } from './format-results.js';
 
 export type FailureQueryMode = 'retry_summary' | 'loop_candidates' | 'failure_sequence' | 'failure_cluster';
 
@@ -77,9 +77,11 @@ async function queryRetrySummary(db: DuckDBInstance, initiativeId?: string): Pro
         ({ session_id, phase, retry_instance_count, pass_rate_within_5_retries, fail_rate_within_5_retries })),
     };
 
+    const hint = rows.length === 0 ? await buildScopeHint(conn, { initiative_id: initiativeId }) : undefined;
+
     return buildQueryResponse(
       ['Session ID', 'Phase', 'Retry Instances', 'Pass Rate (≤5)', 'Fail Rate (≤5)'],
-      tableRows, rawSample, aggregation,
+      tableRows, rawSample, aggregation, hint,
     );
   } finally {
     conn.disconnectSync();
@@ -133,10 +135,12 @@ async function queryLoopCandidates(db: DuckDBInstance, threshold: number, initia
         ({ session_id, phase, failure_type, consecutive_count })),
     };
 
+    const hint = rows.length === 0 ? await buildScopeHint(conn, { initiative_id: initiativeId }) : undefined;
+
     return buildQueryResponse(
       ['Session ID', 'Phase', 'Failure Type', 'Consecutive Count'],
       rows.map(([sid, phase, ft, count]) => [sid, phase, ft, count]),
-      rawSample, aggregation,
+      rawSample, aggregation, hint,
     );
   } finally {
     conn.disconnectSync();
@@ -170,13 +174,17 @@ async function queryFailureSequence(db: DuckDBInstance, sessionId: string, initi
       events: rows.map(rowToRaw),
     };
 
+    const hint = rows.length === 0
+      ? await buildScopeHint(conn, { session_id: sessionId, initiative_id: initiativeId })
+      : undefined;
+
     return buildQueryResponse(
       ['Timestamp', 'Event', 'Phase', 'Agent'],
       rows.map((r) => {
         const raw = rowToRaw(r) as Record<string, string>;
         return [raw['timestamp'], raw['event'], raw['phase'], raw['agent']];
       }),
-      rawSample, aggregation,
+      rawSample, aggregation, hint,
     );
   } finally {
     conn.disconnectSync();
@@ -209,10 +217,12 @@ async function queryFailureCluster(db: DuckDBInstance, initiativeId?: string): P
       results: rows.map(([phase, total_count, unique_session_count]) => ({ phase, total_count, unique_session_count })),
     };
 
+    const hint = rows.length === 0 ? await buildScopeHint(conn, { initiative_id: initiativeId }) : undefined;
+
     return buildQueryResponse(
       ['Phase', 'Total Failures', 'Unique Sessions'],
       rows.map(([phase, total, unique]) => [phase, total, unique]),
-      rawSample, aggregation,
+      rawSample, aggregation, hint,
     );
   } finally {
     conn.disconnectSync();

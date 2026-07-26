@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000012-test-harness-and-sdk-audit"
-version: "0.10.2"
+feature: "0000014-zero-result-scope-hint"
+version: "0.10.3"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -61,7 +61,7 @@ contract:
       description: "{ ok: true, id } on success or { ok: false, errors } on validation/storage failure"
     - name: "query_telemetry response"
       type: "event"
-      description: "Markdown table + JSON payload + raw event sample (5 events)"
+      description: "Markdown table + JSON payload + raw event sample (5 events); on a zero-row result for a session_id/initiative_id-scoped query, an additive `hint` field/markdown note names other event types found for that scope, if any (0000014)"
   consumedBy: []
   consumes: []
   breakingChangePolicy: "requires-adr"
@@ -95,6 +95,7 @@ scope:
     - "npm run deploy — cross-platform build + auto-restart-if-running, closing the daemon-staleness-after-deploy gap (0000011)"
     - "XML/shell-escaping hardening in service-macos.sh's plist generator and service-linux.sh's ExecStart line (0000011)"
     - "bats test harness for service-macos.sh / service-linux.sh pure-logic paths — 23 tests, wired into CI (0000012)"
+    - "zero-result scope hint on bottlenecks/failures/token-efficiency: a session_id/initiative_id-scoped query that matches zero rows for its event-type/family now surfaces a hint naming other event types found for that exact scope, distinguishing 'wrong event type for this query' from 'no data at all' (0000014)"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
@@ -126,8 +127,8 @@ risk:
 
 quality:
   testCoverage:
-    unit: 128   # 324 Vitest tests across 14 files as of 0.10.2 (128 unit + 60 integration + 135 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
-    integration: 60
+    unit: 128   # 330 Vitest tests across 14 files as of 0.10.3 (128 unit + 66 integration + 135 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
+    integration: 66
     e2e: 0
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
@@ -149,7 +150,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-07-20T00:00:00Z"
+  updatedAt: "2026-07-27T00:00:00Z"
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-change-agent"

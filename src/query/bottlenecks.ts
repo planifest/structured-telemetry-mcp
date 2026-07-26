@@ -4,7 +4,7 @@
  */
 
 import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
-import { buildQueryResponse, type QueryResponse } from './format-results.js';
+import { buildQueryResponse, buildScopeHint, type QueryResponse } from './format-results.js';
 
 export type BottleneckGroupBy = 'phase' | 'agent' | 'tool' | 'run_id' | 'content_type' | 'mcp_mode' | 'initiative_id';
 
@@ -67,11 +67,16 @@ export async function queryBottlenecks(db: DuckDBInstance, query: BottleneckQuer
       })),
     };
 
+    const hint = rows.length === 0
+      ? await buildScopeHint(conn, { session_id: query.session_id ?? query.run_id, initiative_id: query.initiative_id })
+      : undefined;
+
     return buildQueryResponse(
       ['Group', 'Avg Duration (ms)', 'P95 Duration (ms)', 'Success Rate', 'Total Events'],
       tableRows,
       sampleRows.map(rowToRawEvent),
       aggregation,
+      hint,
     );
   } finally {
     conn.disconnectSync();

@@ -4,7 +4,7 @@
  */
 
 import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
-import { buildQueryResponse, type QueryResponse } from './format-results.js';
+import { buildQueryResponse, buildScopeHint, type QueryResponse } from './format-results.js';
 
 export type TokenEfficiencyMode = 'context_pressure' | 'mcp_impact' | 'request_volume' | 'trend' | 'drill_down';
 
@@ -58,10 +58,12 @@ async function queryContextPressure(db: DuckDBInstance, initiativeId?: string): 
         ({ phase, avg_peak_fill_pct, max_peak_fill_pct, sample_count })),
     };
 
+    const hint = rows.length === 0 ? await buildScopeHint(conn, { initiative_id: initiativeId }) : undefined;
+
     return buildQueryResponse(
       ['Phase', 'Avg Peak Fill %', 'Max Peak Fill %', 'Sample Count'],
       rows.map(([phase, avg, max, count]) => [phase, `${avg}%`, `${max}%`, count]),
-      rawSample, aggregation,
+      rawSample, aggregation, hint,
     );
   } finally {
     conn.disconnectSync();
@@ -99,10 +101,12 @@ async function queryMcpImpact(db: DuckDBInstance, initiativeId?: string): Promis
         ({ mcp_mode, avg_token_delta, avg_peak_fill_pct, sample_count })),
     };
 
+    const hint = rows.length === 0 ? await buildScopeHint(conn, { initiative_id: initiativeId }) : undefined;
+
     return buildQueryResponse(
       ['MCP Mode', 'Avg Token Delta', 'Avg Peak Fill %', 'Samples'],
       rows.map(([mode, delta, fill, count]) => [mode, delta, `${fill}%`, count]),
-      rawSample, aggregation,
+      rawSample, aggregation, hint,
     );
   } finally {
     conn.disconnectSync();
@@ -139,10 +143,12 @@ async function queryRequestVolume(db: DuckDBInstance, initiativeId?: string): Pr
         ({ agent, total_tool_calls, avg_calls_per_phase })),
     };
 
+    const hint = rows.length === 0 ? await buildScopeHint(conn, { initiative_id: initiativeId }) : undefined;
+
     return buildQueryResponse(
       ['Agent', 'Total Tool Calls', 'Avg Calls per Phase'],
       rows.map(([agent, total, avg]) => [agent, total, avg]),
-      rawSample, aggregation,
+      rawSample, aggregation, hint,
     );
   } finally {
     conn.disconnectSync();
@@ -182,10 +188,12 @@ async function queryTrend(db: DuckDBInstance, limitDays: number, initiativeId?: 
         ({ run_date, avg_peak_fill_pct, max_peak_fill_pct, event_count })),
     };
 
+    const hint = rows.length === 0 ? await buildScopeHint(conn, { initiative_id: initiativeId }) : undefined;
+
     return buildQueryResponse(
       ['Date', 'Avg Peak Fill %', 'Max Peak Fill %', 'Events'],
       rows.map(([date, avg, max, count]) => [date, `${avg}%`, `${max}%`, count]),
-      rawSample, aggregation,
+      rawSample, aggregation, hint,
     );
   } finally {
     conn.disconnectSync();
@@ -220,6 +228,10 @@ async function queryDrillDown(db: DuckDBInstance, sessionId: string, initiativeI
       events: rows,
     };
 
+    const hint = rows.length === 0
+      ? await buildScopeHint(conn, { session_id: sessionId, initiative_id: initiativeId })
+      : undefined;
+
     return buildQueryResponse(
       ['Timestamp', 'Event', 'Phase', 'Fill %', 'Unused Sources'],
       rows.map((r) => {
@@ -233,7 +245,7 @@ async function queryDrillDown(db: DuckDBInstance, sessionId: string, initiativeI
           Array.isArray(data['unused_sources']) ? (data['unused_sources'] as string[]).join(', ') : '',
         ];
       }),
-      rawSample, aggregation,
+      rawSample, aggregation, hint,
     );
   } finally {
     conn.disconnectSync();
