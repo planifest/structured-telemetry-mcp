@@ -458,6 +458,8 @@ All queries go through `query_telemetry`. Every response includes:
 - **JSON** — structured aggregation
 - **Raw Sample** — up to 5 recent raw events
 
+If a `session_id`/`initiative_id`-scoped query matches zero rows, but events exist for that exact scope under a different event type than the query family reads (e.g. querying `group_by` when the scope only has `phase_start`, not `phase_end`), the response includes a `hint` field naming what was actually found — so an empty result reads as "wrong event type for this query" rather than "no data at all."
+
 ### Bottleneck Queries (`group_by`)
 
 Aggregates `phase_end` events by a dimension. Ranked slowest first.
