@@ -183,6 +183,21 @@ All acceptance criteria covered. No failures.
 
 ---
 
+### P5 — Security
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-01T17:45:30Z` |
+| Model tier | primary |
+| Skills loaded | planifest-security-agent |
+| Agents spawned | `{{tbd}}` |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | `{{tbd}}` |
+| Telemetry | emitted |
+| Notes | `{{tbd}}` |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
