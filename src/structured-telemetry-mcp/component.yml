@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000014-zero-result-scope-hint"
-version: "0.10.4"
+feature: "0000015-telemetry-log-viewer-ui"
+version: "0.11.0"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -19,17 +19,23 @@ responsibilities:
   - "Support initiative_id-scoped filtering on all query families"
   - "Provide human-only post-deployment truncation scripts with admin/sudo gate and interactive phrase confirmation"
   - "Install, manage, and supervise itself as a user-scoped background service on macOS (launchd) and Linux (systemd --user), mirroring the existing Windows (nssm) service scripts"
+  - "Tag events with an optional product_id (repo root path) so events from multiple projects sharing one telemetry DB can be distinguished (0000015)"
+  - "Serve a static, read-only browser UI (GET /ui) for browsing, filtering, and paging telemetry events (0000015)"
+  - "Support offset-based pagination, total_count, sort order, and phase/agent/product_id/timestamp-range filters on event_log queries, with no scope filter required — every query is bounded solely by limit/offset (0000015, supersedes ADR-010's mandatory-scope-filter rule)"
 
 exceptions:
   - "Does not emit telemetry itself — it is the sink, not a source"
   - "Does not detect loops server-side — loop detection is query-side only"
   - "Does not update planifest-framework skills or setup scripts (0008b — separate pipeline run)"
-  - "Does not provide a web dashboard or visualisation layer (0024 — future)"
+  - "Does not provide an aggregation/dashboard view (bottleneck/failure/token-efficiency charts) in the UI — those remain MCP/REST-only (0024 — future; also plan/current/scope.md Deferred as of 0000015)"
   - "Does not publish to npm this pipeline run"
   - "Does not run in the cloud or as a hosted service"
-  - "Does not authenticate callers — bound to 127.0.0.1, no auth model required"
+  - "Does not authenticate callers — bound to 127.0.0.1, no auth model required, including for the new UI (0000015)"
   - "Does not install a system-level (root) launchd daemon or root systemd unit — user-scoped service only"
   - "Does not auto-fix a root-owned ~/Library/LaunchAgents or auto-enable systemd lingering — both require explicit human action"
+  - "Does not support editing or deleting events from the UI — read-only viewer (0000015)"
+  - "Does not backfill product_id on historical rows — no reliable signal exists; other projects besides this repo have also used the shared DB (0000015)"
+  - "Does not populate product_id in planifest-framework's own emission hooks — that is a separate product's responsibility, tracked at plan/backlog/00002-framework-product-id-emission (0000015)"
 
 stack:
   language: "typescript"
@@ -55,13 +61,16 @@ contract:
     - name: "query_telemetry"
       type: "event"
       description: "Accepts a structured query via a permissive object-shaped Zod schema (QueryShape, not z.unknown() as of 0.10.1); returns aggregated Markdown + JSON + raw event sample"
+    - name: "GET /ui"
+      type: "http"
+      description: "New (0000015): serves the static browser log-viewer page from the same server-http.ts process. No new port/process."
   outputs:
     - name: "emit_event response"
       type: "event"
       description: "{ ok: true, id } on success or { ok: false, errors } on validation/storage failure"
     - name: "query_telemetry response"
       type: "event"
-      description: "Markdown table + JSON payload + raw event sample (5 events); on a zero-row result for a session_id/initiative_id-scoped query, an additive `hint` field/markdown note names other event types found for that scope, if any (0000014)"
+      description: "Markdown table + JSON payload + raw event sample (5 events); on a zero-row result for a session_id/initiative_id-scoped query, an additive `hint` field/markdown note names other event types found for that scope, if any (0000014). event_log responses additionally include `total_count` as of 0000015."
   consumedBy: []
   consumes: []
   breakingChangePolicy: "requires-adr"
@@ -97,6 +106,9 @@ scope:
     - "bats test harness for service-macos.sh / service-linux.sh pure-logic paths — 23 tests, wired into CI (0000012)"
     - "bottleneck query group_by validated against its 7-value allow-list before dispatch, replacing a silent undefined-SQL-column failure with a clear error naming the invalid value and valid options (0000013)"
     - "zero-result scope hint on bottlenecks/failures/token-efficiency: a session_id/initiative_id-scoped query that matches zero rows for its event-type/family now surfaces a hint naming other event types found for that exact scope, distinguishing 'wrong event type for this query' from 'no data at all' (0000014)"
+    - "product_id optional field on the event envelope + DB column, via approved migration proposal, no backfill (0000015)"
+    - "event_log: offset pagination, total_count, sort (default asc, back-compat), phase/agent/product_id/from/to filters, mandatory-scope-filter requirement removed (0000015)"
+    - "GET /ui static browser log-viewer: paginated newest-first table, all confirmed filters, row-click JSON detail view, URL-query-string state persistence, empty-state and backend-unreachable handling (0000015)"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
@@ -112,6 +124,11 @@ scope:
     - "Plugin marketplace manifests — blocked on: marketplace listing decision"
     - "Auto-fixing a root-owned ~/Library/LaunchAgents — blocked on: human confirmation it's safe to override a possible MDM control"
     - "Auto-enabling systemd lingering — blocked on: human decision to accept an account-wide setting change"
+    - "Aggregation/dashboard charts in the UI — blocked on: a specific need beyond raw event browsing (0000015)"
+    - "Authentication / multi-user UI access — blocked on: a need to run this for more than one person (0000015)"
+    - "Editing/deleting events from the UI — blocked on: a specific, deliberate need (0000015)"
+    - "Live auto-refresh / tail mode — blocked on: manual refresh proving too slow in practice (0000015)"
+    - "planifest-framework's emitters populating product_id — blocked on: that product's own pipeline picking up plan/backlog/00002-framework-product-id-emission (0000015)"
 
 risk:
   level: "low"
@@ -125,6 +142,9 @@ risk:
     - "systemd --user lingering disabled by default on headless/dev boxes — post-install check required (R-003)"
     - "emit_event's 3 enforcement points (Zod enum, ajv schema, EVENT_REQUIRED_DATA_FIELDS) must land together or they drift out of sync (R-004)"
     - "emit_event argument rename (event -> envelope) is a breaking change for any caller on the old shape (R-005)"
+    - "ADR-010 scope-filter removal is enforced in two places (src/query/event-log.ts and src/server-factory.ts dispatchQuery) that must change together (0000015 R-001)"
+    - "Three existing tests assert the old scope-required error and will fail until updated: tests/unit/server-factory.test.ts:125, tests/integration/query-telemetry.test.ts:256, tests/regression/query-routing.test.ts:132 (0000015 R-002)"
+    - "product_id migration requires human approval before req-002/003/004 can build against the new column — sequence product_id first (0000015 R-004)"
 
 quality:
   testCoverage:
@@ -151,9 +171,12 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-07-27T00:00:00Z"
+  updatedAt: "2026-08-01T00:00:00Z"
+  # Updated by 0000015 (spec-agent) P1: seeded requirements-derived
+  # responsibilities/scope/risk/contract entries for the log-viewer UI and
+  # product_id tagging ahead of P3 codegen.
   createdBy: "agent"
   lastModifiedBy: "agent"
-  skill: "planifest-change-agent"
+  skill: "planifest-spec-agent"
   tool: "claude-code"
   model: "claude-sonnet-5"

@@ -96,6 +96,21 @@ Design confirmed by human: 01 Aug 2026 @ 16:47 BST. Run mode: continuous (plan/.
 
 ---
 
+### P1 — Spec
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-01T15:48:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-spec-agent |
+| Agents spawned | 0 |
+| MCP calls | 1 (emit_event phase_start) |
+| Parallel task batches | 0 (artifacts written sequentially in-session, not via spawned agents) |
+| Telemetry | emitted |
+| Notes | Continuous run mode — no phase-gate stop. Produced: 4 requirement files (req-001..004), execution-plan.md, scope.md, risk-register.md, domain-glossary.md, operational-model.md, slo-definitions.md, cost-model.md. Updated existing component manifest src/structured-telemetry-mcp/component.yml (feature/version/responsibilities/exceptions/scope/risk/contract) — not a new component. No OpenAPI spec produced (project convention: apiSpec "none", no prior feature produced one). Confirmed via search that exactly 2 call sites (event-log.ts, server-factory.ts) enforce the scope-filter rule being removed, and exactly 3 tests assert the old error — all named in req-002 and risk-register.md. |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
