@@ -8,7 +8,8 @@
  * Endpoints:
  *   GET  /health  — liveness check
  *   POST /emit    — write a telemetry event
- *   POST /query   — run a query (bottlenecks | failures | token_efficiency)
+ *   POST /query   — run a query (bottlenecks | failures | token_efficiency | event_log)
+ *   GET  /ui      — static log-viewer page (0000015, ADR-018)
  *
  * Port: PLANIFEST_MCP_PORT env var, default 3741.
  */
@@ -24,6 +25,7 @@ import { DuckDbEventRepository } from './db/duckdb-event-repository.js';
 import { DuckDbQueryService } from './query/query-service.js';
 import { dispatchQuery } from './server-factory.js';
 import { validateEvent } from './validation/validate-event.js';
+import { INDEX_HTML } from './ui/index-html.js';
 
 // ── Version ───────────────────────────────────────────────────────────────────
 
@@ -87,6 +89,13 @@ const server = createServer(async (req, res) => {
   // GET /health
   if (req.method === 'GET' && url.pathname === '/health') {
     json(res, 200, { ok: true, version: VERSION });
+    return;
+  }
+
+  // GET /ui — static log-viewer page (0000015, ADR-018)
+  if (req.method === 'GET' && url.pathname === '/ui') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(INDEX_HTML);
     return;
   }
 

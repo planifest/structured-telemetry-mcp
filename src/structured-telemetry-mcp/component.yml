@@ -41,8 +41,8 @@ stack:
   language: "typescript"
   runtime: "node"
   framework: "none"
-  frontend: "none"
-  styling: "none"
+  frontend: "vanilla-js (no build step, no framework — 0000015, ADR-018)"
+  styling: "inline-css"
   componentLibrary: "none"
   database: "duckdb"
   orm: "none"
@@ -148,14 +148,16 @@ risk:
 
 quality:
   testCoverage:
-    unit: 128   # 332 Vitest tests across 14 files as of 0.10.4 (128 unit + 66 integration + 137 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
-    integration: 66
+    unit: 144   # 360 Vitest tests across 14 files as of 0000015 (144 unit + 78 integration + 137 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
+    integration: 78
     e2e: 0
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
     - "data.anyOf in telemetry-event.schema.json is not discriminated by event type — addressed by cross-field validation in src/validation/validate-event.ts (EVENT_REQUIRED_DATA_FIELDS map). Changed from oneOf to anyOf in 0.3.0 when ContextResetData and PhaseSkipData became structurally identical; anyOf is correct since cross-field validation handles semantic discrimination. Future improvement: if/then/else or unevaluatedProperties in JSON Schema."
   quirks:
+    - "server-http.ts has no HTTP-level test coverage anywhere in this project (routes are tested indirectly via server-factory.ts's exported handlers); the new GET /ui route follows the same convention — tested via its exported INDEX_HTML content (tests/unit/ui.test.ts) plus manual browser verification, not a live-server HTTP test (0000015)."
+    - "INDEX_HTML is embedded as a TypeScript template-literal string (src/ui/index-html.ts), not a separate static file — same reason schemas/telemetry-event.schema.json is inline-imported: runtime path resolution to sibling files breaks once esbuild bundles server-http.ts into a single .mjs file (0000015, ADR-018)."
     - "@duckdb/node-api named params require prepare().bind({name}).runAndReadAll() — positional ? binding is unsupported in this version."
     - "DuckDB does not support PRAGMA wal_mode — WAL is managed internally, pragma removed from schema init."
     - "Zod v4 arrives as a transitive dep (not declared by MCP SDK's own package.json); pinned explicitly to ^4.0.0 to prevent accidental downgrade."
@@ -172,11 +174,12 @@ pipeline:
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
   updatedAt: "2026-08-01T00:00:00Z"
-  # Updated by 0000015 (spec-agent) P1: seeded requirements-derived
-  # responsibilities/scope/risk/contract entries for the log-viewer UI and
-  # product_id tagging ahead of P3 codegen.
+  # Updated by 0000015 (codegen-agent) P3: product_id migration applied,
+  # event_log pagination/filters/sort implemented, static log-viewer UI built
+  # and manually verified in-browser. Stack.frontend/styling updated to
+  # reflect the actual vanilla-JS/inline-CSS approach (ADR-018).
   createdBy: "agent"
   lastModifiedBy: "agent"
-  skill: "planifest-spec-agent"
+  skill: "planifest-codegen-agent"
   tool: "claude-code"
   model: "claude-sonnet-5"
