@@ -126,6 +126,21 @@ Design confirmed by human: 01 Aug 2026 @ 16:47 BST. Run mode: continuous (plan/.
 
 ---
 
+### P3 — Codegen
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-01T16:12:30Z` |
+| Model tier | primary |
+| Skills loaded | planifest-codegen-agent |
+| Agents spawned | `{{tbd}}` |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | `{{tbd}}` |
+| Telemetry | emitted |
+| Notes | Build order: req-001 (product_id) first — includes writing the migration proposal and STOPPING for human approval before applying it (Hard Limit — no direct schema modification) — then req-002, req-003, req-004. |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
