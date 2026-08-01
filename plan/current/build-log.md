@@ -198,6 +198,21 @@ All acceptance criteria covered. No failures.
 
 ---
 
+### P6 — Docs
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-01T17:55:30Z` |
+| Model tier | primary |
+| Skills loaded | planifest-docs-agent |
+| Agents spawned | `{{tbd}}` |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | `{{tbd}}` |
+| Telemetry | emitted |
+| Notes | `{{tbd}}` |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
