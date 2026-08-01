@@ -111,6 +111,21 @@ Design confirmed by human: 01 Aug 2026 @ 16:47 BST. Run mode: continuous (plan/.
 
 ---
 
+### P2 — ADRs
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-01T16:00:30Z` |
+| Model tier | primary |
+| Skills loaded | planifest-adr-agent |
+| Agents spawned | 0 |
+| MCP calls | 6 (1 phase_start + 4 adr_decision + 1 phase_end pending) |
+| Parallel task batches | 0 |
+| Telemetry | emitted |
+| Notes | Continuous run mode — no phase-gate stop. design_critic toggle confirmed off (no planifest-overrides/loop-toggles.yml present) — no critic subagent spawned. Produced ADR-016 (event_log bounding, amends ADR-010), ADR-017 (product_id additive/no-backfill), ADR-018 (static vanilla-JS UI in-process, no new component), ADR-019 (product_id emission is planifest-framework's cross-product responsibility). Sequential numbering continued globally from ADR-015 (docs/decisions-index.md), not per-feature. docs/decisions-index.md update deferred to P6 docs-agent per project convention (plan/ vs docs/ separation). |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
