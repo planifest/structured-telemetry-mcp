@@ -148,11 +148,38 @@ Design confirmed by human: 01 Aug 2026 @ 16:47 BST. Run mode: continuous (plan/.
 | Start | `2026-08-01T17:31:30Z` |
 | Model tier | primary |
 | Skills loaded | planifest-validate-agent |
-| Agents spawned | `{{tbd}}` |
-| MCP calls | `{{tbd}}` |
-| Parallel task batches | `{{tbd}}` |
+| Agents spawned | 0 |
+| MCP calls | 1 (phase_start) |
+| Parallel task batches | 1 (typecheck + full test suite are independent of each other in this project's CI; run back-to-back here but with no dependency between them) |
 | Telemetry | emitted |
-| Notes | `{{tbd}}` |
+| Notes | Library audit: no new dependencies added this feature — skipped. Lint: no lint script or eslint devDependency exists in this project (package.json has no "lint" script) — not configured, skipped consistent with existing project CI. Semantic correctness: found 2 acceptance-criteria gaps during coverage review (req-001 "NULL displays as unknown" and req-004 "no extra network request on row click" had no dedicated test) — added tests/unit/ui.test.ts assertions for both, closing the gaps (committed separately). Full coverage table below. Typecheck: clean, zero errors. Test: 362/362 passing (0 self-corrections needed). Build: `npm run build` succeeded (tsc + esbuild), all 3 bundles produced. Additionally verified the actual bundled `server-http.bundle.mjs` (not just tsx dev mode) serves GET /ui correctly — confirms ADR-018's inline-string embedding survives esbuild bundling as intended. Zero self-corrections across all checks — first-attempt pass. |
+
+**Semantic correctness coverage:**
+
+| REQ-ID | AC | Covered by test | Pass/Fail |
+|--------|-----|-----------------|-----------|
+| req-001 | product_id validates/stores with and without value | validation.test.ts, emit-event.test.ts | Pass |
+| req-001 | migration proposal exists + approved before applying | Process (migration file status: Applied, human-approved) | Pass |
+| req-001 | event_log accepts product_id filter | query-telemetry.test.ts "filters by product_id" | Pass |
+| req-001 | NULL not excluded by default, displays "unknown" | query-telemetry.test.ts "null product_id is returned as null"; ui.test.ts "renders unknown for a NULL product_id" | Pass |
+| req-001 | no backfill attempted | Code review (no backfill logic written; confirmed absent) | Pass |
+| req-002 | event_log with zero filters succeeds | query-telemetry.test.ts "succeeds with no scope parameter" | Pass |
+| req-002 | total_count reflects all matching rows | query-telemetry.test.ts "paginates with offset, returning total_count" | Pass |
+| req-002 | sort desc/asc (back-compat default) | query-telemetry.test.ts "sorts descending"/"defaults to ascending" | Pass |
+| req-002 | limit > 1000 rejected | query-telemetry.test.ts "rejects a limit above the maximum" | Pass |
+| req-002 | 3 pre-existing tests updated to new contract | server-factory.test.ts, query-telemetry.test.ts, query-routing.test.ts | Pass |
+| req-002 | GET /ui serves working paginated table, default view | ui.test.ts structure tests + manual browser verification (build-log P3) | Pass |
+| req-003 | phase/agent/product_id/from-to filters, combinable (AND) | query-telemetry.test.ts per-filter tests (each combined with session_id, proving AND not OR) | Pass |
+| req-003 | UI exposes control per filter, individually clearable, clear-all | ui.test.ts filter-control tests | Pass |
+| req-003 | filter change resets to page 1 | ui.test.ts "resets to page 1 when filters change" | Pass |
+| req-003 | URL state round-trips (filters/page/pageSize/sort) | ui.test.ts URL-state tests + manual browser reload verification (build-log P3) | Pass |
+| req-003 | zero matches shows "No matching events" | ui.test.ts empty-state tests + manual verification | Pass |
+| req-003 | from/to accept full timestamp precision | query-telemetry.test.ts "filters by from/to timestamp range" | Pass |
+| req-004 | row click shows full pretty-printed JSON | ui.test.ts detail-view tests + manual verification (all envelope fields confirmed visible) | Pass |
+| req-004 | no additional network request on click | ui.test.ts "row-click handler makes no network request" | Pass |
+| req-004 | closing detail view leaves table state unchanged | Code review (click handler only toggles display, no state mutation) | Pass |
+
+All acceptance criteria covered. No failures.
 
 ---
 
