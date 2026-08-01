@@ -17,6 +17,9 @@ logs/
 # OS cruft
 .DS_Store
 
+# Stray backup copies (e.g. accidental duplicate framework dirs)
+__*/
+
 # Agent tool config (local to each developer)
 .claude/
 .cursor/
