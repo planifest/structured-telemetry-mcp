@@ -190,11 +190,11 @@ All acceptance criteria covered. No failures.
 | Start | `2026-08-01T17:45:30Z` |
 | Model tier | primary |
 | Skills loaded | planifest-security-agent |
-| Agents spawned | `{{tbd}}` |
-| MCP calls | `{{tbd}}` |
-| Parallel task batches | `{{tbd}}` |
+| Agents spawned | 0 |
+| MCP calls | 2 (phase_start, security_finding) |
+| Parallel task batches | 1 (STRIDE threat modelling + dependency audit are independent analyses; reviewed together in one pass) |
 | Telemetry | emitted |
-| Notes | `{{tbd}}` |
+| Notes | Reviewed SQL injection (all new filters parameterized; sort is an allowlist map, not passthrough — no injection found), XSS (all innerHTML writes escaped via escapeHtml(); detail view/banner/status use textContent — no XSS found), and network exposure (GET /ui on the same 127.0.0.1-only listener, zero new exposure). One Medium finding: removing the mandatory scope-filter lowers exfiltration effort, though the actual trust boundary (no-auth, local-only) was unchanged and the old "protection" was already trivially bypassable via the public event_type enum — accepted, flagged for revisit if ever exposed beyond localhost (risk-register R-007). Discovered NFR-001 (p95 < 300ms) was never empirically measured at P4 — ran a quick timing check now: p95 = 2.28ms unfiltered / 1.26ms filtered against 5000 seeded rows, ~130x margin. Risk register updated: R-001/002/003/004 resolved, R-005/006 remain accepted, new R-007 added and accepted, A-001/002/003 confirmed. No new dependencies, no secrets, no auth changes, no IaC. Overall risk rating: Low. |
 
 ---
 
