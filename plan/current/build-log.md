@@ -133,11 +133,11 @@ Design confirmed by human: 01 Aug 2026 @ 16:47 BST. Run mode: continuous (plan/.
 | Start | `2026-08-01T16:12:30Z` |
 | Model tier | primary |
 | Skills loaded | planifest-codegen-agent |
-| Agents spawned | `{{tbd}}` |
-| MCP calls | `{{tbd}}` |
-| Parallel task batches | `{{tbd}}` |
+| Agents spawned | 0 |
+| MCP calls | 3 (1 phase_start, 1 migration_proposal, 1 deviation) |
+| Parallel task batches | 0 — req-001..004 are strictly sequential and share files (event-log.ts, server-factory.ts, index-html.ts); no independent leaf requirements existed to batch (documented deviation from the sub-agent TDD loop, see `deviation` telemetry event and quirks.md) |
 | Telemetry | emitted |
-| Notes | Build order: req-001 (product_id) first — includes writing the migration proposal and STOPPING for human approval before applying it (Hard Limit — no direct schema modification) — then req-002, req-003, req-004. |
+| Notes | req-001: wrote migration proposal, STOPPED for human approval (approved), implemented schema/DB/types/repository changes, tests added. req-002: removed ADR-010's mandatory scope-filter check (2 call sites), added offset/sort/total_count/max-limit-guard/expanded SELECT to event-log.ts, added `GET /ui` route. req-003: added phase/agent/product_id/from-to filters. req-004: row-click JSON detail view in the static UI. Updated 3 pre-existing tests asserting the old scope-required error. Full suite: 360/360 passing (up from 332 baseline), `tsc --noEmit` clean. UI manually verified in a real browser (Browser tool) against a local dev instance on a scratch port/DB: first-run empty state, seeded-event table (newest-first, product_id basename+tooltip, "unknown" for null), row-click JSON detail, product_id filter, URL-state round-trip via reload, page-size/pagination (Next/Prev, page X of Y), zero-match "No matching events" state, and backend-unreachable banner — all confirmed working. Found and fixed one real UX gap during manual testing: product_id displayed as basename but filtered by full path — added a `title` tooltip with the full value (src/ui/index-html.ts, tests/unit/ui.test.ts). component.yml updated: stack.frontend/styling, quality.testCoverage (144 unit/78 integration), quality.quirks, responsibilities/scope/risk already seeded at P1. Migration renamed proposed-add-product-id.md → applied-add-product-id.md. |
 
 ---
 
