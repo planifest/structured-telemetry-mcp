@@ -75,10 +75,22 @@ describe('req-003-event-filtering: filter controls', () => {
   });
 });
 
+describe('req-001-product-id-tagging: table/detail display of NULL product_id', () => {
+  it('renders "unknown" for a NULL product_id in the table (not blank or an error)', () => {
+    expect(INDEX_HTML).toContain('<span class="unknown">unknown</span>');
+  });
+});
+
 describe('req-004-event-detail-view: row detail', () => {
   it('renders full pretty-printed JSON per row on click, with no extra fetch', () => {
     expect(INDEX_HTML).toContain('JSON.stringify(event, null, 2)');
     expect(INDEX_HTML).toContain("addEventListener('click'");
+  });
+
+  it('the row-click handler makes no network request (data already in hand)', () => {
+    const clickHandlerMatch = INDEX_HTML.match(/row\.addEventListener\('click', \(\) => \{[\s\S]*?\}\);/);
+    expect(clickHandlerMatch).not.toBeNull();
+    expect(clickHandlerMatch![0]).not.toContain('fetch(');
   });
 });
 
