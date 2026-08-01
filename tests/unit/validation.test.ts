@@ -112,6 +112,25 @@ describe('req-005-schema-validation: validateEvent', () => {
       });
       expect(result.isValid).toBe(true);
     });
+
+    it('accepts an event with optional product_id (0000015)', () => {
+      const result = validateEvent({
+        ...BASE_ENVELOPE,
+        event: 'phase_start',
+        product_id: '/Users/dev/my-project',
+        data: { phase_name: 'codegen' },
+      });
+      expect(result.isValid).toBe(true);
+    });
+
+    it('accepts an event without product_id (0000015)', () => {
+      const result = validateEvent({
+        ...BASE_ENVELOPE,
+        event: 'phase_start',
+        data: { phase_name: 'codegen' },
+      });
+      expect(result.isValid).toBe(true);
+    });
   });
 
   describe('invalid events are rejected', () => {

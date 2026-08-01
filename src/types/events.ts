@@ -232,6 +232,7 @@ export interface TelemetryEvent {
   readonly event: EventType;
   readonly session_id: string;
   readonly initiative_id?: string;
+  readonly product_id?: string;
   readonly phase: Phase;
   readonly agent: string;
   readonly tool: string;

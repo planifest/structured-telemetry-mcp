@@ -62,6 +62,10 @@
       "type": "string",
       "description": "Feature/initiative identifier from plan/current/. Optional."
     },
+    "product_id": {
+      "type": "string",
+      "description": "Identifies the emitting repo/project — the git repo root path (git rev-parse --show-toplevel), falling back to the raw cwd if not inside a git repo. Optional; NULL/absent displays as \"unknown\"."
+    },
     "phase": {
       "type": "string",
       "enum": [

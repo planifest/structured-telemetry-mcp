@@ -120,9 +120,12 @@ describe('dispatchQuery', () => {
     expect(qs.bottlenecks).not.toHaveBeenCalled();
   });
 
-  it('throws for event_log without scope params', async () => {
+  // 0000015 ADR-016: no scope parameter is required — dispatchQuery no longer
+  // pre-checks this itself; eventLog() bounds every request by limit/offset alone.
+  it('routes event_log with no scope params to eventLog (ADR-016)', async () => {
     const qs = mockQueryService();
-    await expect(dispatchQuery(qs, { mode: 'event_log' })).rejects.toThrow('requires at least one scope parameter');
+    await dispatchQuery(qs, { mode: 'event_log' });
+    expect(qs.eventLog).toHaveBeenCalledWith({ mode: 'event_log' });
   });
 
   it('routes event_log with initiative_id scope', async () => {

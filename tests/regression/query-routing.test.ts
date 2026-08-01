@@ -127,9 +127,12 @@ describe('BUG-003 — drill_down requires session_id', () => {
 // ── Event log routing ─────────────────────────────────────────────────────────
 
 describe('FEA-001 — event_log routing and scoping', () => {
-  it('throws without any scope parameter', async () => {
+  // 0000015 ADR-016: no scope parameter is required — routes straight to eventLog,
+  // which bounds the request by limit/offset alone.
+  it('routes without any scope parameter to eventLog (ADR-016)', async () => {
     const qs = mockQueryService();
-    await expect(dispatchQuery(qs, { mode: 'event_log' })).rejects.toThrow('requires at least one scope parameter');
+    await dispatchQuery(qs, { mode: 'event_log' });
+    expect(qs.eventLog).toHaveBeenCalledWith({ mode: 'event_log' });
   });
 
   it('routes with session_id to eventLog', async () => {

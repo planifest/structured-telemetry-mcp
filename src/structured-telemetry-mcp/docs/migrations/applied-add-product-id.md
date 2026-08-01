@@ -1,6 +1,6 @@
 # Migration Proposal: Add `product_id` to Event Envelope
 
-**Status:** Proposed — awaiting human approval
+**Status:** Applied — approved 2026-08-01, implemented in this pipeline run
 **Date:** 2026-08-01
 **Requested by:** Martin Mayer
 **Feature:** 0000015-telemetry-log-viewer-ui

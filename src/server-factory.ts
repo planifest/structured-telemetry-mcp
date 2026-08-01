@@ -36,6 +36,7 @@ export const EmitEventEnvelope = z.object({
   ]),
   session_id: z.string().min(1),
   initiative_id: z.string().optional(),
+  product_id: z.string().optional(),
   phase: z.enum(['orchestrator', 'spec', 'adr', 'codegen', 'validate', 'security', 'docs', 'change', 'ship']),
   agent: z.string().min(1),
   tool: z.string().min(1),
@@ -75,13 +76,9 @@ export const QueryShape = z.object({
  */
 export async function dispatchQuery(qs: IQueryService, q: Record<string, unknown>): Promise<QueryResponse> {
   // event_log is checked first — it uses `mode` but is its own query family (ADR-010).
+  // No scope parameter is required (ADR-016, 0000015) — eventLog() bounds every
+  // request by limit/offset alone and rejects pathological limit values itself.
   if (q['mode'] === 'event_log') {
-    const hasScope = (typeof q['session_id'] === 'string' && q['session_id'] !== '') ||
-                     (typeof q['initiative_id'] === 'string' && q['initiative_id'] !== '') ||
-                     (typeof q['event_type'] === 'string' && q['event_type'] !== '');
-    if (!hasScope) {
-      throw new Error('event_log requires at least one scope parameter: session_id, initiative_id, or event_type');
-    }
     return qs.eventLog(q as unknown as EventLogQuery);
   }
 

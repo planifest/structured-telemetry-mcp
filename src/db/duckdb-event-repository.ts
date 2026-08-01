@@ -16,10 +16,10 @@ export class DuckDbEventRepository implements IEventRepository {
       try {
         const stmt = await conn.prepare(
           `INSERT INTO events
-             (schema_version, event, session_id, initiative_id, phase, agent, tool, model, mcp_mode,
+             (schema_version, event, session_id, initiative_id, product_id, phase, agent, tool, model, mcp_mode,
               timestamp, model_config, data)
            VALUES
-             ($schema_version, $event, $session_id, $initiative_id, $phase, $agent, $tool, $model,
+             ($schema_version, $event, $session_id, $initiative_id, $product_id, $phase, $agent, $tool, $model,
               $mcp_mode, $timestamp::TIMESTAMPTZ, $model_config::JSON, $data::JSON)
            RETURNING id`,
         );
@@ -29,6 +29,7 @@ export class DuckDbEventRepository implements IEventRepository {
           event: event.event,
           session_id: event.session_id,
           initiative_id: event.initiative_id ?? null,
+          product_id: event.product_id ?? null,
           phase: event.phase,
           agent: event.agent,
           tool: event.tool,
@@ -57,7 +58,7 @@ export class DuckDbEventRepository implements IEventRepository {
       const conn = await this.db.connect();
       try {
         const stmt = await conn.prepare(
-          `SELECT id, schema_version, event, session_id, initiative_id, phase, agent, tool, model,
+          `SELECT id, schema_version, event, session_id, initiative_id, product_id, phase, agent, tool, model,
                   mcp_mode, timestamp::VARCHAR AS timestamp, model_config::VARCHAR AS model_config,
                   data::VARCHAR AS data, inserted_at::VARCHAR AS inserted_at
            FROM events WHERE id = $id`,
@@ -77,7 +78,7 @@ export class DuckDbEventRepository implements IEventRepository {
 }
 
 function rowToStoredEvent(row: unknown[]): StoredEvent {
-  const [id, schema_version, event, session_id, initiative_id, phase, agent, tool, model,
+  const [id, schema_version, event, session_id, initiative_id, product_id, phase, agent, tool, model,
     mcp_mode, timestamp, modelConfigRaw, dataRaw, inserted_at] = row as (string | null)[];
 
   return {
@@ -86,6 +87,7 @@ function rowToStoredEvent(row: unknown[]): StoredEvent {
     event: (event ?? '') as StoredEvent['event'],
     session_id: session_id ?? '',
     initiative_id: initiative_id ?? undefined,
+    product_id: product_id ?? undefined,
     phase: (phase ?? '') as StoredEvent['phase'],
     agent: agent ?? '',
     tool: tool ?? '',
