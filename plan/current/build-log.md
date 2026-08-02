@@ -94,6 +94,19 @@ P0 exchange — design confirmation: Q: Confirm plan/current/design.md as correc
 | Telemetry | emitted |
 | Notes | No OpenAPI spec produced — feature tests an existing API surface, does not build/modify one (per spec-agent's critical condition). No new data contract — data ownership (events table) is unchanged; ephemeral per-test DuckDB is test infra, not a production data contract concern. Artifacts: execution-plan.md, scope.md, risk-register.md (6 risks, low overall), domain-glossary.md (7 terms), operational-model.md, slo-definitions.md, cost-model.md ($0 marginal), req-001/req-002, component.yml updated (scope/exceptions/risk only, stack untouched). |
 
+### P2 — ADRs
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-02` |
+| Model tier | primary |
+| Skills loaded | planifest-adr-agent |
+| Agents spawned | `0` |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | `1` (ADR-020/021/022/023 independent of each other, no cross-references requiring sequencing) |
+| Telemetry | emitted |
+| Notes | Continuous run confirmed by human (no fresh P0/P1 re-ask needed — treated as confirmation of the P1 gate too, per human's message). Numbering continues from ADR-019 (last used, 0000015). |
+
 ---
 
 ## Summary (filled at P7)
