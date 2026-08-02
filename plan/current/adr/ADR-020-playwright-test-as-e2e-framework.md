@@ -31,7 +31,7 @@ Adopt `@playwright/test` as a new devDependency and the sole framework for both 
 
 | Component | Impact |
 |-----------|--------|
-| structured-telemetry-mcp | New devDependency `@playwright/test`; new `playwright.config.ts`; new `tests/e2e/backend/` and `tests/e2e/ui/` directories; new npm scripts (`test:e2e`, `test:e2e:backend`, `test:e2e:ui`); `.github/workflows/planifest.yml` extended with a Chromium install step and E2E job step |
+| structured-telemetry-mcp | New devDependency `@playwright/test`; new `playwright.config.ts`; new `tests/e2e/backend/` and `tests/e2e/ui/` directories; new npm scripts (`test:e2e`, `test:e2e:backend`, `test:e2e:ui`); `.github/workflows/ci.yml` gains a new `e2e` job (Chromium install + `npm run test:e2e`) — corrected at P3 from the P1/P2 assumption of `planifest.yml`, which turned out to be doc/code-parity-only; the real test-running workflow is `ci.yml` |
 
 ## Consequences
 

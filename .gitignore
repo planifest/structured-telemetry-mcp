@@ -14,6 +14,11 @@ build/
 # Service logs
 logs/
 
+# Playwright E2E output (0000016)
+test-results/
+playwright-report/
+blob-report/
+
 # OS cruft
 .DS_Store
 

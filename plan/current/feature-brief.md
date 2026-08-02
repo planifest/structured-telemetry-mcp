@@ -56,7 +56,7 @@ Single wave — both suites are small, share the same ephemeral-server test harn
 | IaC | none |
 | Cloud | none |
 | Compute | local / CI runner |
-| CI | GitHub Actions — extend `.github/workflows/planifest.yml` |
+| CI | GitHub Actions — extend `.github/workflows/ci.yml` (new `e2e` job; corrected at P3 from an initial `planifest.yml` assumption — that workflow is doc/code-parity-only) |
 | Build target | ci-only for the E2E job (also runnable locally via npm scripts) |
 
 **Test authoring aid (not a runtime dependency of the shipped suites):** the Playwright MCP server (`@playwright/mcp`) is used interactively during P3 codegen to explore `/ui` and the backend endpoints while writing the `.spec.ts` files — confirming selectors and flows work before committing them. It plays no role in CI execution; `npx playwright test` (via `@playwright/test`) is the sole CI-executed runner. Captured as its own ADR at P2.

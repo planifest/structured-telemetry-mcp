@@ -16,7 +16,7 @@ version: "0.1.0"
 - Backend E2E suite (`tests/e2e/backend/`): real `server-http.ts` process + ephemeral temp DuckDB per run; `POST /emit` valid + schema-invalid cases; `POST /query` `event_log` filtering (phase/agent/product_id/from/to), pagination (limit/offset/total_count), and sort; `GET /health`.
 - UI E2E suite (`tests/e2e/ui/`): real Chromium browser driving the served `GET /ui` page against the same real-server pattern; page load/render, each filter narrows results + updates URL state, pagination controls, zero-result state, row-click JSON detail expansion with no new network request.
 - `@playwright/test` as a new devDependency; `playwright.config.ts` with two projects (backend, ui); new npm scripts (`test:e2e`, `test:e2e:backend`, `test:e2e:ui`).
-- CI: extend `.github/workflows/planifest.yml` to install Chromium and run both suites as a blocking check on every PR.
+- CI: extend `.github/workflows/ci.yml` (the workflow that actually runs typecheck/test/build) with a new `e2e` job to install Chromium and run both suites as a blocking check on every PR. (Corrected at P3 — `planifest.yml` is doc/code-parity-only, not a test runner.)
 - Interactive use of the Playwright MCP server (`@playwright/mcp`) during P3 codegen for authoring/verification — not part of the shipped CI runtime (see ADR to be written at P2).
 - Installation of the vendored `playwright` capability skill, permanently, for this and future plans (already completed at P0).
 

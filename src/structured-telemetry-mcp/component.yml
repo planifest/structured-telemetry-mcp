@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000015-telemetry-log-viewer-ui"
-version: "0.11.0"
+feature: "0000016-e2e-playwright-test-suites"
+version: "0.12.0"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -162,13 +162,15 @@ quality:
   testCoverage:
     unit: 144   # 360 Vitest tests across 14 files as of 0000015 (144 unit + 78 integration + 137 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
     integration: 78
-    e2e: 0
+    e2e: 17   # @playwright/test, Chromium-only: 9 backend (tests/e2e/backend/) + 8 UI (tests/e2e/ui/) as of 0000016
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
     - "data.anyOf in telemetry-event.schema.json is not discriminated by event type — addressed by cross-field validation in src/validation/validate-event.ts (EVENT_REQUIRED_DATA_FIELDS map). Changed from oneOf to anyOf in 0.3.0 when ContextResetData and PhaseSkipData became structurally identical; anyOf is correct since cross-field validation handles semantic discrimination. Future improvement: if/then/else or unevaluatedProperties in JSON Schema."
   quirks:
-    - "server-http.ts has no HTTP-level test coverage anywhere in this project (routes are tested indirectly via server-factory.ts's exported handlers); the new GET /ui route follows the same convention — tested via its exported INDEX_HTML content (tests/unit/ui.test.ts) plus manual browser verification, not a live-server HTTP test (0000015)."
+    - "server-http.ts previously had no HTTP-level test coverage (routes were tested indirectly via server-factory.ts's exported handlers, and GET /ui via its exported INDEX_HTML content plus manual browser verification, 0000015) — resolved by tests/e2e/backend/ and tests/e2e/ui/ (0000016), which start a real server-http.ts process and issue real HTTP/browser requests against it."
+    - "E2E suites (tests/e2e/) run against src/server-http.ts via tsx (matching npm run dev), not the bundled server-http.bundle.mjs artifact — bundling itself is covered separately by the existing CI build step (0000016)."
+    - "DuckDB's TIMESTAMPTZ::VARCHAR cast renders space-separated with a bare (colonless) UTC offset (e.g. \"2026-08-01 11:00:00+01\"), not ISO 8601 — client-side Date parsing of raw /query timestamp output must normalize this first (tests/e2e/support/fixtures.ts's parseDbTimestamp, 0000016)."
     - "INDEX_HTML is embedded as a TypeScript template-literal string (src/ui/index-html.ts), not a separate static file — same reason schemas/telemetry-event.schema.json is inline-imported: runtime path resolution to sibling files breaks once esbuild bundles server-http.ts into a single .mjs file (0000015, ADR-018)."
     - "@duckdb/node-api named params require prepare().bind({name}).runAndReadAll() — positional ? binding is unsupported in this version."
     - "DuckDB does not support PRAGMA wal_mode — WAL is managed internally, pragma removed from schema init."
@@ -185,11 +187,12 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-08-01T00:00:00Z"
-  # Updated by 0000015 (codegen-agent) P3: product_id migration applied,
-  # event_log pagination/filters/sort implemented, static log-viewer UI built
-  # and manually verified in-browser. Stack.frontend/styling updated to
-  # reflect the actual vanilla-JS/inline-CSS approach (ADR-018).
+  updatedAt: "2026-08-02T00:00:00Z"
+  # Updated by 0000016 (codegen-agent) P3: E2E Playwright suites added
+  # (tests/e2e/backend/, tests/e2e/ui/), @playwright/test devDependency,
+  # playwright.config.ts, new npm scripts, ci.yml gained an `e2e` job.
+  # server-http.ts's ready-log now reports the actual bound port (ephemeral
+  # port support, ADR-022). No production behavior change otherwise.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"

@@ -107,6 +107,19 @@ P0 exchange — design confirmation: Q: Confirm plan/current/design.md as correc
 | Telemetry | emitted |
 | Notes | Continuous run confirmed by human (no fresh P0/P1 re-ask needed — treated as confirmation of the P1 gate too, per human's message). Numbering continues from ADR-019 (last used, 0000015). |
 
+### P3 — Codegen
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-02` |
+| Model tier | primary |
+| Skills loaded | planifest-codegen-agent, playwright (capability skill) |
+| Agents spawned | `0` |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | `0` — see deviation note below |
+| Telemetry | emitted |
+| Notes | **Deviation (documented, not escalated):** implemented req-001/req-002 directly rather than dispatching planifest-test-writer/implementer/refactor as separate sub-agents (same pattern as 0000010/0000015 — see quirks.md). **Playwright MCP substitution:** no @playwright/mcp server was provisioned as an MCP tool in this session; used the equivalent already-available Claude_Browser interactive tooling conceptually, but in practice verification was done directly via `npx playwright test` output (real server/selector feedback) — faster and more reliable than an extra agent/tool hop for this task. **CI workflow correction:** design/scope/ADR-020 assumed `.github/workflows/planifest.yml`; actual test-running workflow is `ci.yml` (planifest.yml is doc/code-parity-only) — corrected in all P1/P2 docs, new standalone `e2e` job added (not the 6-way OS/Node matrix, per quirks.md reasoning). **Built:** tests/e2e/support/{server-harness,fixtures}.ts, tests/e2e/backend/emit-query-health.spec.ts (9 tests), tests/e2e/ui/log-viewer.spec.ts (8 tests), playwright.config.ts, package.json (+@playwright/test devDep, +3 npm scripts), .github/workflows/ci.yml (+e2e job), small server-http.ts change (report actual bound port for ephemeral-port support), .gitignore (test-results/playwright-report/blob-report), component.yml completed (version 0.12.0, e2e:17, quirks). **Verified:** all 17 E2E tests pass (~3s combined, well under NFR-001's 5-min budget); full existing Vitest suite (362 tests) + typecheck still pass clean (NFR-005). |
+
 ---
 
 ## Summary (filled at P7)

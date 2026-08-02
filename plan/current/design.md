@@ -24,7 +24,7 @@
 - Cost boundary: not constrained
 
 ## Engineering Layer
-- Stack: TypeScript / Node >=20.19 / @playwright/test (new devDependency) / no frontend framework (testing existing vanilla-JS `/ui`, ADR-018 unchanged) / ephemeral DuckDB temp file / no ORM / no IaC / no cloud / local+CI compute / GitHub Actions (extend `.github/workflows/planifest.yml`) / Build target: ci-only (also runnable locally)
+- Stack: TypeScript / Node >=20.19 / @playwright/test (new devDependency) / no frontend framework (testing existing vanilla-JS `/ui`, ADR-018 unchanged) / ephemeral DuckDB temp file / no ORM / no IaC / no cloud / local+CI compute / GitHub Actions (extend `.github/workflows/ci.yml` with a new `e2e` job — corrected at P3 from an initial `planifest.yml` assumption) / Build target: ci-only (also runnable locally)
 - Components: structured-telemetry-mcp (existing, single component) — E2E suites are test additions under `tests/e2e/backend/` and `tests/e2e/ui/`, no new component
 - Data ownership: structured-telemetry-mcp test harness owns the ephemeral per-run DuckDB (isolated, deleted after each run)
 - Deployment: not applicable — suites run in CI/local dev only, nothing deployed
