@@ -3,7 +3,7 @@
 > Living document. Index of all public API endpoints across all components.
 > Updated after every pipeline run — do not archive.
 
-Last updated: 0000015-telemetry-log-viewer-ui
+Last updated: 0000016-e2e-playwright-test-suites
 
 ---
 
@@ -42,6 +42,8 @@ The event envelope carries its own `schema_version` field (currently `"1.0"`) �
 | structured-telemetry-mcp | `schemas/telemetry-event.schema.json` (event envelope + `data` payload shapes, source of truth per ADR-005) |
 
 No OpenAPI spec exists for the REST endpoints — the three routes above are small and stable enough that `docs/usage-guide.md` §3–4 has served as the contract to date. Not flagged as a gap by this pass; note for a future feature if the REST surface grows.
+
+All four HTTP endpoints above (`/emit`, `/query`, `/health`, `/ui`) gained black-box E2E test coverage as of 0000016 — see `tests/e2e/backend/` and `tests/e2e/ui/`. No endpoint shape or contract changed; test coverage only.
 
 ---
 

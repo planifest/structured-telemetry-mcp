@@ -25,6 +25,8 @@ See `docs/api-index.md` at the repo root for the full endpoint/tool table. This 
 
 `POST /emit` and `POST /query` on the local HTTP backend (`127.0.0.1:3741`) mirror the two MCP tools — used by the stdio proxy (ADR-009) and directly by scripts/CI. `GET /health` is a liveness check, used by all three platforms' service scripts to verify a successful install/restart. `GET /ui` (0000015, ADR-018) serves the static Log Viewer browser page from the same process; the page itself calls `POST /query` via same-origin `fetch()`, not a separate contract.
 
+As of 0000016, all four routes above have black-box E2E coverage (`tests/e2e/backend/`, `tests/e2e/ui/`, `@playwright/test`) exercising the real `node:http` server, not just these exported handlers — see ADR-020 through ADR-023.
+
 ## Consumers
 
 `contract.consumedBy` in `component.yml` is empty by design (spec-agent convention — unknown at requirements phase). In practice, the known consumer is `planifest-framework` (sibling repo), calling `emit_event`/`query_telemetry` from its own skills. No code-level dependency exists between the repos — only the shared tool-call contract and `schemas/telemetry-event.schema.json`.

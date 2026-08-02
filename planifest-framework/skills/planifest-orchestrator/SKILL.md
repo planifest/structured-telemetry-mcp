@@ -541,7 +541,7 @@ Invoke the **spec-agent** skill.
 
 **Design-critic (toggle `design_critic`):** when `report-only` or `on`, spawn a fresh-context `planifest-design-critic` subagent over the P1 artifacts before the gate summary (maker–checker, ADR-006). Report-only: present its verdict alongside the artifacts, block nothing. On: REJECT returns artifacts for revision per `planifest-loop-runner` (cap 3).
 
-**STOP** — present to the human: number of requirements, key scope decisions, any deferred items. No exception.
+**STOP** — present to the human: number of requirements, key scope decisions, any deferred items. Exception: proceed without confirmation if `continuous_run: true` was set at P0.
 
 ---
 
@@ -557,7 +557,7 @@ Invoke the **adr-agent** skill.
 
 **Design-critic (toggle `design_critic`):** when `report-only` or `on`, spawn a fresh-context `planifest-design-critic` subagent over the combined P1+P2 artifact set before the gate summary. It runs `scripts/consistency-check.mjs` first (deterministic layer), then its REJECT-default rubric. Same report-only/on semantics as P1.
 
-**STOP** — present to the human: list of ADRs produced with one-line decision summaries. No exception.
+**STOP** — present to the human: list of ADRs produced with one-line decision summaries. Exception: proceed without confirmation if `continuous_run: true` was set at P0.
 
 ---
 
@@ -580,7 +580,7 @@ Invoke the **codegen-agent** skill.
 
 **Gate:** Confirm the implementation exists and the file structure matches what the spec describes. If the codegen-agent halted due to an Escalation (Stop-and-Ask) protocol because of an architectural blocker, review the blocker with the human before updating the plan or proceeding.
 
-**STOP** — present to the human: components built, test files produced, any deviations or escalations. No exception.
+**STOP** — present to the human: components built, test files produced, any deviations or escalations. Exception: proceed without confirmation if `continuous_run: true` was set at P0.
 
 ---
 

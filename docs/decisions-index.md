@@ -3,7 +3,7 @@
 > Living document. Index of all ADRs across all features. Updated after every pipeline run.
 > Do not archive this file — update it in place.
 
-Last updated: 0000015-telemetry-log-viewer-ui
+Last updated: 0000016-e2e-playwright-test-suites
 
 ---
 
@@ -30,6 +30,10 @@ Last updated: 0000015-telemetry-log-viewer-ui
 | [ADR-017](../plan/_archive/0000015-telemetry-log-viewer-ui-2026-08-01/adr/ADR-017-product-id-additive-no-backfill.md) | product_id Field — Additive, No Historical Backfill | 0000015-telemetry-log-viewer-ui | active | New optional envelope field + nullable DB column identifying the emitting repo (git root path, fallback cwd). Never backfilled — other projects besides this repo have historically shared the telemetry DB, so there is no reliable signal for pre-existing rows. |
 | [ADR-018](../plan/_archive/0000015-telemetry-log-viewer-ui-2026-08-01/adr/ADR-018-static-vanilla-js-ui-in-process.md) | Static Vanilla-JS UI Served In-Process | 0000015-telemetry-log-viewer-ui | active | The Log Viewer UI is plain HTML/CSS/vanilla JS with no build step or new dependency, embedded as a TypeScript string (same bundling-safety pattern as the JSON schema) and served from the existing `server-http.ts` process — no new component. |
 | [ADR-019](../plan/_archive/0000015-telemetry-log-viewer-ui-2026-08-01/adr/ADR-019-product-id-emission-cross-product-dependency.md) | product_id Emission Is a Cross-Product Dependency | 0000015-telemetry-log-viewer-ui | active | Populating `product_id` at emission time is `planifest-framework`'s responsibility (a separate product), not this feature's — this feature only implements the schema/storage/query/UI side and files the dependency to backlog rather than editing the framework's already-in-flight hook files. |
+| [ADR-020](../plan/_archive/0000016-e2e-playwright-test-suites-2026-08-02/adr/ADR-020-playwright-test-as-e2e-framework.md) | @playwright/test as the E2E Test Framework | 0000016-e2e-playwright-test-suites | active | Adopts `@playwright/test` as a new devDependency and the sole framework for both new E2E suites (backend HTTP, browser UI) — Vitest continues to own all existing unit/integration tests unchanged. |
+| [ADR-021](../plan/_archive/0000016-e2e-playwright-test-suites-2026-08-02/adr/ADR-021-playwright-mcp-authoring-only.md) | Playwright MCP for Authoring Only — @playwright/test Remains the Sole CI Runtime | 0000016-e2e-playwright-test-suites | active | The Playwright MCP server is used interactively during codegen for test authoring/verification only; it has no CI role. `@playwright/test` alone executes the suites in CI, since MCP has no assertion/exit-code/reporter model to gate a PR with. |
+| [ADR-022](../plan/_archive/0000016-e2e-playwright-test-suites-2026-08-02/adr/ADR-022-ephemeral-server-test-harness.md) | Ephemeral Real-Server-Process + Temp-DuckDB Test Harness | 0000016-e2e-playwright-test-suites | active | Both E2E suites spin up a real `server-http.ts` child process against a fresh temp-file DuckDB on an OS-assigned ephemeral port per run — genuine black-box coverage, perfectly isolated between runs, rather than testing exported handler functions or sharing a long-lived instance. |
+| [ADR-023](../plan/_archive/0000016-e2e-playwright-test-suites-2026-08-02/adr/ADR-023-chromium-only-browser-coverage.md) | Chromium-Only Browser Coverage | 0000016-e2e-playwright-test-suites | active | The UI E2E suite runs Chromium only, not a Firefox/WebKit matrix — the framework-free vanilla-JS `/ui` page (ADR-018) carries low cross-browser risk, and the narrower scope keeps CI runtime within the 5-min (p95) budget. |
 
 ---
 

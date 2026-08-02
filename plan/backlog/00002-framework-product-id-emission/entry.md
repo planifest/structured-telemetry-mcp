@@ -28,3 +28,7 @@ In a future `planifest-framework` pipeline run: add `product_id` derivation (git
 ## Why Deferred
 
 Cross-product boundary: `planifest-framework` and `structured-telemetry-mcp` are separate products with independent versioning, even though the framework is vendored into this same repo as build tooling. Editing the framework's hook scripts as part of the telemetry-mcp feature would tangle two unrelated in-flight efforts (the framework's files are currently dirty with uncommitted 0000021 changes to these same hooks). This is the framework product's own pipeline to pick up, on its own schedule.
+
+## Implementation Reference
+
+See [handoff-report.md](handoff-report.md) (2026-08-02) for file-by-file specifics — exact line numbers in the 3 hook scripts, the canonical envelope template location, and a suggested P1 requirements shape. Ready to hand to the framework product's own P0.

@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000015-telemetry-log-viewer-ui"
-version: "0.11.0"
+feature: "0000016-e2e-playwright-test-suites"
+version: "0.12.0"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -109,6 +109,9 @@ scope:
     - "product_id optional field on the event envelope + DB column, via approved migration proposal, no backfill (0000015)"
     - "event_log: offset pagination, total_count, sort (default asc, back-compat), phase/agent/product_id/from/to filters, mandatory-scope-filter requirement removed (0000015)"
     - "GET /ui static browser log-viewer: paginated newest-first table, all confirmed filters, row-click JSON detail view, URL-query-string state persistence, empty-state and backend-unreachable handling (0000015)"
+    - "Backend E2E suite (tests/e2e/backend/, @playwright/test): black-box HTTP coverage for /emit, /query (event_log filtering/pagination/sort), /health against a real server + ephemeral DuckDB per run (0000016)"
+    - "UI E2E suite (tests/e2e/ui/, @playwright/test, Chromium-only): browser-driven coverage for GET /ui — filters, URL-state, pagination, zero-result state, row-click detail view (0000016)"
+    - "Interactive use of the Playwright MCP server during P3 codegen for E2E test authoring/verification — not part of the CI-executed runtime (0000016)"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
@@ -119,6 +122,10 @@ scope:
     - "System-level (root) launchd daemon or root systemd unit"
     - "Distro-specific packaging (.deb/.rpm)"
     - "ratchet_blocked event type (not yet emitted by any framework skill — speculative)"
+    - "The MCP stdio tool interface (emit_event/query_telemetry as called by an agentic tool) is not covered by the E2E suites — only the HTTP surface (0000016)"
+    - "Visual/screenshot regression testing (0000016)"
+    - "Multi-browser E2E coverage — Chromium only (0000016)"
+    - "Playwright MCP server is not part of the CI-executed test runtime — authoring/dev-time aid only (0000016)"
   deferred:
     - "npm publish — blocked on: decision to make package public"
     - "Plugin marketplace manifests — blocked on: marketplace listing decision"
@@ -129,6 +136,8 @@ scope:
     - "Editing/deleting events from the UI — blocked on: a specific, deliberate need (0000015)"
     - "Live auto-refresh / tail mode — blocked on: manual refresh proving too slow in practice (0000015)"
     - "planifest-framework's emitters populating product_id — blocked on: that product's own pipeline picking up plan/backlog/00002-framework-product-id-emission (0000015)"
+    - "Multi-browser (Firefox/WebKit) E2E coverage — blocked on: a concrete cross-browser bug being found, or a deliberate decision to broaden coverage (0000016)"
+    - "Single shared long-lived E2E test server instead of per-file ephemeral processes — blocked on: the 5-min CI budget (NFR-001) actually being threatened by per-file startup overhead (0000016)"
 
 risk:
   level: "low"
@@ -145,18 +154,23 @@ risk:
     - "ADR-010 scope-filter removal is enforced in two places (src/query/event-log.ts and src/server-factory.ts dispatchQuery) that must change together (0000015 R-001)"
     - "Three existing tests assert the old scope-required error and will fail until updated: tests/unit/server-factory.test.ts:125, tests/integration/query-telemetry.test.ts:256, tests/regression/query-routing.test.ts:132 (0000015 R-002)"
     - "product_id migration requires human approval before req-002/003/004 can build against the new column — sequence product_id first (0000015 R-004)"
+    - "E2E per-file ephemeral server startup could push combined CI runtime past the 5-min budget as suites grow — measure at P4, fall back to a shared-server pattern if threatened (0000016 R-001)"
+    - "E2E harness must bind ephemeral ports via OS-assigned port 0, never hardcoded, to avoid collisions across parallel test workers (0000016 R-002)"
+    - "E2E harness must explicitly bind 127.0.0.1, never 0.0.0.0, to avoid introducing new network exposure during test runs (0000016 R-005)"
 
 quality:
   testCoverage:
     unit: 144   # 360 Vitest tests across 14 files as of 0000015 (144 unit + 78 integration + 137 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
     integration: 78
-    e2e: 0
+    e2e: 17   # @playwright/test, Chromium-only: 9 backend (tests/e2e/backend/) + 8 UI (tests/e2e/ui/) as of 0000016
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
     - "data.anyOf in telemetry-event.schema.json is not discriminated by event type — addressed by cross-field validation in src/validation/validate-event.ts (EVENT_REQUIRED_DATA_FIELDS map). Changed from oneOf to anyOf in 0.3.0 when ContextResetData and PhaseSkipData became structurally identical; anyOf is correct since cross-field validation handles semantic discrimination. Future improvement: if/then/else or unevaluatedProperties in JSON Schema."
   quirks:
-    - "server-http.ts has no HTTP-level test coverage anywhere in this project (routes are tested indirectly via server-factory.ts's exported handlers); the new GET /ui route follows the same convention — tested via its exported INDEX_HTML content (tests/unit/ui.test.ts) plus manual browser verification, not a live-server HTTP test (0000015)."
+    - "server-http.ts previously had no HTTP-level test coverage (routes were tested indirectly via server-factory.ts's exported handlers, and GET /ui via its exported INDEX_HTML content plus manual browser verification, 0000015) — resolved by tests/e2e/backend/ and tests/e2e/ui/ (0000016), which start a real server-http.ts process and issue real HTTP/browser requests against it."
+    - "E2E suites (tests/e2e/) run against src/server-http.ts via tsx (matching npm run dev), not the bundled server-http.bundle.mjs artifact — bundling itself is covered separately by the existing CI build step (0000016)."
+    - "DuckDB's TIMESTAMPTZ::VARCHAR cast renders space-separated with a bare (colonless) UTC offset (e.g. \"2026-08-01 11:00:00+01\"), not ISO 8601 — client-side Date parsing of raw /query timestamp output must normalize this first (tests/e2e/support/fixtures.ts's parseDbTimestamp, 0000016)."
     - "INDEX_HTML is embedded as a TypeScript template-literal string (src/ui/index-html.ts), not a separate static file — same reason schemas/telemetry-event.schema.json is inline-imported: runtime path resolution to sibling files breaks once esbuild bundles server-http.ts into a single .mjs file (0000015, ADR-018)."
     - "@duckdb/node-api named params require prepare().bind({name}).runAndReadAll() — positional ? binding is unsupported in this version."
     - "DuckDB does not support PRAGMA wal_mode — WAL is managed internally, pragma removed from schema init."
@@ -173,11 +187,12 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-08-01T00:00:00Z"
-  # Updated by 0000015 (codegen-agent) P3: product_id migration applied,
-  # event_log pagination/filters/sort implemented, static log-viewer UI built
-  # and manually verified in-browser. Stack.frontend/styling updated to
-  # reflect the actual vanilla-JS/inline-CSS approach (ADR-018).
+  updatedAt: "2026-08-02T00:00:00Z"
+  # Updated by 0000016 (codegen-agent) P3: E2E Playwright suites added
+  # (tests/e2e/backend/, tests/e2e/ui/), @playwright/test devDependency,
+  # playwright.config.ts, new npm scripts, ci.yml gained an `e2e` job.
+  # server-http.ts's ready-log now reports the actual bound port (ephemeral
+  # port support, ADR-022). No production behavior change otherwise.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"
