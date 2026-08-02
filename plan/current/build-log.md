@@ -81,11 +81,11 @@ P0 exchange — design confirmation: Q: confirm design.md correct and complete? 
 | Start | `2026-08-03T00:24:00Z` |
 | Model tier | primary |
 | Skills loaded | planifest-spec-agent |
-| Agents spawned | TBD |
+| Agents spawned | 4 (3 requirement drafts + 1 scope/risk/glossary batch, all fresh-context general-purpose subagents run in parallel) |
 | MCP calls | 0 |
-| Parallel task batches | TBD |
+| Parallel task batches | 1 (4 agents dispatched together) |
 | Telemetry | confirmed-disabled |
-| Notes | continuous_run active — no phase-gate stop; human requested subagent parallelism for remaining pipeline where safe |
+| Notes | continuous_run active — no phase-gate stop; human requested subagent parallelism for remaining pipeline where safe. Artifacts: execution-plan.md, 3 requirement docs, scope.md, risk-register.md, domain-glossary.md, operational-model.md, slo-definitions.md, cost-model.md, component.yml updated. No OpenAPI spec produced (not applicable — consistent with 0000008-0000016 precedent, documented in execution-plan.md). Gate condition met; continuous_run skips the STOP, proceeding directly to P2. |
 
 P1 exchange — spec_gap (sort field): Q: design assumed a pre-existing "sort-field dropdown" to sync with; actual code (index-html.ts:75-80, event-log.ts:41,54) only has a direction toggle hardcoded to `ORDER BY timestamp` — no field selector exists. Confirm building real per-column sort (new backend allow-listed sort-field param) rather than direction-only headers? / A: confirmed — backend change needed for allow-listed multi-field sort (timestamp, event, session_id, phase, agent, product_id).
 
