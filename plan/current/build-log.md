@@ -33,6 +33,8 @@ summary: "Working telemetry file maintained by the orchestrator throughout the p
 | Telemetry | `{{tbd}}` |
 | Notes | Feature-id proposed: 0000016-e2e-playwright-test-suites. Prior session already confirmed `main` up to date and clean before this pipeline run began (checkout + pull performed earlier in the same session). |
 
+P0 exchange — pre-flight bundle: Q: Confirm feature-id, branch, adoption mode (Standard Iterative), version bump (0.11.0 -> 0.12.0 minor), route (Feature Pipeline, 2 features/1 wave), backlog pickup (leave 00002) / A: Yes, confirmed as recommended.
+
 ---
 
 <!-- Copy and fill in this block at each phase boundary:
