@@ -20,7 +20,7 @@ The 0000015 log viewer ships static browsing only: a developer must manually re-
 |---------|-------------|----------|------|
 | Live auto-refresh / tail mode | As a developer, I toggle live auto-refresh on the event log, so that new events appear without me manually re-running the query. | should-have | 1 |
 | Filter combobox with suggestions | As a developer, I get suggested values as I type into a filter field, so that I can filter accurately without memorizing exact session/event-type/agent strings. | should-have | 1 |
-| Sortable table headers | As a developer, I click a column header to sort by that field, so that I don't have to use the separate sort-field dropdown for a task the table itself should support. | should-have | 1 |
+| Sortable table headers | As a developer, I click a column header to sort by that field, so that I don't have to use the separate sort-field dropdown for a task the table itself should support. Column header, sort-field dropdown, and URL query params stay three-way synced. | should-have | 1 |
 
 ## Waves
 
@@ -75,7 +75,8 @@ Inherited as-is from 0000015 — no new dependencies.
 ### In Scope
 - Live auto-refresh / tail mode: user-toggleable, polls the existing query endpoint on an interval, preserves active filters/sort/scroll position
 - Filter combobox: free-text input per filterable field (session_id, initiative_id, event_type, phase, agent, product_id) that suggests existing distinct values as the user types
-- Sortable table column headers: clicking a header sorts by that column and toggles direction; stays in two-way sync with the existing sort-field dropdown/direction control (either control updates the other)
+- Sortable table column headers: clicking a header sorts by that column and toggles direction; stays in three-way sync with the existing sort-field dropdown/direction control and the URL query params (any of the three updates the other two)
+- Extend 0000015's existing URL-state persistence (currently filters only) to also cover sort field and sort direction, so a page refresh restores filters, sort field, and sort direction together
 
 ### Out of Scope
 - Aggregation/dashboard views (bottleneck/failure-rate/token-efficiency charts) — deferred, backlog #00004
@@ -129,5 +130,6 @@ Inherited as-is from 0000015 — no new dependencies.
 - [ ] Auto-refresh toggle state does not persist across page reload (defaults off) unless explicitly specified otherwise
 - [ ] Each filterable field (session_id, initiative_id, event_type, phase, agent, product_id) offers suggested values sourced from existing distinct data as the user types
 - [ ] Clicking a sortable column header sorts the table by that column and toggles ascending/descending on repeated clicks
-- [ ] The sort-field dropdown/direction control and the column headers stay in sync: changing one updates the other's displayed state
+- [ ] The sort-field dropdown/direction control, the column headers, and the URL query params stay three-way synced: changing any one updates the other two's state
+- [ ] Reloading the page with a URL containing filter, sort-field, and sort-direction query params restores the table to that exact state
 - [ ] No new frontend build step or dependency is introduced
