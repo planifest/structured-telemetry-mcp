@@ -89,6 +89,19 @@ P0 exchange — design confirmation: Q: confirm design.md correct and complete? 
 
 P1 exchange — spec_gap (sort field): Q: design assumed a pre-existing "sort-field dropdown" to sync with; actual code (index-html.ts:75-80, event-log.ts:41,54) only has a direction toggle hardcoded to `ORDER BY timestamp` — no field selector exists. Confirm building real per-column sort (new backend allow-listed sort-field param) rather than direction-only headers? / A: confirmed — backend change needed for allow-listed multi-field sort (timestamp, event, session_id, phase, agent, product_id).
 
+### P2 — ADRs
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-02T23:45:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-adr-agent |
+| Agents spawned | TBD |
+| MCP calls | 0 |
+| Parallel task batches | TBD |
+| Telemetry | confirmed-disabled |
+| Notes | continuous_run active — no phase-gate stop |
+
 ---
 
 <!-- Copy and fill in this block at each phase boundary:
