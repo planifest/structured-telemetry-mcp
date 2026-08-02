@@ -49,6 +49,56 @@ Every phase's `build-log.md` block includes a `Telemetry` field recording one of
 
 `phase_start` and `phase_end` are emitted by the **orchestrator**, not phase skills. The orchestrator emits `phase_start` before invoking a skill and `phase_end` after it completes. Phase skills must not emit these events themselves.
 
+Hooks emit `phase_start`/`phase_end` natively; the snippets below are the backup path for tools without hook support. The orchestrator alone owns `phase_skip` — phase skills never emit `phase_start`, `phase_end`, or `phase_skip`.
+
+**`phase_start`** — emit immediately before invoking each phase skill:
+```json
+{ "phase_name": "spec" | "adr" | "codegen" | "validate" | "security" | "docs" | "ship" }
+```
+
+**`phase_end`** — emit immediately after the gate check for each phase:
+```json
+{ "phase_name": "<phase>", "status": "pass" | "fail", "duration_ms": <elapsed ms> }
+```
+
+**`phase_skip`** — emit instead of `phase_start`/`phase_end` when a phase is bypassed:
+```json
+{ "phase_name": "<skipped phase>", "reason": "<why>" }
+```
+
+**`spec_gap`** — when human clarification is required before proceeding (Phase 0):
+```json
+{ "question": "<the question>", "phase_name": "orchestrator" }
+```
+
+**`mcp_impact`** — once after the final `phase_end` of a complete pipeline run:
+```json
+{ "mcp_mode": "<active mode>", "avg_token_delta": <number>, "peak_fill_pct": <number> }
+```
+
+---
+
+## Event Type Reference
+
+14 types as of v0.2.0:
+
+| Category | Event | When |
+|---|---|---|
+| Pipeline lifecycle | `phase_start` | Phase beginning |
+| | `phase_end` | Phase completion with status/duration |
+| | `phase_skip` | Phase bypassed with reason |
+| Quality & validation | `spec_gap` | Unanswered question blocking progress |
+| | `validation_failure` | Failed check with retry tracking |
+| | `self_correction` | Agent correcting its own output |
+| | `deviation` | Implementation diverged from spec |
+| Schema & data | `migration_proposal` | Proposed destructive schema change |
+| Token & context | `context_pressure` | Context window fill % (hook-emitted, not agent) |
+| | `mcp_impact` | Token delta by MCP mode |
+| Decisions & findings | `adr_decision` | Architectural decision recorded |
+| | `security_finding` | Vulnerability found (severity: low\|medium\|high\|critical) |
+| | `retry_limit_exceeded` | Action hit max attempts |
+| | `doc_gap` | Missing documentation identified |
+
 ---
 
 ## Event Envelope
@@ -59,6 +109,7 @@ Every `emit_event` call must use this envelope. The `data` field carries event-s
 {
   "schema_version": "1.0",
   "event": "<event_name>",
+  "product_id": "<git repo root, or cwd if not a git repo>",
   "agent": "<skill-name e.g. planifest-validate-agent>",
   "phase": "<phase e.g. validate>",
   "tool": "<tool e.g. claude-code>",
@@ -71,6 +122,8 @@ Every `emit_event` call must use this envelope. The `data` field carries event-s
 ```
 
 The snippets in each skill's `## Telemetry` section show the `data` field content only — the full envelope above always wraps it.
+
+`product_id` attributes an event to the repo it was emitted from, so events from multiple projects sharing one telemetry backend don't show "unknown". Hook-driven emission (`emit-phase-start.mjs`, `emit-phase-end.mjs`, `context-pressure.mjs`) derives it via `git rev-parse --show-toplevel` run against the hook's own `cwd`, falling back to that raw `cwd` on any failure (not a git repo, or `git` unavailable). Agent-driven inline `emit_event` calls derive `product_id` the same way — `git rev-parse --show-toplevel` from the agent's own cwd, falling back to cwd on failure.
 
 ---
 

@@ -24,7 +24,7 @@ assert_equals "yes" "$(grep_has "Structured Discovery Pass (all modes)" "$ORCHES
   "req-006: orchestrator has a Structured Discovery Pass section"
 
 # each mode's taxonomy entry mentions writing to discovery.md
-MODE_SECTION=$(sed -n '/### Mode Taxonomy/,/### Signal Priority Order/p' "$ORCHESTRATOR")
+MODE_SECTION=$(sed -n '/### Mode Taxonomy/,/### Conflict Warnings/p' "$ORCHESTRATOR")
 for mode in Greenfield "Standard Iterative" Retrofit "External Anchor"; do
   BLOCK=$(printf '%s' "$MODE_SECTION" | sed -n "/\*\*$mode\*\*/,/^\*\*\|### /p")
   assert_contains "discovery.md" "$BLOCK" \

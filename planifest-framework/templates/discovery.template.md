@@ -48,4 +48,4 @@ summary: "Raw P0 discovery-pass findings — what the orchestrator knew before c
 ### External Anchor
 
 - `external-versioning.md` constraints: {{full constraints}}
-- Underlying mode content: {{Standard-Iterative / Retrofit / Greenfield findings per what else is present}}
+- Underlying mode content: append whichever underlying mode's findings apply to what else is present in the repo — archive present → also the Standard-Iterative content; source only → also the Retrofit scan; neither → the Greenfield baseline. {{Standard-Iterative / Retrofit / Greenfield findings per the rule above}}

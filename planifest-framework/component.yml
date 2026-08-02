@@ -1,7 +1,7 @@
 id: "planifest-framework"
 name: "Planifest Framework"
-feature: "0000021-framework-context-bloat-audit"
-version: "0.21.0"
+feature: "0000023-framework-pipeline-fixes"
+version: "0.23.0"
 status: "active"
 type: "component-pack"
 domain: "developer-tooling"
@@ -46,6 +46,7 @@ responsibilities:
   - "Record the flags used at install time in a per-tool marker file (.planifest-setup-flags) at the end of setup.sh/setup.ps1"
   - "Maintain a populated tests/regression/ pack as the safety net for cross-cutting skill/standards/template changes, gated by human review of the promoted test list before any baseline run"
   - "Bound skill-content growth via a recorded audit-findings-report + dual-guardrail trim process (no enforcement-content loss, no ambiguity regression), never applied without a pre-recorded regression-pack baseline to compare against"
+  - "Restate every orchestrator rule in exactly one canonical file (phase skill, workflow, standard, or template) with a pointer from the orchestrator, verified by a P4 diff review as the second detector alongside content-pinning regression tests"
 
 exceptions:
   - "Does not write to planifest-overrides/ — that directory is user-owned"
@@ -113,6 +114,7 @@ scope:
     - "planifest-loop-runner, planifest-design-critic, planifest-reversal-assessor, planifest-verify-by-execution skills"
     - "Loop/reversal telemetry event types and planifest-overrides/loop-toggles.yml (all default off)"
     - "tests/regression/ population and baseline-vs-post-trim comparison for skill/standards/template content edits"
+    - "standards/agent-dispatch-standards.md as the canonical home for model-tier decisions and parallelism/dispatch mechanics, referenced (not restated) by the orchestrator, ship-agent, and codegen-agent"
   outOfScope:
     - "Application-level code generation (handled by planifest-codegen-agent)"
     - "CI pipeline configuration for consumer projects"
@@ -126,6 +128,7 @@ risk:
     - "Path translation on Windows/Git Bash requires cygpath guards in tests"
     - "Telemetry backend URL is env-var controlled — misconfiguration sends events to wrong endpoint"
     - "Aggressive skill/instruction trimming can leave technically-complete but ambiguous wording that increases future agent confusion or retries even without losing enforcement content — mitigated by the regression-pack baseline comparison introduced in 0000021"
+    - "Only 4 of 22 regression tests pin orchestrator-specific content; a lost rule in an untested area would not fail the pack — mitigated by the P4 diff review named as a second detector in 0000022, resolving identically to a failed test (restore, never rationalise)"
 
 quality:
   testCoverage:
@@ -147,12 +150,20 @@ pipeline:
 
 metadata:
   createdAt: "2026-05-02"
-  updatedAt: "2026-08-01"
+  updatedAt: "2026-08-02"
   # Updated by 0000021 (spec-agent) P1: seeded requirements-derived
   # responsibilities/scope/risk entries for the regression-pack and
   # audit-findings-report/guardrailed-trim process ahead of P3 codegen.
+  # Updated by 0000022 (spec-agent) P1: seeded requirements-derived
+  # responsibilities/scope/risk entries for the orchestrator redundancy
+  # removal (canonical-owner de-duplication, agent-dispatch-standards.md)
+  # ahead of P3 codegen.
+  # Updated by 0000023 (codegen-agent) P3: restored continuous_run exception
+  # for P1-P3, fixed session-marker commit lifecycle, fixed copilot.sh/.ps1
+  # self-copy crash + setup.ps1 dispatcher guard, added product_id telemetry
+  # emission.
   createdBy: "agent"
   lastModifiedBy: "agent"
-  skill: "planifest-spec-agent"
+  skill: "planifest-codegen-agent"
   tool: "claude-code"
   model: "claude-sonnet-5"

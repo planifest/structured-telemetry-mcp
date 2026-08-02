@@ -94,10 +94,12 @@ else
   fail "REQ-002: orchestrator missing self-contained prompt rule"
 fi
 
-if grep -q "native tool\|two levels\|parallel native" "$ORCH"; then
-  pass "REQ-002: orchestrator clarifies two levels of parallelism"
+# 0000022: relocated to standards/agent-dispatch-standards.md (ADR-001) - orchestrator points to it
+DISPATCH_STD_FILE="planifest-framework/standards/agent-dispatch-standards.md"
+if [ -f "$DISPATCH_STD_FILE" ] && grep -q "native tool\|two levels\|parallel native" "$DISPATCH_STD_FILE"; then
+  pass "REQ-002: agent-dispatch-standards.md clarifies two levels of parallelism"
 else
-  fail "REQ-002: orchestrator missing two-levels-of-parallelism note"
+  fail "REQ-002: agent-dispatch-standards.md missing two-levels-of-parallelism note"
 fi
 
 echo ""

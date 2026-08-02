@@ -1054,7 +1054,8 @@ function Install-WindsurfHookConfig {
 
 function Install-CopilotAdapter {
     # Writes .github/hooks/planifest.json registering both hook events (REQ-015).
-    # The adapter is invoked in-place from planifest-framework/hooks/adapters/copilot.mjs.
+    # The adapter is copied to .github/hooks/adapters/copilot.mjs by Install-Tier1Hooks
+    # and invoked from there.
     $hooksDir = Join-Path $ProjectRoot '.github\hooks'
     New-Item -ItemType Directory -Path $hooksDir -Force | Out-Null
 
@@ -1063,10 +1064,10 @@ function Install-CopilotAdapter {
         version = 1
         hooks = @{
             preToolUse = @(
-                @{ type = "command"; command = "node planifest-framework/hooks/adapters/copilot.mjs" }
+                @{ type = "command"; command = "node .github/hooks/adapters/copilot.mjs" }
             )
             userPromptSubmitted = @(
-                @{ type = "command"; command = "node planifest-framework/hooks/adapters/copilot.mjs" }
+                @{ type = "command"; command = "node .github/hooks/adapters/copilot.mjs" }
             )
         }
     }
@@ -1208,15 +1209,24 @@ function Invoke-PlanifestSetup {
             -AdapterSrcRel  $toolConfig.HookAdapterSrc `
             -AdapterDestRel $toolConfig.HookAdapterDest `
             -HooksInstallDir $toolConfig.HooksInstallDir
-        Install-Tier1HookRegistration `
-            -AdapterDestRel $toolConfig.HookAdapterDest `
-            -SettingsRel    $toolConfig.SettingsFile
 
-        # Wire beforeSubmitPrompt → check-design for tools that support it (REQ-018)
-        if ($toolConfig.BeforeSubmitHook -eq $true) {
-            Install-BeforeSubmitHookRegistration `
+        # Tier 1 hook registration requires a SettingsFile — the generic PreToolUse
+        # JSON shape Install-Tier1HookRegistration writes into. Copilot has no
+        # SettingsFile (it registers via its own .github/hooks/planifest.json shape,
+        # written by Install-CopilotAdapter above), so this must be independently
+        # gated — mirroring setup.sh's two separate guards on TOOL_SETTINGS_FILE
+        # (setup.sh ~line 1102-1103 for the copy, ~1107-1108 for the registration).
+        if ($toolConfig.SettingsFile) {
+            Install-Tier1HookRegistration `
                 -AdapterDestRel $toolConfig.HookAdapterDest `
                 -SettingsRel    $toolConfig.SettingsFile
+
+            # Wire beforeSubmitPrompt → check-design for tools that support it (REQ-018)
+            if ($toolConfig.BeforeSubmitHook -eq $true) {
+                Install-BeforeSubmitHookRegistration `
+                    -AdapterDestRel $toolConfig.HookAdapterDest `
+                    -SettingsRel    $toolConfig.SettingsFile
+            }
         }
     }
 
