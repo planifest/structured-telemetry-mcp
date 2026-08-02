@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000016-e2e-playwright-test-suites"
-version: "0.12.0"
+feature: "0000017-log-viewer-enhancements"
+version: "0.13.0"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -22,6 +22,9 @@ responsibilities:
   - "Tag events with an optional product_id (repo root path) so events from multiple projects sharing one telemetry DB can be distinguished (0000015)"
   - "Serve a static, read-only browser UI (GET /ui) for browsing, filtering, and paging telemetry events (0000015)"
   - "Support offset-based pagination, total_count, sort order, and phase/agent/product_id/timestamp-range filters on event_log queries, with no scope filter required — every query is bounded solely by limit/offset (0000015, supersedes ADR-010's mandatory-scope-filter rule)"
+  - "Support a sortField param on event_log queries (allow-listed: timestamp, event, session_id, phase, agent, product_id; defaults to timestamp, non-breaking) — real per-column sort, replacing the previous direction-only, timestamp-hardcoded ORDER BY (0000017)"
+  - "Serve a distinct_values query mode returning up to 20 allow-listed-field distinct values (optional prefix-match), powering the UI's filter-suggestion comboboxes (0000017)"
+  - "Support user-toggleable auto-refresh/tail polling, filter-value suggestions, and three-way-synced (header/dropdown/URL) sortable columns in the GET /ui log viewer, with all new UI state persisted via URL query params degrading gracefully to defaults when absent/malformed (0000017)"
 
 exceptions:
   - "Does not emit telemetry itself — it is the sink, not a source"
@@ -36,6 +39,10 @@ exceptions:
   - "Does not support editing or deleting events from the UI — read-only viewer (0000015)"
   - "Does not backfill product_id on historical rows — no reliable signal exists; other projects besides this repo have also used the shared DB (0000015)"
   - "Does not populate product_id in planifest-framework's own emission hooks — that is a separate product's responsibility, tracked at plan/backlog/00002-framework-product-id-emission (0000015)"
+  - "Does not provide aggregation/dashboard views (bottleneck/failure/token-efficiency charts) in the UI — deferred to backlog #00004, blocked on a future ADR-018 revisit (0000017)"
+  - "Does not push live updates via WebSocket/SSE — auto-refresh is interval-based polling only (0000017, A-001)"
+  - "Does not support quick date-range filter presets (today/yesterday/last N days) — filed as backlog #00006, not part of this wave (0000017)"
+  - "Does not sort or suggest on any events column outside the fixed 6/7-value allow-lists — no arbitrary column sort/suggestion (0000017, R-001)"
 
 stack:
   language: "typescript"
@@ -60,7 +67,7 @@ contract:
       description: "Accepts an `envelope` argument (renamed from `event` in 0.10.0) — a real object-shaped Zod schema, not z.unknown(); validates and writes to DuckDB"
     - name: "query_telemetry"
       type: "event"
-      description: "Accepts a structured query via a permissive object-shaped Zod schema (QueryShape, not z.unknown() as of 0.10.1); returns aggregated Markdown + JSON + raw event sample"
+      description: "Accepts a structured query via a permissive object-shaped Zod schema (QueryShape, not z.unknown() as of 0.10.1); returns aggregated Markdown + JSON + raw event sample. event_log mode gains an allow-listed sortField param (0000017). New mode: distinct_values, for allow-listed-field suggestion lookups (0000017)."
     - name: "GET /ui"
       type: "http"
       description: "New (0000015): serves the static browser log-viewer page from the same server-http.ts process. No new port/process."
@@ -70,7 +77,7 @@ contract:
       description: "{ ok: true, id } on success or { ok: false, errors } on validation/storage failure"
     - name: "query_telemetry response"
       type: "event"
-      description: "Markdown table + JSON payload + raw event sample (5 events); on a zero-row result for a session_id/initiative_id-scoped query, an additive `hint` field/markdown note names other event types found for that scope, if any (0000014). event_log responses additionally include `total_count` as of 0000015."
+      description: "Markdown table + JSON payload + raw event sample (5 events); on a zero-row result for a session_id/initiative_id-scoped query, an additive `hint` field/markdown note names other event types found for that scope, if any (0000014). event_log responses additionally include `total_count` as of 0000015. distinct_values responses return `{ mode, field, values }` (0000017)."
   consumedBy: []
   consumes: []
   breakingChangePolicy: "requires-adr"
@@ -112,6 +119,10 @@ scope:
     - "Backend E2E suite (tests/e2e/backend/, @playwright/test): black-box HTTP coverage for /emit, /query (event_log filtering/pagination/sort), /health against a real server + ephemeral DuckDB per run (0000016)"
     - "UI E2E suite (tests/e2e/ui/, @playwright/test, Chromium-only): browser-driven coverage for GET /ui — filters, URL-state, pagination, zero-result state, row-click detail view (0000016)"
     - "Interactive use of the Playwright MCP server during P3 codegen for E2E test authoring/verification — not part of the CI-executed runtime (0000016)"
+    - "event_log sortField param, allow-listed (timestamp, event, session_id, phase, agent, product_id), defaults to timestamp — real per-column sort replacing the previous hardcoded ORDER BY timestamp (0000017)"
+    - "distinct_values query mode: allow-listed field, optional prefix-match q, capped at 20 results (0000017)"
+    - "GET /ui: auto-refresh/tail-mode toggle (interval polling, never blanks table, degrades gracefully on poll failure), filter-value suggestion comboboxes (<datalist>-based) on the 6 filterable fields, clickable sortable column headers three-way synced with the sort-field/direction control and URL query params (0000017)"
+    - "URL-state persistence extended to cover sort field, sort direction, and auto-refresh toggle state, alongside the existing filter persistence from 0000015 (0000017)"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
@@ -131,16 +142,17 @@ scope:
     - "Plugin marketplace manifests — blocked on: marketplace listing decision"
     - "Auto-fixing a root-owned ~/Library/LaunchAgents — blocked on: human confirmation it's safe to override a possible MDM control"
     - "Auto-enabling systemd lingering — blocked on: human decision to accept an account-wide setting change"
-    - "Aggregation/dashboard charts in the UI — blocked on: a specific need beyond raw event browsing (0000015)"
     - "Authentication / multi-user UI access — blocked on: a need to run this for more than one person (0000015)"
     - "Editing/deleting events from the UI — blocked on: a specific, deliberate need (0000015)"
-    - "Live auto-refresh / tail mode — blocked on: manual refresh proving too slow in practice (0000015)"
     - "planifest-framework's emitters populating product_id — blocked on: that product's own pipeline picking up plan/backlog/00002-framework-product-id-emission (0000015)"
     - "Multi-browser (Firefox/WebKit) E2E coverage — blocked on: a concrete cross-browser bug being found, or a deliberate decision to broaden coverage (0000016)"
     - "Single shared long-lived E2E test server instead of per-file ephemeral processes — blocked on: the 5-min CI budget (NFR-001) actually being threatened by per-file startup overhead (0000016)"
+    - "Aggregation/dashboard charts in the UI — blocked on: a future ADR-018 revisit, tracked as backlog #00004 (0000017)"
+    - "WebSocket/SSE push-based live updates — blocked on: interval polling proving insufficient in practice (0000017, A-001)"
+    - "Quick date-range filter presets (today/yesterday/last N days) — blocked on: a future pipeline run, tracked as backlog #00006 (0000017)"
 
 risk:
-  level: "low"
+  level: "medium"
   items:
     - "initiative_id nullable — COALESCE required in group_by to avoid null group keys (R-002)"
     - "event_log dispatch order — must precede existing checks in dispatchQuery (R-003)"
@@ -157,6 +169,8 @@ risk:
     - "E2E per-file ephemeral server startup could push combined CI runtime past the 5-min budget as suites grow — measure at P4, fall back to a shared-server pattern if threatened (0000016 R-001)"
     - "E2E harness must bind ephemeral ports via OS-assigned port 0, never hardcoded, to avoid collisions across parallel test workers (0000016 R-002)"
     - "E2E harness must explicitly bind 127.0.0.1, never 0.0.0.0, to avoid introducing new network exposure during test runs (0000016 R-005)"
+    - "sortField (event_log) and field (distinct_values) are both column-identifier inputs — DuckDB has no parameterized-identifier binding, so both MUST validate against a shared allow-list before any SQL interpolation, or both become SQL-injection-via-identifier vectors (0000017 R-001, plan/current/risk-register.md)"
+    - "req-001/002/003 all extend the same shared state-management functions in the single src/ui/index-html.ts embedded script (readStateFromUrl, writeStateToUrl, applyStateToForm, readFormIntoFilters) — must be implemented as one integrated pass, not three independently-parallelised edits, to avoid clobbering (0000017 R-002)"
 
 quality:
   testCoverage:
@@ -187,14 +201,14 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-08-02T00:00:00Z"
-  # Updated by 0000016 (codegen-agent) P3: E2E Playwright suites added
-  # (tests/e2e/backend/, tests/e2e/ui/), @playwright/test devDependency,
-  # playwright.config.ts, new npm scripts, ci.yml gained an `e2e` job.
-  # server-http.ts's ready-log now reports the actual bound port (ephemeral
-  # port support, ADR-022). No production behavior change otherwise.
+  updatedAt: "2026-08-02T23:40:00Z"
+  # Updated by 0000017 (spec-agent) P1: draft manifest updates for
+  # auto-refresh/tail mode, filter-suggestion comboboxes, and three-way-synced
+  # sortable headers (real per-column sort — event_log's ORDER BY was
+  # previously hardcoded to timestamp). Purpose/scope/risk sections seeded
+  # from requirements; stack section untouched per spec-agent rules.
   createdBy: "agent"
   lastModifiedBy: "agent"
-  skill: "planifest-codegen-agent"
+  skill: "planifest-spec-agent"
   tool: "claude-code"
   model: "claude-sonnet-5"
