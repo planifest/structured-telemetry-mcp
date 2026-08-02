@@ -131,6 +131,25 @@ describe('req-001-emit-event: DuckDbEventRepository', () => {
     expect(stored?.model_config).toBeUndefined();
   });
 
+  // req-001-product-id-tagging (0000015)
+  it('stores the product_id when provided', async () => {
+    const event = { ...VALID_EVENT, product_id: '/Users/dev/my-project' };
+    const result = await repo.write(event);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const stored = await repo.findById(result.id);
+    expect(stored?.product_id).toBe('/Users/dev/my-project');
+  });
+
+  it('returns undefined product_id when not provided', async () => {
+    const result = await repo.write(VALID_EVENT);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const stored = await repo.findById(result.id);
+    expect(stored?.product_id).toBeUndefined();
+  });
+
   it('returns null for a non-existent id', async () => {
     const stored = await repo.findById('00000000-0000-0000-0000-000000000000');
     expect(stored).toBeNull();

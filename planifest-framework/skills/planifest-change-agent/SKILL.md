@@ -18,15 +18,13 @@ bundle_standards: [code-quality-standards.md, telemetry-standards.md]
 - Existing artifacts at `plan/current/`
 - Existing implementation at `src/{component-id}/` (all affected components)
 
----
-
 ## Process
 
 ### Phase 1 - Domain Context
 
 Before changing anything, read:
 
-> **Context-Mode Protocol:** When `ctx_batch_execute` is available, run the domain context reads and blast radius analysis as a single batch call. Pass all discovery commands in `commands` and your dependency/impact questions in `queries`. This replaces sequential file reads and grep calls — raw output stays in the sandbox.
+> **Context-Mode Protocol:** when available, run the domain context reads and blast radius analysis as a single `ctx_batch_execute` call rather than sequential reads.
 
 **Precision Reading Protocol:**
 Do not exhaust token limits by loading all files. Read top-down selectively:
@@ -40,28 +38,21 @@ Do not exhaust token limits by loading all files. Read top-down selectively:
 **Blast radius analysis:**
 
 1. Read `docs/dependency-graph.md` to find all components that consume or are consumed by the affected component(s)
-2. For each dependency, classify the coupling:
-   - **API consumer** - calls endpoints defined in the affected component's OpenAPI spec
-   - **Data reader** - reads from tables owned by the affected component
-   - **Event subscriber** - listens to events published by the affected component
-   - **Shared type consumer** - imports types from the affected component's shared package
-3. Determine impact level per dependent component:
-   - **Direct** - the change modifies an interface, schema, or type that this component uses
-   - **Indirect** - the change modifies internal behaviour but the interface is unchanged
-   - **None** - no coupling to the changed surface area
-4. Only components with **Direct** impact require contract test updates and consumer notification
-5. Record the full blast radius in the Change Summary (Phase 2 output header)
+2. Classify each dependency's coupling (API consumer, data reader, event subscriber, shared type consumer) and impact level (Direct / Indirect — internal behaviour changes, interface unchanged / None)
+3. Only components with **Direct** impact require contract test updates and consumer notification
+4. Record the full blast radius in the Change Summary (Phase 2 output header)
 
 ### Phase 2 - Targeted Change
 
 Implement the minimum necessary change.
 
 **Rules:**
-- **One question at a time.** When you need human input — to resolve an ambiguity, confirm a migration proposal, or clarify scope — ask one question, wait for the answer, then continue. Lead with a recommendation where you can derive one. Never present a list of questions.
-- Do not refactor code outside the scope of the change request. Scope creep is a process violation.
+- **One question at a time.** When you need human input — to resolve an ambiguity, confirm a migration proposal, or clarify scope — ask one question.
+- Do not refactor code outside the scope of the change request.
 - If the change request is ambiguous, implement the narrowest interpretation and document your reasoning.
 - If you discover tech debt or quirks while working, write them to `src/{component-id}/docs/quirks.md` or `src/{component-id}/docs/tech-debt.md` - do not fix them as part of this change.
 - Use the domain glossary terms. Do not introduce new terms without adding them to the glossary.
+- If a relevant capability skill exists for the technology being modified, load it.
 
 **Data changes:**
 - If the change touches data, read the Data Contract first.
@@ -85,10 +76,7 @@ Run CI checks scoped to the blast radius of the change. Self-correct up to 5 tim
 2. Write the new ADR with a Context section that explains why the prior decision was reversed
 3. The new ADR must reference the prior ADR in its Related ADRs section
 
-**Rollback handling:** If the change needs to be reverted after deployment:
-1. The change-agent does not perform rollbacks automatically - rollbacks are human-initiated
-2. Document the rollback procedure in the change summary: what to revert, what data migration (if any) needs to be reversed, and what consumers need to be notified
-3. If the change included a schema migration, note whether the migration is backward-compatible (previous code version works with new schema) or requires a coordinated rollback
+**Rollback handling:** Rollbacks are human-initiated, never automatic. Document the rollback procedure in the change summary, including whether a schema migration is backward-compatible or requires a coordinated rollback.
 
 ### Phase 5 - Update Documentation
 
@@ -104,24 +92,27 @@ Update every artifact affected by the change:
 
 Write `plan/changelog/{feature-id}-<YYYY-MM-DD>.md` as the audit trail for this change.
 
----
+### Phase 6 - Archive
+
+The Change Pipeline has no ship-agent hand-off — this phase is the change-agent's own close-out. Do not skip it: leaving `plan/current/` in place misleads future adoption-mode detection (Standard Iterative mode is detected by scanning `plan/_archive/`).
+
+**Copy-then-delete** (never use atomic move — mirrors the ship-agent's P7 Step 6):
+
+1. Determine archive path: `plan/_archive/{feature-id}-{YYYY-MM-DD}/` (today's date).
+2. If the path exists, use `{feature-id}-{YYYY-MM-DD}-2/`, `-3/`, etc.
+3. Recursively copy all files from `plan/current/` (or wherever the working folder currently is) to the archive path.
+4. Confirm the copy is complete before proceeding, then delete the original folder's contents.
+5. Delete `plan/.orchestrator-active` last, after the archive is confirmed complete.
+
+**Cross-reference check (before moving, not after):**
+
+Search the repo for links pointing at the pre-move path — `docs/*.md`, `src/*/docs/*.md`, `plan/changelog/*.md`, and any other living doc that might reference `plan/current/adr/`, `plan/current/...`, or the feature's slug directly. Update every found reference to the new archive path in the **same commit** as the move.
 
 ## New Component Handoff
 
-If the change request requires creating a new component (not just modifying existing ones):
+If the change request requires creating a new component, scaffold it the same way the spec-agent and docs-agent do (`component.yml` via the [Component Template](../templates/component.template.yml), data contract if it owns data, dependency graph, component registry).
 
-1. **Create the component scaffold:** `src/{new-component-id}/component.yml` using the [Component Template](../templates/component.template.yml)
-2. **Write the data contract** if the component owns data: `src/{new-component-id}/docs/data-contract.md`
-3. **Update the design** at `plan/current/design.md` to include the new component in the components list
-4. **Update the dependency graph** at `docs/dependency-graph.md` to show the new component's relationships
-5. **Update the component registry** at `docs/component-registry.md` to include the new component
-6. **Build the component** following the same rules as the codegen-agent (code, tests, docs, IaC)
-
-The change-agent builds the new component inline - it does not hand off to the codegen-agent. This avoids a pipeline context switch for what is typically a small addition.
-
-If the new component is large enough that it would benefit from full pipeline treatment (> 3 user stories, new stack choices), escalate to the orchestrator to start a new feature instead.
-
----
+Build it inline - do not hand off to the codegen-agent. If it's large enough to benefit from full pipeline treatment (> 3 user stories, new stack choices), escalate to the orchestrator to start a new feature instead.
 
 ## Output Header
 
@@ -140,19 +131,9 @@ Consumers affected: {list or "none"}
 Blast radius: {list of components in the dependency chain}
 ```
 
----
-
-## Capability Skills
-
-If a relevant capability skill exists for the technology being modified (e.g. `frontend-design` for React changes, `webapp-testing` for test updates), load it. For all code changes, follow the standards in [Code Quality Standards](../standards/code-quality-standards.md) - match existing patterns, keep modules small, and ensure every change would pass a senior engineer's PR review.
-
----
-
 ## Telemetry
 
-See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership.
-
-**Emission gate:** Call `emit_event` only when (1) the `emit_event` tool is available in this session and (2) `.claude/telemetry-enabled` exists in the project root. If either condition fails, skip silently — do not emit.
+See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership. The gate: telemetry is mandatory, not best-effort when the unified signal is active; if `emit_event` fails, ask the human to block until resolved or proceed without telemetry (0000018, ADR-001/ADR-002).
 
 **`deviation`** — when implementation diverges from the confirmed design:
 ```json

@@ -1,6 +1,6 @@
 # Library Version Policy
 
-> Applies to all agents scaffolding dependency manifests. Follow these rules before writing any `package.json`, `pyproject.toml`, `go.mod`, `Cargo.toml`, `Gemfile`, `composer.json`, `pom.xml`, `build.gradle`, `pubspec.yaml`, or equivalent.
+> Applies to all agents scaffolding dependency manifests. Follow these rules before writing any dependency manifest.
 
 ---
 
@@ -19,15 +19,15 @@ Use the latest stable version of each library at the time of scaffolding. Do not
 | Go / go.mod | pinned via `go get library@v1.2.3` | floating pseudo-versions without good reason |
 | Rust / Cargo.toml | `zod = "=1.2.3"` or `"~1.2"` | `"*"` or overly broad ranges |
 
-Lockfiles commit exact resolutions. The version in the manifest is the declared constraint; the lockfile is the ground truth.
+Lockfiles commit exact resolutions and are the ground truth.
 
 ### 3. Check the changelog before upgrading
 
-Before bumping a major version, read the library's changelog for breaking changes. Record the review in a commit message or `quirks.md` if the upgrade required code changes.
+Before bumping a major version, read the changelog for breaking changes; record the review in `quirks.md` if the upgrade required code changes.
 
 ### 4. Peer dependency satisfaction
 
-If a library declares peer dependencies, verify that the versions you are installing satisfy those ranges. Mismatched peer dependencies are a CI failure, not a warning.
+Mismatched peer dependencies are a CI failure, not a warning.
 
 ### 5. Avoid-list exception
 

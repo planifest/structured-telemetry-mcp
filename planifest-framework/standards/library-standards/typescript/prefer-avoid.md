@@ -9,13 +9,15 @@
 | Concern | Prefer | Avoid | Reason |
 |---------|--------|-------|--------|
 | Schema validation | `zod` | `joi`, `yup`, `ajv` (direct) | Zod provides TypeScript-first type inference; joi/yup lack native TS type generation |
-| Form validation | `zod` + `react-hook-form` | `formik` + `yup` | Zod + RHF has better TS integration and smaller bundle |
 
-## HTTP Client
+React form validation pairing (`zod` + `react-hook-form`) is covered in `javascript/react/prefer-avoid.md`.
+
+## HTTP Client & Logging
 
 | Concern | Prefer | Avoid | Reason |
 |---------|--------|-------|--------|
 | HTTP client | `fetch` (native) or `ky` | `axios` (unless legacy), `got`, `node-fetch` | Native fetch is available in Node 18+; ky is a thin fetch wrapper |
+| Logging | `pino` | `winston`, `bunyan`, `log4js` | Pino is fastest and outputs structured JSON by default |
 
 ## Date/Time
 
@@ -30,18 +32,12 @@
 | Utility functions | Native JS/TS | `lodash`, `underscore`, `ramda` | Modern JS covers most lodash use cases natively; lodash adds bundle weight |
 | Environment variables | `zod` + manual parse | `dotenv` alone | Zod provides type-safe env parsing; raw dotenv has no validation |
 
-## Logging
-
-| Concern | Prefer | Avoid | Reason |
-|---------|--------|-------|--------|
-| Logging | `pino` | `winston`, `bunyan`, `log4js` | Pino is fastest and outputs structured JSON by default |
-
 ## Linting / Formatting
 
 | Concern | Prefer | Avoid | Reason |
 |---------|--------|-------|--------|
-| Linting | `eslint` + `typescript-eslint` | `tslint` | TSLint is deprecated |
-| Formatting | `prettier` | `beautify` | Prettier is the de facto standard |
+| Linting | `eslint` + `typescript-eslint` | `tslint` | |
+| Formatting | `prettier` | `beautify` | |
 
 ## Build
 

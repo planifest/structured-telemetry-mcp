@@ -66,7 +66,22 @@ fi
 # ── Copy test file ────────────────────────────────────────────────────────────
 
 cp "$TEST_FILE" "$DEST" || die "Failed to copy $TEST_FILE to $DEST"
-echo "  copied: $BASENAME → tests/regression/"
+
+# tests/regression/ sits one directory level deeper than tests/, so any
+# $SCRIPT_DIR-relative path a test computed for its original location
+# (tests/) now resolves one level short of where it needs to land. Rewrite
+# the two known relative-path shapes to add the extra "../" the new depth
+# requires. Portable sed via temp-file + mv (no -i, avoids GNU/BSD flag
+# differences). A no-op for tests that don't use these patterns.
+# Order matters: the "..\" rule must run first. If "helpers/" ran first, its
+# own replacement text ("../helpers/") would contain a fresh ".." that the
+# second rule would then re-match and double-add, corrupting the path.
+sed \
+  -e 's|\$SCRIPT_DIR/\.\.|$SCRIPT_DIR/../..|g' \
+  -e 's|\$SCRIPT_DIR/helpers/|$SCRIPT_DIR/../helpers/|g' \
+  "$DEST" > "$DEST.tmp" && mv "$DEST.tmp" "$DEST" || die "Failed to rewrite relative paths in $DEST"
+
+echo "  copied: $BASENAME → tests/regression/ (relative paths adjusted for one extra directory level)"
 
 # ── Update manifest ───────────────────────────────────────────────────────────
 

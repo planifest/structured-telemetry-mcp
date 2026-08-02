@@ -41,7 +41,7 @@ Good "Out of Scope" items are things someone might reasonably expect to be inclu
 
 What might be delivered later but not now. The critical addition: note what is **blocked** until each deferred item is resolved.
 
-- "Database migration tooling - deferred to Phase 2. Blocked: no automated rollback until this ships."
+- "Database migration tooling - deferred to Wave 2. Blocked: no automated rollback until this ships."
 - "Rate limiting - deferred. Blocked: the API is unprotected against abuse until this ships."
 
 This turns deferred items into tracked risks.
@@ -60,7 +60,7 @@ This turns deferred items into tracked risks.
 
 `plan/current/scope.md`
 
-If phased: `plan/scope-phase-{n}.md`
+If waved: `plan/scope-wave-{n}.md`
 
 ---
 

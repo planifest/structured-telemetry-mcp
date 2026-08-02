@@ -9,7 +9,7 @@ hooks:
 
 # Planifest - verify-by-execution
 
-> Tests passing proves the tests pass. You prove the *software does what the acceptance criteria say* by running it and observing behaviour. You are the difference between "the suite is green" and "a human clicked the button and the right thing happened" — except you are the one clicking. Loaded by the validate-agent after CI checks pass, when the `verify_by_execution` toggle is `report-only` or `on`.
+> Tests passing proves the tests pass. You prove the *software does what the acceptance criteria say* by running it and observing behaviour. Loaded by the validate-agent after CI checks pass, when the `verify_by_execution` toggle is `report-only` or `on`.
 
 ---
 
@@ -52,8 +52,6 @@ Write `plan/current/verification-report.md`:
 |-------------|-----------|--------|---------|---------------------|
 | REQ-001 | {criterion} | {api-call} | verified | {status 201, body …} |
 ```
-
-In **report-only** mode, `failed` outcomes are reported but do not gate P4. In **on** mode they enter self-correction like any failing check.
 
 ## Telemetry
 

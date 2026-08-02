@@ -5,6 +5,7 @@ import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api';
 import {
   CREATE_EVENTS_TABLE,
   MIGRATE_ADD_MODEL_CONFIG,
+  MIGRATE_ADD_PRODUCT_ID,
   CREATE_SESSION_INDEX,
   CREATE_EVENT_TIMESTAMP_INDEX,
   CREATE_PHASE_SESSION_INDEX,
@@ -42,6 +43,7 @@ export async function openDatabase(path?: string): Promise<DuckDBInstance> {
   try {
     await conn.run(CREATE_EVENTS_TABLE);
     await conn.run(MIGRATE_ADD_MODEL_CONFIG);
+    await conn.run(MIGRATE_ADD_PRODUCT_ID);
     await conn.run(CREATE_SESSION_INDEX);
     await conn.run(CREATE_EVENT_TIMESTAMP_INDEX);
     await conn.run(CREATE_PHASE_SESSION_INDEX);

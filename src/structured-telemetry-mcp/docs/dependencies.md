@@ -18,7 +18,10 @@ Single-component repo — no dependencies on other components in this codebase.
 
 ## What depends on this component
 
-- **`planifest-framework`** (sibling repo, not a code dependency) — calls `emit_event`/`query_telemetry` from its own skills (`planifest-loop-runner`, phase-reversal protocol, and every phase agent's `phase_start`/`phase_end` emission). As of `0000010`, also emits the 4 new event types this feature added.
+- **`planifest-framework`** (sibling repo, not a code dependency) — calls `emit_event`/`query_telemetry` from its own skills (`planifest-loop-runner`, phase-reversal protocol, and every phase agent's `phase_start`/`phase_end` emission). As of `0000010`, also emits the 4 new event types this feature added. As of `0000015`, this component expects (but does not require) `planifest-framework`'s hooks to eventually populate `product_id` on outgoing events — tracked as a cross-product backlog item (`plan/backlog/00002-framework-product-id-emission`), not a dependency this component enforces.
 - **Any Planifest-compliant agent tool** (Claude Code, Cursor, etc.) — connects via MCP stdio to call the two tools directly.
+- **A human's web browser** (0000015) — loads `GET /ui` and calls `POST /query` same-origin. Not a code dependency; no new package or protocol, just another HTTP client of the existing daemon.
+
+No new npm dependencies were added by 0000015 — the Log Viewer UI is plain HTML/CSS/vanilla JS with zero new packages (ADR-018).
 
 No other component in this repo, and no other repo with a code-level import, depends on `structured-telemetry-mcp`.

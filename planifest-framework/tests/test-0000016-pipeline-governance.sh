@@ -267,7 +267,9 @@ RC=$(run_ratchet "$PROJ/plan/current/requirements-doc.md" "$STRONG" "$PROJ")
 assert_equals "0" "$RC" "req-018: strengthening write passes with exit 0"
 
 # approved weakening: marker file names the path, write passes, marker consumed
-printf '%s\n' "plan/current/requirements-doc.md" > "$PROJ/plan/current/.ratchet-approve"
+# (marker format `path | reason | timestamp` per 0000017 ADR-001, superseding
+#  0000016 ADR-004's bare-path format — fixture updated when the format changed)
+printf '%s\n' "plan/current/requirements-doc.md | criterion beta was genuinely wrong | 2026-07-26T00:00:00Z" > "$PROJ/plan/current/.ratchet-approve"
 RC=$(run_ratchet "$PROJ/plan/current/requirements-doc.md" "$WEAK" "$PROJ")
 assert_equals "0" "$RC" "req-018: human-approved weakening passes (marker present)"
 if [ -s "$PROJ/plan/current/.ratchet-approve" ]; then

@@ -4,189 +4,45 @@
 
 ---
 
-## Why This Matters for Agent-Generated Code
-
-A human engineer absorbs team conventions over weeks. They read pull requests, pair with colleagues, and internalise what "good looks like" in their codebase. Agents don't have that luxury - they need the standard written down.
-
-More importantly, agent-generated code has a compounding problem: agents use the existing codebase as context when generating new code. If the initial scaffold is poorly structured, every subsequent generation inherits and amplifies the mess. A clean codebase is self-reinforcing. A messy one is self-deteriorating.
-
-These standards exist to ensure that:
-
-1. **The first code generated sets a high bar** that subsequent generations pattern-match against
-2. **Human reviewers at the PR gate can assess quality quickly** - well-structured code is fast to review; monolithic code is slow and risky
-3. **Components remain small enough to regenerate** - if a component needs to change, the agent can rebuild it entirely rather than surgically editing a tangled implementation
-4. **The codebase remains comprehensible to new agents and new humans** - someone reading the code six months later should understand the intent, the boundaries, and the decisions without archaeology
-
----
-
-## Table of Contents
-
-- [1. Guiding Principles](#1-guiding-principles)
-- [2. Project Structure](#2-project-structure)
-- [3. Module and Component Design](#3-module-and-component-design)
-- [4. Functions and Methods](#4-functions-and-methods)
-- [5. Naming](#5-naming)
-- [6. Type Safety and Contracts](#6-type-safety-and-contracts)
-- [7. Error Handling](#7-error-handling)
-- [8. State Management](#8-state-management)
-- [9. Dependencies and Coupling](#9-dependencies-and-coupling)
-- [10. Testing Architecture](#10-testing-architecture)
-- [11. Configuration and Environment](#11-configuration-and-environment)
-- [12. Comments and Self-Documentation](#12-comments-and-self-documentation)
-- [13. Performance by Default](#13-performance-by-default)
-- [14. Security by Default](#14-security-by-default)
-- [15. Frontend-Specific Standards](#15-frontend-specific-standards)
-- [16. Backend-Specific Standards](#16-backend-specific-standards)
-- [17. Anti-Patterns for Agent-Generated Code](#17-anti-patterns-for-agent-generated-code)
-- [18. The Review Test](#18-the-review-test)
-
----
-
 ## 1. Guiding Principles
 
-These principles are ordered by priority. When two principles conflict, the one listed first wins.
+Ordered by priority; when two conflict, the one listed first wins.
 
-### 1.1 - Clarity over cleverness
-
-Code is read far more often than it is written. This is doubly true for agent-generated code, where the author cannot explain their reasoning in a standup. Every line should be comprehensible to a competent engineer who has never seen the codebase before.
-
-Clever abstractions, unusual patterns, and non-obvious optimisations are defects unless they are necessary *and* documented. Boring code that does the right thing is always preferred over elegant code that requires a mental model to understand.
-
-### 1.2 - Small units, clear boundaries
-
-Every function, component, module, and service should do one thing. If you cannot describe what a unit does in a single sentence - without using "and" - it is too large.
-
-Small units are:
-- Easier for agents to regenerate entirely (no surgical edits)
-- Easier for humans to review (you can assess a 50-line function; you cannot meaningfully assess a 300-line one)
-- Easier to test in isolation
-- Easier to replace without side effects
-
-### 1.3 - Explicit over implicit
-
-No magic. No action at a distance. No behaviour that depends on understanding something not visible in the current file.
-
-- Configuration is loaded explicitly, not discovered by convention
-- Dependencies are injected or imported, not resolved globally
-- Side effects are declared, not hidden
-- Defaults are visible, not buried in framework internals
-
-### 1.4 - Consistent, then correct
-
-Consistency across a codebase matters more than any individual stylistic choice. If the codebase uses named exports, use named exports everywhere. If error handling follows a pattern, follow that pattern even if you know a better one - unless you're changing the pattern everywhere via an ADR.
-
-Agents must read existing patterns before generating new code. If a project has an established convention, match it. If no convention exists, establish one and follow it consistently.
-
-### 1.5 - Favour composition over inheritance
-
-Build behaviour by composing small, focused units - not by extending deep class hierarchies. Composition is easier for agents to reason about because each piece is self-contained. Inheritance creates implicit coupling where changing a parent class has non-obvious effects on every child.
-
-### 1.6 - Design for deletion
-
-Every module should be removable without surgery. If deleting a module requires changes to more than its direct consumers, the boundaries are wrong. Loose coupling is not just good practice - it is a prerequisite for agents that regenerate components.
+- **Clarity over cleverness.** Boring code that does the right thing beats elegant code that requires a mental model.
+- **Small units, clear boundaries.** Every function, component, module, and service does one thing - describable in a single sentence without "and".
+- **Explicit over implicit.** No magic, no action at a distance, no behaviour that depends on something invisible in the current file.
+- **Consistent, then correct.** Match existing project conventions even over a technically better alternative, unless changing the pattern everywhere via an ADR. Agents must read existing patterns before generating new code.
+- **Favour composition over inheritance.** Build behaviour from small, focused, composable units, not deep class hierarchies.
+- **Design for deletion.** A module should be removable without requiring changes beyond its direct consumers.
 
 ---
 
 ## 2. Project Structure
 
 ### 2.1 - Organise by feature, not by type
-
-Group files by what they do - not by what they are. A reviewing engineer looking at a feature should find everything - logic, types, tests, validation - in one place.
-
-**Prefer this:**
-```
-src/
-  orders/
-    create-order.ts
-    create-order.test.ts
-    order.types.ts
-    order.validation.ts
-    order.repository.ts
-  payments/
-    process-payment.ts
-    process-payment.test.ts
-    payment.types.ts
-    payment.gateway.ts
-```
-
-**Not this:**
-```
-src/
-  controllers/
-    order.controller.ts
-    payment.controller.ts
-  services/
-    order.service.ts
-    payment.service.ts
-  models/
-    order.model.ts
-    payment.model.ts
-  tests/
-    order.test.ts
-    payment.test.ts
-```
-
-The first structure means an engineer reviewing the "orders" feature can open one folder and see everything. A change to orders touches files in one place. In the second structure, a change to orders requires navigating four directories, and every directory mixes unrelated concerns.
+Group files by what they do, not by what they are - logic, types, tests, and validation for a feature live in one folder, not scattered across `controllers/`, `services/`, `models/`, `tests/`.
 
 ### 2.2 - Colocation principle
-
-Keep things that change together close together. Tests live next to the code they test. Types live next to the code that uses them. Validation schemas live next to the code that validates.
-
-The only exception is truly shared code - types, utilities, or contracts that are consumed by multiple features. These belong in a clearly labelled shared location (`shared/`, `common/`, or a dedicated `packages/shared` workspace in a monorepo).
+Keep things that change together close together. Tests, types, and validation schemas live next to the code they serve. The only exception is genuinely shared code, which belongs in a clearly labelled shared location (`shared/`, `common/`, or a dedicated workspace).
 
 ### 2.3 - Shallow directory hierarchies
-
-Three levels deep is the practical maximum for any source directory. Deep nesting makes navigation difficult, produces long import paths, and obscures the high-level structure.
-
-```
-src/                       # Level 1: source root
-  features/                # Level 2: domain area
-    orders/                # Level 3: specific feature
-      create-order.ts
-      create-order.test.ts
-```
-
-If a feature grows large enough to need its own sub-structure, it may be a candidate for extraction into a separate package or service.
+Three levels deep is the practical maximum for a source directory (`src/features/orders/`). Deep nesting obscures structure and produces long import paths. A feature that outgrows this may be a candidate for extraction into its own package or service.
 
 ### 2.4 - Entry point clarity
-
-Every package, service, or app should have a single, obvious entry point. A reviewing engineer should be able to find the "start here" file without instructions:
-
-- `src/main.ts` or `src/index.ts` for applications
-- `src/index.ts` for libraries (public API surface)
-- `src/app.ts` or `src/server.ts` for backend services
-
-The entry point should be slim - it wires together the application (configuration, middleware, routes, error handlers) and delegates to feature modules. It should not contain business logic.
+Every package, service, or app has a single, obvious entry point (`src/main.ts`, `src/index.ts`, `src/app.ts`). It wires the application together and delegates to feature modules - it does not contain business logic.
 
 ### 2.5 - Barrel exports used sparingly
-
-Re-exporting from index files (`index.ts`) is useful for public API surfaces of a package or shared module. It is harmful within application code because it obscures where things are defined, creates circular dependency risks, and defeats tree-shaking.
-
-**Use barrel exports for:**
-- The public API of a shared package (`packages/shared/src/index.ts`)
-- The public API of a component library
-
-**Do not use barrel exports for:**
-- Individual feature folders within an application
-- Internal re-exports within the same service
+Use barrel exports (`index.ts` re-exports) for the public API of a shared package or component library. Do not use them for internal re-exports within a single feature or service - they obscure where things are defined and create circular dependency risk.
 
 ---
 
 ## 3. Module and Component Design
 
 ### 3.1 - Single Responsibility
-
-A module does one thing. "One thing" is defined by: **one reason to change**.
-
-- An `OrderValidator` validates orders. It does not fetch data, send emails, or log analytics.
-- A `PaymentGateway` communicates with the payment provider. It does not store payment records or retry failed charges.
-- A `UserProfile` component renders user profile information. It does not fetch user data or handle navigation.
-
-If a module has multiple reasons to change - the validation rules change *and* the data format changes *and* the error reporting changes - it is doing too much.
+A module does one thing, defined by one reason to change. If a module has multiple reasons to change - the validation rules, the data format, the error reporting - it is doing too much.
 
 ### 3.2 - Module size guidelines
-
-These are guidelines, not rules. Context matters. But a module that significantly exceeds these thresholds deserves scrutiny:
+Guidelines, not rules - context matters, but a module that significantly exceeds these thresholds deserves scrutiny:
 
 | Unit | Typical size | Investigate if |
 |---|---|---|
@@ -195,143 +51,36 @@ These are guidelines, not rules. Context matters. But a module that significantl
 | Module / file | 50-200 lines | > 300 lines |
 | Test file | 50-300 lines | > 500 lines |
 
-A 300-line file is not inherently wrong - but it warrants the question: "Can this be decomposed into smaller, independently testable units?"
-
 ### 3.3 - Clear public interfaces
-
-Every module should have a clear boundary between what it exposes and what is internal. Consumers interact with the public interface; internals are free to change.
-
-- Export only what consumers need. Everything else is private by default.
-- The public interface is the contract. If it changes, consumers may break.
-- Internal helpers, utilities, and implementation details are not exported.
-
-In typed languages, the exported types *are* the documentation. A reviewer reading the exports of a module should immediately understand its capabilities and constraints.
+Export only what consumers need; everything else is private by default. The public interface is the contract - if it changes, consumers may break. In typed languages, the exported types are the documentation.
 
 ### 3.4 - Layered architecture within features
-
-Within a feature, separate concerns into clear layers. The layers and their names vary by stack, but the principle is universal: **each layer has one job, and dependencies flow in one direction - inward.**
-
-```
-┌──────────────────────────────────┐
-│  Interface Layer                 │  HTTP handlers, UI components,
-│  (how the outside world talks    │  CLI commands, event listeners
-│   to this feature)               │
-├──────────────────────────────────┤
-│  Application Layer               │  Use cases, orchestration,
-│  (what this feature does)        │  business rules, workflows
-├──────────────────────────────────┤
-│  Domain Layer                    │  Core types, validation,
-│  (what this feature knows)       │  invariants, pure logic
-├──────────────────────────────────┤
-│  Infrastructure Layer            │  Database access, external APIs,
-│  (how this feature persists      │  message queues, file system
-│   or communicates)               │
-└──────────────────────────────────┘
-```
-
-The interface layer depends on the application layer. The application layer depends on the domain layer. The domain layer depends on nothing - it is pure, portable, and testable without infrastructure.
-
-This is not "clean architecture" as a religious framework. It is the practical minimum: keep pure logic pure, keep I/O at the edges, and keep the dependency arrow pointing inward.
+Within a feature, separate concerns into layers with dependencies flowing in one direction, inward: an interface layer (HTTP handlers, UI components) depends on an application layer (use cases, orchestration), which depends on a domain layer (core types, validation, pure logic), which depends on nothing. Infrastructure (database, external APIs) sits at the edge. Keep pure logic pure and I/O at the edges.
 
 ### 3.5 - Prefer pure functions
-
-A pure function - one that takes input, returns output, and has no side effects - is the easiest unit for both agents and humans to reason about. It is also the easiest to test.
-
-Wherever possible, extract the logic from an impure function (one with side effects like database access, API calls, or state mutation) into a pure function that computes the result, and a thin wrapper that performs the side effect.
-
-```
-// Pure - testable without mocks, easy to reason about
-function calculateOrderTotal(items: OrderItem[], discount: Discount): Money {
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  return applyDiscount(subtotal, discount);
-}
-
-// Impure - thin wrapper that performs the side effect
-async function placeOrder(orderId: string, items: OrderItem[], discount: Discount): Promise<Order> {
-  const total = calculateOrderTotal(items, discount);
-  return orderRepository.save({ id: orderId, items, total, status: 'placed' });
-}
-```
+Extract logic from an impure function (one with side effects - database access, API calls, state mutation) into a pure function that computes the result, plus a thin wrapper that performs the side effect. Pure functions are the easiest unit for both agents and humans to reason about and test.
 
 ---
 
 ## 4. Functions and Methods
 
-### 4.1 - Do one thing
-
-A function should perform a single, well-defined operation. "Calculate the total", not "calculate the total and send an email and update the database". If a function name requires "and", split it.
-
-### 4.2 - Keep parameter lists short
-
-Three parameters is comfortable. Four is a warning. Five or more is a design smell - consider grouping related parameters into an options object or a dedicated type.
-
-```
-// Too many loose parameters
-function createUser(name: string, email: string, role: string, department: string, isActive: boolean) { ... }
-
-// Grouped - clear, extensible, self-documenting
-function createUser(params: CreateUserParams) { ... }
-```
-
-### 4.3 - Return early, avoid deep nesting
-
-Guard clauses at the top of a function eliminate nesting and make the happy path immediately visible:
-
-```
-// Clear - guard clauses, then happy path
-function processPayment(payment: Payment): Result {
-  if (!payment.amount) return Result.error('Amount is required');
-  if (payment.amount <= 0) return Result.error('Amount must be positive');
-  if (!payment.method) return Result.error('Payment method is required');
-
-  const charge = gateway.charge(payment);
-  return Result.ok(charge);
-}
-```
-
-If a function has more than two levels of nesting (`if` inside `if` inside `if`), extract the inner logic into a named function.
-
-### 4.4 - Avoid boolean parameters
-
-A boolean parameter at the call site is meaningless to a reviewer:
-
-```
-// What does 'true' mean here?
-processOrder(order, true);
-
-// Self-documenting
-processOrder(order, { validateInventory: true });
-// or
-processOrder(order, { mode: 'express' });
-```
-
-### 4.5 - Command/Query Separation
-
-Functions should either do something (command - mutate state, produce side effects) or answer something (query - return a value, no side effects). Functions that do both are harder to test and reason about.
-
-Exceptions exist - `pop()` both removes and returns - but the default should be separation.
+- **Do one thing.** If a function name needs "and", split it.
+- **Keep parameter lists short.** Three is comfortable, four is a warning, five or more should be grouped into an options object or dedicated type.
+- **Return early, avoid deep nesting.** Guard clauses at the top eliminate nesting and surface the happy path. More than two levels of nested `if` should be extracted into a named function.
+- **Avoid boolean parameters.** A bare `true` at the call site is meaningless to a reviewer - prefer a named option (`{ validateInventory: true }`).
+- **Command/Query separation.** A function either mutates state (command) or returns a value (query), not both, except where a well-known idiom (`pop()`) makes the exception obvious.
 
 ---
 
 ## 5. Naming
 
-Good naming eliminates the need for most comments. The name should tell the reviewer *what* and *why* - the code shows *how*.
+Good naming eliminates the need for most comments - the name should tell the reviewer what and why; the code shows how.
 
 ### 5.1 - Names describe intent, not implementation
-
-```
-// Implementation-focused (how)
-const userArray = getFromDb('users');
-const filteredList = userArray.filter(u => u.active);
-
-// Intent-focused (what)
-const users = findAllUsers();
-const activeUsers = users.filter(u => u.isActive);
-```
+Prefer `findAllUsers()` / `activeUsers` over `getFromDb('users')` / `filteredList` - name what the value is, not how it was produced.
 
 ### 5.2 - Consistent vocabulary
-
-Pick one word for each concept and use it everywhere. If fetching data is `find`, it is always `find` - not sometimes `get`, sometimes `fetch`, sometimes `retrieve`, sometimes `load`.
+Pick one word per concept and use it everywhere:
 
 | Concept | Pick one | Not |
 |---|---|---|
@@ -342,420 +91,55 @@ Pick one word for each concept and use it everywhere. If fetching data is `find`
 | Validate input | `validate` | check, verify, ensure, assert |
 | Transform data | `transform` or `map` | convert, parse, format, process |
 
-Use the [Domain Glossary](p003-planifest-functional-decisions.md#fd-009--the-domain-knowledge-store-is-a-first-class-component) terms. If the glossary calls it an "Order", the code calls it an `Order` - not a `Purchase`, `Transaction`, or `Sale`.
+Use Domain Glossary terms in code identifiers. If the glossary calls it an "Order", the code calls it an `Order` - not a `Purchase`, `Transaction`, or `Sale`.
 
 ### 5.3 - Boolean names are predicates
-
-Booleans answer a yes/no question. Name them accordingly:
-
-```
-// Good - reads as a question
-const isActive = user.status === 'active';
-const hasPermission = roles.includes('admin');
-const canEdit = isOwner && !isLocked;
-
-// Bad - ambiguous
-const active = user.status === 'active';
-const permission = roles.includes('admin');
-const edit = isOwner && !isLocked;
-```
+Booleans answer a yes/no question: `isActive`, `hasPermission`, `canEdit` - not `active`, `permission`, `edit`.
 
 ### 5.4 - File naming conventions
-
-Use one convention per project and apply it universally. For most stacks:
-
-- `kebab-case` for file names: `create-order.ts`, `order-list.tsx`, `payment-gateway.ts`
-- `PascalCase` for component files only if the framework convention expects it (e.g. React components: `OrderList.tsx`)
-- Suffixes indicate purpose: `.test.ts`, `.types.ts`, `.schema.ts`, `.config.ts`
-
-Never name a file `utils.ts`, `helpers.ts`, or `misc.ts`. These attract unrelated code and grow without bound. If a utility is genuinely shared, give it a name that describes what it does: `format-currency.ts`, `date-utils.ts`, `retry.ts`.
+Use one convention per project, applied universally. For most stacks: `kebab-case` file names, `PascalCase` only where the framework expects it (React components), and purpose suffixes (`.test.ts`, `.types.ts`, `.schema.ts`, `.config.ts`). Never name a file `utils.ts`, `helpers.ts`, or `misc.ts` - these attract unrelated code and grow without bound.
 
 ---
 
-## 6. Type Safety and Contracts
+## 6. Type Safety, Errors, State, and Dependencies
 
-### 6.1 - Type everything at the boundary
-
-Every function that crosses a trust boundary - HTTP endpoints, message handlers, database queries, external API calls - must have its inputs and outputs typed. No `any`, no implicit typing, no unvalidated casts.
-
-The type system is the first line of defence. If the types are wrong, the compiler catches it before tests do, and tests catch it before production does.
-
-### 6.2 - Parse, don't validate (Validate at the edge, trust internally)
-
-Validate all external input at the point it enters the system - the HTTP handler, the message consumer, the CLI parser. Once parsed and typed, the internal layers trust the types.
-
-```
-// Edge - validate and parse
-const parsed = OrderSchema.parse(request.body);  // Throws if invalid
-
-// Internal - trust the types
-function calculateTotal(order: ValidatedOrder): Money {
-  // No need to re-validate - the type guarantees the shape
-}
-```
-
-This eliminates defensive programming deep in the codebase. If you find a `typeof x !== 'undefined'` check in a pure function three layers deep, the validation boundary is in the wrong place.
-
-### 6.3 - Use discriminated unions for state
-
-When a value can be in one of several states, model it as a discriminated union - not as a bag of optional properties.
-
-```
-// Bad - unclear which combinations are valid
-type ApiResponse = {
-  data?: Order;
-  error?: string;
-  isLoading?: boolean;
-};
-
-// Good - each state is explicit and exhaustive
-type ApiResponse =
-  | { status: 'loading' }
-  | { status: 'success'; data: Order }
-  | { status: 'error'; error: string };
-```
-
-Discriminated unions make impossible states unrepresentable. The compiler enforces that every handler considers every case.
-
-### 6.4 - Derive types, don't duplicate them
-
-A type defined in two places will diverge. Define types once - in the shared package, in the schema, or derived from the OpenAPI spec - and import them everywhere.
-
-If the openapi spec defines an `Order` response, the frontend type, the backend type, and the test fixture should all derive from the same source - not from three separate `interface Order` declarations that happen to look the same today.
+- **Type everything at the boundary.** Every function crossing a trust boundary (HTTP endpoints, message handlers, DB queries, external API calls) has typed inputs and outputs - no `any`, no unvalidated casts.
+- **Validate at the edge, trust internally.** Parse and validate external input once, at the point it enters the system; internal layers trust the resulting types rather than re-checking.
+- **Model state as discriminated unions**, not a bag of optional properties - impossible states should be unrepresentable and the compiler should enforce exhaustiveness.
+- **Derive types once**, from the shared package, schema, or OpenAPI spec, and import them everywhere - a type defined in two places will diverge.
+- **Errors are first-class.** Every function that can fail communicates that failure through its return type or a documented exception contract; silent failures (swallowed exceptions, empty catch blocks) are defects.
+- **Use typed errors** with a code, category, and contextual detail, not bare string messages.
+- **Handle errors at the level with enough context to act.** Catch where you can add value; let errors propagate where you cannot.
+- **Never swallow errors.** An empty catch block is worse than no catch block - log and re-throw, or return an error type.
+- **Frontend error boundaries sit at feature boundaries**, not a single top-level boundary that crashes the whole page.
+- **State has exactly one owner.** Duplicated state in two places will diverge - it is not a risk, it is a certainty.
+- **Separate server state from client state.** Use a dedicated data-fetching/caching mechanism for server state and a lightweight store or component state for client-only state.
+- **Depend on abstractions, not implementations**, and avoid circular dependencies - agents cannot reason reliably about initialisation order across cycles.
+- **Wrap external services** (payment providers, email, third-party APIs) in a thin project-owned wrapper so tests mock the wrapper and the external API can change without touching business logic.
+- **Mind dependency count.** Prefer standard library capabilities over third-party packages for basic operations; reserve dependencies for genuinely complex domains.
 
 ---
 
-## 7. Error Handling
+## 7. Testing Architecture
 
-### 7.1 - Errors are first-class
-
-Error paths are not afterthoughts. Every function that can fail should communicate that failure to its caller through its return type or a documented exception contract. Silent failures - swallowed exceptions, empty catch blocks, fallback defaults that hide problems - are defects.
-
-### 7.2 - Use typed errors
-
-Errors should carry enough information for the caller to decide what to do. A string message is insufficient. A typed error - with a code, a category, and contextual detail - is actionable.
-
-```
-// Insufficient - the caller can only log or re-throw
-throw new Error('Payment failed');
-
-// Actionable - the caller can retry, show a specific message, or escalate
-throw new PaymentError({
-  code: 'INSUFFICIENT_FUNDS',
-  message: 'Card ending in 4242 has insufficient funds',
-  retryable: false,
-  amount: payment.amount,
-});
-```
-
-### 7.3 - Handle errors at the right level
-
-An error should be handled at the level that has enough context to do something useful. A database connection error in a repository should not be caught in the repository - the repository doesn't know what the caller wants to do about it. Let it propagate to the layer that can retry, fall back, or report.
-
-The general rule: **catch errors where you can add value. Let them propagate where you cannot.**
-
-### 7.4 - Never swallow errors
-
-```
-// Never do this
-try {
-  await saveOrder(order);
-} catch (e) {
-  // silently ignored
-}
-
-// At minimum, log and re-throw or return an error type
-try {
-  await saveOrder(order);
-} catch (error) {
-  logger.error('Failed to save order', { orderId: order.id, error });
-  throw error;
-}
-```
-
-A catch block that does nothing is worse than no catch block. It hides failures that surface later as mysterious bugs.
-
-### 7.5 - Error boundaries in the UI
-
-Frontend applications should have error boundaries at meaningful feature boundaries - not a single top-level error boundary that crashes the entire page. If the payment form fails, the order summary should still be visible.
+See `testing-standards.md` for the full testing standard - test pyramid, Agentic TDD loop, requirement traceability, coverage thresholds. It is the source of truth; do not restate it here.
 
 ---
 
-## 8. State Management
+## 8. Configuration, Comments, Performance, and Security
 
-### 8.1 - Minimise state
-
-The best state is no state. Before adding a piece of state, ask: can this be derived from existing state? Can it be computed? Can it be fetched on demand? State is the primary source of bugs - every piece of state is a thing that can be wrong.
-
-### 8.2 - State ownership
-
-Every piece of state has exactly one owner. One component, one store, one service. Other consumers read it or request changes to it - they do not hold their own copy.
-
-If the same data is duplicated in two places, it will diverge. This is not a risk - it is a certainty.
-
-### 8.3 - Separate server state from client state
-
-Data that comes from the server (fetched, cached, revalidated) is different in kind from data that exists only in the client (form input, UI toggles, navigation state). Mixing the two creates synchronisation bugs.
-
-Use a dedicated mechanism for each:
-- **Server state:** A data-fetching library with built-in caching, revalidation, and loading/error states (e.g. TanStack Query, SWR, Apollo Client, RTK Query - stack-dependent)
-- **Client state:** A lightweight store or component state (e.g. Zustand, signals, `useState`, Pinia - stack-dependent)
-
-### 8.4 - State scope matches component scope
-
-State should live as close as possible to the components that use it. Global state is for genuinely global concerns - the authenticated user, the active theme, feature flags. Everything else is local or feature-scoped.
-
-If you're reaching for global state because a parent and a distantly nested child need the same data, the answer is usually: restructure the components so the data flows naturally, or use a scoped provider for that feature subtree.
+- **Configuration is loaded once and validated early**, into a typed object; missing required configuration fails fast at startup, not later as a cryptic `undefined`. No `if (env === 'production')` branches - environment differences are expressed through configuration values.
+- **Secrets are never in code, config files, or environment variable defaults** - they come from the secret manager, referenced by name.
+- **Comments explain why, not what.** If code needs a comment to explain what it does, rewrite the code. No commented-out code - version control retrieves old code.
+- **Public API documentation** on every exported function, type, and class in a shared package: what it does, parameters, return value, thrown errors.
+- **Performance defaults:** don't fetch more than you need, don't block the event loop with synchronous long-running work, lazy-load feature modules at route boundaries, optimise and tree-shake assets. Every list endpoint or query supports pagination.
+- **Security defaults:** validate all external input at the boundary against a schema, encode all HTML output, authenticate every route by default (unauthenticated routes are the explicit exception), and grant every service/connection/token only the minimum privilege it needs.
 
 ---
 
-## 9. Dependencies and Coupling
+## 9. Frontend-Specific Standards
 
-### 9.1 - Depend on abstractions, not implementations
-
-A module that imports a concrete database client is coupled to that database. A module that depends on a repository interface can work with any database - or an in-memory fake for testing.
-
-This is not premature abstraction - it is practical testability and the minimum viable boundary between layers.
-
-### 9.2 - No circular dependencies
-
-If module A imports from module B, and module B imports from module A, the boundary is wrong. Extract the shared concern into a third module that both depend on, or redesign the interface so the dependency flows in one direction.
-
-Circular dependencies are especially harmful for agent-generated code because agents cannot reason about initialisation order or module evaluation side effects across cycles.
-
-### 9.3 - External dependencies are wrapped
-
-Any external service - a payment provider, an email service, a third-party API - is accessed through a thin wrapper owned by the project. The wrapper translates the external API into the project's types and error model.
-
-Benefits:
-- The external API can change without touching business logic
-- Tests mock the wrapper, not the external SDK
-- Error handling is normalised to the project's patterns
-- The wrapper documents exactly which capabilities of the external API are used
-
-### 9.4 - Dependency count discipline
-
-Every dependency is a liability - a surface for breaking changes, security vulnerabilities, and supply chain risk. Before adding a dependency, ask:
-
-1. Does this genuinely save significant implementation effort?
-2. Is this a well-maintained, widely adopted library?
-3. Is the API surface we need small enough to implement ourselves?
-
-Prefer standard library capabilities over third-party packages for basic operations (date formatting, string manipulation, data structure operations). Reserve dependencies for genuinely complex domains (cryptography, compression, protocol implementations).
-
----
-
-## 10. Testing Architecture
-
-### 10.1 - Tests are production code
-
-Tests follow the same quality standards as application code. They are named clearly, structured consistently, kept DRY where appropriate, and reviewed at the PR gate. Sloppy tests are worse than no tests - they rot, provide false confidence, and slow down every future change.
-
-### 10.2 - Test pyramid
-
-The distribution of tests should form a pyramid:
-
-```
-         /  E2E  \         Few, slow, expensive. Critical user journeys only.
-        /----------\
-       / Integration \     Moderate number. Verify boundaries - API endpoints,
-      /----------------\   database queries, message handlers.
-     /    Unit Tests     \  Many, fast, cheap. Pure logic, transformations,
-    /______________________\ validation, calculations.
-```
-
-A codebase dominated by E2E tests is slow, flaky, and expensive to maintain. A codebase with only unit tests misses integration bugs. The pyramid ensures coverage at the right granularity.
-
-### 10.3 - Structure tests as Arrange/Act/Assert
-
-Every test should have three clear phases:
-
-```
-test('calculates order total with percentage discount', () => {
-  // Arrange - set up the inputs
-  const items = [{ price: 100, quantity: 2 }, { price: 50, quantity: 1 }];
-  const discount = { type: 'percentage', value: 10 };
-
-  // Act - execute the thing being tested
-  const total = calculateOrderTotal(items, discount);
-
-  // Assert - verify the result
-  expect(total).toBe(225);
-});
-```
-
-### 10.4 - Test behaviour, not implementation
-
-Tests should assert *what* a unit does, not *how* it does it. A test that breaks when you refactor the internals without changing the behaviour is a bad test - it punishes improvement.
-
-```
-// Bad - tests implementation detail
-test('calls repository.save with correct arguments', () => {
-  createOrder(orderData);
-  expect(repository.save).toHaveBeenCalledWith(/* exact internal structure */);
-});
-
-// Good - tests observable behaviour
-test('creating an order persists it and returns the created order', async () => {
-  const order = await createOrder(orderData);
-  const fetched = await findOrder(order.id);
-  expect(fetched).toEqual(order);
-});
-```
-
-### 10.5 - Test naming describes the scenario
-
-A test name should read as a sentence describing the expected behaviour:
-
-```
-// Good - self-documenting
-'returns an error when the payment method is expired'
-'applies the loyalty discount before tax calculation'
-'redirects unauthenticated users to the login page'
-
-// Bad - vague
-'handles error case'
-'works correctly'
-'test payment'
-```
-
-### 10.6 - Test data is minimal and intentional
-
-Test fixtures should contain only the data relevant to the assertion. Noise in test data obscures what the test is actually verifying.
-
-Use factory functions or builders to create test data with sensible defaults, overriding only the fields relevant to each test:
-
-```
-const order = buildOrder({ status: 'cancelled' });
-// All other fields have sensible defaults - only 'status' matters for this test
-```
-
-### 10.7 - Colocate tests with source
-
-Tests live next to the code they test: `create-order.ts` and `create-order.test.ts` in the same directory. Not in a separate `__tests__/` tree that mirrors the source structure.
-
----
-
-## 11. Configuration and Environment
-
-### 11.1 - Configuration is loaded once, validated early
-
-All configuration (environment variables, feature flags, connection strings) is loaded at application startup into a typed, validated configuration object. If required configuration is missing, the application fails fast with a clear error - not minutes later with a cryptic `undefined` reference.
-
-```
-// Good - fail fast at startup
-const config = loadConfig({
-  DATABASE_URL: { required: true },
-  PORT: { required: true, default: 3000, parse: Number },
-  LOG_LEVEL: { required: false, default: 'info', oneOf: ['debug', 'info', 'warn', 'error'] },
-});
-
-// Bad - scattered, unvalidated
-const port = process.env.PORT;  // string? undefined? who knows
-```
-
-### 11.2 - No environment-specific code paths
-
-The application code should not contain `if (env === 'production')` branches. Environment differences are expressed through configuration values that the code reads - never through conditional logic tied to environment names.
-
-### 11.3 - Secrets are never in code
-
-No secrets in source code. No secrets in configuration files. No secrets in environment variable defaults. Secrets come from the secret manager, injected at runtime. The code references the secret by name - never by value.
-
----
-
-## 12. Comments and Self-Documentation
-
-### 12.1 - Code should be self-documenting first
-
-If the code needs a comment to explain *what* it does, the code should be rewritten to be clearer. Comments explain *why*, not *what*.
-
-```
-// Bad - the comment adds nothing the code doesn't already say
-// increment the counter
-counter++;
-
-// Good - the comment explains the non-obvious reason
-// Offset by 1 because the API uses 1-based pagination but our internal model is 0-based
-const apiPage = page + 1;
-```
-
-### 12.2 - When to comment
-
-Comments add value when they explain:
-- **Why** a decision was made (especially if it looks wrong at first glance)
-- **Constraints** that are not visible in the code (regulatory requirements, upstream API quirks)
-- **Warnings** about non-obvious consequences ("changing this order breaks the payment provider's idempotency check")
-- **References** to external documentation, issues, or ADRs
-
-### 12.3 - Public API documentation
-
-Every exported function, type, and class in a shared package must have documentation that describes:
-- What it does (one sentence)
-- Parameters and their constraints
-- Return value
-- Thrown errors
-
-This is not overhead - in typed languages, this is the interface contract. Reviewers use it to assess the public surface without reading the implementation.
-
-### 12.4 - No commented-out code
-
-Commented-out code is noise. It raises questions: is this needed? Was it removed intentionally? Is it a TODO? Version control exists to retrieve old code. Delete it.
-
----
-
-## 13. Performance by Default
-
-### 13.1 - Don't optimise prematurely, but don't pessimise
-
-Performance optimisation should be driven by measurement, not speculation. However, some patterns are obviously wasteful and should be avoided from the start:
-
-- Don't fetch data you don't need (SELECT * when you need two columns)
-- Don't iterate the same collection multiple times when one pass suffices
-- Don't create unnecessary allocations in hot paths
-- Don't block the main thread (UI) or the event loop (server) with synchronous long-running operations
-
-### 13.2 - Pagination by default
-
-Any endpoint or query that returns a list must support pagination. An unpaginated list endpoint is a latent production incident waiting for the dataset to grow.
-
-### 13.3 - Lazy loading at feature boundaries
-
-Frontend applications should lazy-load feature modules at route boundaries. The initial load should include only the shell and the first route's dependencies.
-
-### 13.4 - Asset optimisation
-
-Images are optimised and responsively sized. Fonts are subsetted. CSS and JavaScript are minified and tree-shaken. These are not premature optimisations - they are baseline expectations for production code.
-
----
-
-## 14. Security by Default
-
-### 14.1 - Input validation is non-negotiable
-
-Every external input - user forms, API requests, URL parameters, webhook payloads, file uploads - is validated against a schema before being processed. No exceptions. Validation happens at the boundary, using the schema derived from the contract (OpenAPI, Zod, JSON Schema, etc.).
-
-### 14.2 - Output encoding
-
-All output rendered in HTML is encoded to prevent XSS. Framework defaults handle this in most cases - but raw HTML insertion (React's `dangerouslySetInnerHTML`, Angular's `bypassSecurityTrust`, Svelte's `{@html}`) requires explicit justification and review.
-
-### 14.3 - Authentication on every route
-
-Every route is authenticated by default. Unauthenticated routes are the exception and are explicitly marked as public. The framework should enforce this - a missing auth check should be a failure, not a default.
-
-### 14.4 - Principle of least privilege
-
-Every service, every database connection, every API token has the minimum permissions required for its function. A service that reads orders does not need write access to payments.
-
----
-
-## 15. Frontend-Specific Standards
-
-These supplement the general standards. They apply to UI code regardless of framework.
-
-### 15.1 - Component decomposition
-
-UI components follow a clear hierarchy:
+### 9.1 - Component decomposition
 
 | Component type | Responsibility | Example |
 |---|---|---|
@@ -764,42 +148,13 @@ UI components follow a clear hierarchy:
 | **UI / Presentational** | Reusable visual element, no business logic | `Button`, `Card`, `DataTable`, `Badge` |
 | **Layout** | Structural arrangement | `Sidebar`, `PageHeader`, `ContentGrid` |
 
-Pages compose features. Features compose UI components. UI components are pure - they receive data via props, emit events, and know nothing about where they're used.
-
-A component that fetches its own data, manages its own state, and renders its own UI is doing three things. Split it into a container that handles data and state, and a presentational component that handles rendering.
-
-### 15.2 - Prop interfaces are complete and typed
-
-Every component's props are fully typed. No `any`, no implicit typing, no `...rest` spreading without a base type.
-
-Default values are explicit and documented in the type. Optional props have sensible defaults. Required props are genuinely required.
-
-### 15.3 - Accessibility is structural, not cosmetic
-
-Accessibility is baked into the component structure - semantic HTML elements, ARIA attributes, keyboard navigation, focus management, colour contrast. These are implemented when the component is built, not retrofitted after a compliance scan.
-
-The component library (shadcn/ui, Radix UI, or equivalent) provides accessible primitives. Use them. Do not build custom interactive elements (modals, dropdowns, tabs, comboboxes) without an accessible foundation.
-
-### 15.4 - Responsive design is the default
-
-Components render correctly at all declared breakpoints. Responsive behaviour is not a separate task - it is part of implementing the component. If the spec does not define responsive behaviour, ask.
-
-### 15.5 - CSS discipline
-
-- Use utility classes (Tailwind) or scoped styles (CSS Modules, `<style scoped>`) - not global CSS that bleeds across components
-- Avoid magic numbers - spacing, sizing, and colour come from the design system tokens
-- No inline styles except for genuinely dynamic values (calculated positions, animation targets)
-- Component-specific styles live with the component, not in a global stylesheet
+Pages compose features, features compose UI components. UI components are pure - props in, events out, no knowledge of where they're used. A component that fetches its own data, manages its own state, and renders its own UI is doing three things; split it into a data/state container and a presentational component.
 
 ---
 
-## 16. Backend-Specific Standards
+## 10. Backend-Specific Standards
 
-These supplement the general standards. They apply to backend/API code regardless of framework.
-
-### 16.1 - Handler -> Service -> Repository
-
-Backend features follow a layered pattern:
+### 10.1 - Handler -> Service -> Repository
 
 | Layer | Responsibility | Depends on |
 |---|---|---|
@@ -807,131 +162,30 @@ Backend features follow a layered pattern:
 | **Service** | Business logic, orchestration, validation | Repository, external wrappers |
 | **Repository** | Data access - queries, mutations, transactions | Database / ORM |
 
-Handlers are thin. They parse and validate the request, call the service, and format the response. No business logic.
+Handlers are thin (no business logic). Services hold the rules and are testable without HTTP or database infrastructure. Repositories own the queries and translate between domain types and storage format.
 
-Services are the core. They contain the business rules, orchestrate operations, and make decisions. They are testable without HTTP or database infrastructure.
+### 10.2 - Database queries are intentional
+No `SELECT *`. Every query touching production data has an index strategy. N+1 queries are a defect. Connection pooling is configured, not assumed.
 
-Repositories abstract data access. They translate between the application's domain types and the database's storage format. They own the queries.
-
-### 16.2 - Route registration is declarative
-
-Routes are registered in one place - a route file or a registration function - not scattered across the codebase. A reviewer should be able to see every route the API exposes by reading one file.
-
-```
-// Good - all routes visible in one place
-export function registerOrderRoutes(app: App) {
-  app.post('/orders', createOrderHandler);
-  app.get('/orders/:id', getOrderHandler);
-  app.patch('/orders/:id', updateOrderHandler);
-  app.delete('/orders/:id', deleteOrderHandler);
-}
-```
-
-### 16.3 - Middleware is ordered and documented
-
-Middleware (authentication, logging, rate limiting, CORS, error handling) is applied in a clear, documented order. The order matters - auth before logging, error handling as the outermost layer. If the order is wrong, things break silently.
-
-### 16.4 - Consistent response shapes
-
-APIs return a consistent response shape for all endpoints. Success and error responses follow the same envelope. A frontend developer consuming the API should never encounter a surprise shape.
-
-```
-// Success
-{ "data": { ... }, "meta": { "page": 1, "totalPages": 5 } }
-
-// Error
-{ "error": { "code": "VALIDATION_ERROR", "message": "...", "details": [...] } }
-```
-
-### 16.5 - Logging is structured
-
-Logs are structured (JSON), not free-text strings. Every log entry includes: timestamp, level, message, and a correlation ID that links related operations. Contextual metadata (user ID, request ID, operation) is attached - not interpolated into a string.
-
-```
-// Good - structured, searchable, parseable
-logger.info('Order created', { orderId: order.id, userId: user.id, total: order.total });
-
-// Bad - free-text, unsearchable
-logger.info(`Created order ${order.id} for user ${user.id} with total ${order.total}`);
-```
-
-### 16.6 - Database queries are intentional
-
-- No `SELECT *` - select only the columns you need
-- Every query that touches production data has an index strategy
-- N+1 queries are a defect. If you're querying inside a loop, you're doing it wrong
-- **Default to explicit transactions for all write operations.** A single SQL statement is already atomic - the database wraps it in an implicit transaction. The reason to use explicit transactions even for single writes is defensive: agent-generated code evolves incrementally, and a function that starts as a single `INSERT` often gains a second write in a later change. If the convention is "always wrap writes in a transaction," the second write is already protected. If the convention is "add a transaction when you need one," the agent must recognise the new atomicity requirement - and it may not. Multi-statement mutations within a single logical operation **must** be transactional; this is non-negotiable. The overhead of an explicit transaction around a single write on a modern database (PostgreSQL MVCC, etc.) is negligible. The overhead of a transaction drawn too wide - spanning slow operations, external API calls, or user-facing waits - is real and causes lock contention. Keep transaction boundaries tight: wrap the writes, not the entire request lifecycle. If a specific operation demonstrably suffers from transaction overhead at scale, record the exception in an ADR
-- Connection pooling is configured, not assumed
+**Default to explicit transactions for all write operations.** A single statement is already atomic, but agent-generated code evolves incrementally - a function that starts as one `INSERT` often gains a second write later, and "always wrap writes in a transaction" protects that second write automatically where "add one when you need it" does not. Multi-statement mutations within one logical operation **must** be transactional - non-negotiable. Keep the transaction boundary tight (the writes, not the request lifecycle); if a specific operation demonstrably suffers from transaction overhead at scale, record the exception in an ADR.
 
 ---
 
-## 17. Anti-Patterns for Agent-Generated Code
+## 11. Anti-Patterns for Agent-Generated Code
 
-These are patterns that agents are specifically prone to producing. Reviewing engineers should flag them. The codegen-agent should be trained to avoid them.
+Patterns agents are specifically prone to producing. Reviewing engineers should flag them; the codegen-agent should be trained to avoid them.
 
-### 17.1 - The God Component / God Function
-
-A single component or function that does everything for a feature - renders the UI, manages state, fetches data, handles errors, and performs validation. This is the #1 agent anti-pattern. Split it.
-
-### 17.2 - Copy-Paste Variation
-
-Two functions or components that are 90% identical with minor variations. Agents reach for duplication before abstraction. Extract the common logic into a shared function and parameterise the differences.
-
-### 17.3 - Prop Drilling Through Five Levels
-
-Passing data through five component layers to reach the one that needs it. This indicates either a missing context/provider for that feature subtree, or a component hierarchy that is too deep.
-
-### 17.4 - Catch-All Error Handling
-
-```
-try { ... } catch (e) { console.log(e); }
-```
-
-This hides every failure. Agents produce this when they know something can fail but don't know what to do about it. Each error should be handled with intent or propagated to a layer that can.
-
-### 17.5 - Stringly Typed Interfaces
-
-Using raw strings for values that have a finite set of valid states. Use enums, literal types, or discriminated unions.
-
-```
-// Bad - any string is accepted
-function setStatus(status: string) { ... }
-
-// Good - only valid values are accepted
-function setStatus(status: 'active' | 'inactive' | 'suspended') { ... }
-```
-
-### 17.6 - Over-Abstraction
-
-The opposite of no abstraction - agents that create `AbstractBaseFactoryProvider` hierarchies that add indirection without value. Every abstraction must justify itself: is it tested independently? Is it reused? Does it meaningfully simplify the consumer?
-
-If an abstraction has exactly one consumer, it is probably premature.
-
-### 17.7 - Orphaned Code
-
-Functions, types, or components that are defined but never used. Agents that generate from specs sometimes produce utilities or components that were planned but never wired up. Dead code is noise - delete it.
-
-### 17.8 - Inconsistent Patterns Across Features
-
-Feature A uses a repository pattern. Feature B accesses the database directly. Feature C uses a different naming convention. Within a single codebase, consistency is mandatory. The codegen-agent must read existing patterns before generating new code.
+- **God Component / God Function.** One component or function that renders, fetches, manages state, handles errors, and validates. The #1 agent anti-pattern - split it.
+- **Copy-paste variation.** Two functions or components 90% identical with minor variations - extract the common logic and parameterise the differences.
+- **Prop drilling through five levels.** Indicates a missing context/provider or a component hierarchy that is too deep.
+- **Catch-all error handling** (`catch (e) { console.log(e) }`). Handle each error with intent or propagate it to a layer that can.
+- **Stringly typed interfaces.** Use enums, literal types, or discriminated unions for a finite set of valid states, not raw strings.
+- **Over-abstraction.** Indirection-adding hierarchies (`AbstractBaseFactoryProvider`) with one consumer and no independent test are premature.
+- **Orphaned code.** Defined but never used - delete it.
+- **Inconsistent patterns across features.** One feature uses a repository pattern, another hits the database directly, a third uses a different naming convention. Consistency within a single codebase is mandatory.
 
 ---
 
-## 18. The Review Test
+## 12. The Review Test
 
-The final test for code quality is the review test. Before shipping, every file should pass these questions:
-
-**Would a senior engineer approve this in a PR review?**
-
-1. **Can I understand what this file does in 30 seconds?** If not, the naming or structure is wrong.
-2. **Can I find the business logic without reading infrastructure code?** If not, the layers are mixed.
-3. **Can I write a test for this without setting up the whole application?** If not, the dependencies are too tight.
-4. **Can I change this module without touching unrelated modules?** If not, the boundaries are wrong.
-5. **Can I tell what this function does from its name alone?** If not, rename it.
-6. **Are there any surprises?** Side effects not reflected in the name, implicit dependencies, hidden state mutations, magic values? If so, make them explicit.
-7. **Is there any code I'd be nervous to delete?** Code you're afraid to delete is code you don't understand. Understand it or simplify it.
-8. **Could the agent regenerate this module from the spec without referencing the current implementation?** If the module is simple enough, well-bounded, and clearly specified - yes. That is the target. That is what makes agent-maintained code sustainable.
-
----
-
-*Related: [Master Plan](p001-planifest-master-plan.md) | [Functional Decisions](p003-planifest-functional-decisions.md) | [Backend Stack Evaluation](p013-planifest-backend-stack-evaluation.md) | [Frontend Stack Evaluation](p016-planifest-frontend-stack-evaluation.md) | [Strategic Intent vs Stochastic Execution](p017-research-report-strategic-intent-vs-stochastic-execution.md) | [Pipeline](p015-planifest-pipeline.md)*
+Before shipping, every file should pass: would a senior engineer approve this in a PR review? Can you understand what it does in 30 seconds, find the business logic without reading infrastructure code, test it without standing up the whole application, change it without touching unrelated modules, and tell what any function does from its name alone? Is there anything you'd be nervous to delete? Could the agent regenerate this module from the spec without referencing the current implementation - that is the target for sustainable agent-maintained code.

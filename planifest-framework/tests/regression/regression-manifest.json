@@ -8,5 +8,160 @@
     "promotedBy": "agent | human",
     "filePath": "Relative path to the test file within tests/regression/"
   },
-  "tests": []
+  "tests": [
+    {
+      "name": "test-0000016-pipeline-governance.sh",
+      "sourceFeature": "0000016-pipeline-governance-and-loop-engineering",
+      "promotionDate": "2026-07-26",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000016-pipeline-governance.sh"
+    },
+    {
+      "name": "test-0000005-framework-governance.sh",
+      "sourceFeature": "0000005-framework-governance",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000005-framework-governance.sh"
+    },
+    {
+      "name": "test-0000006-build-assessment.sh",
+      "sourceFeature": "0000006-build-assessment-phase",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000006-build-assessment.sh"
+    },
+    {
+      "name": "test-0000009-rail-tightening.sh",
+      "sourceFeature": "0000009-framework-rail-tightening",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000009-rail-tightening.sh"
+    },
+    {
+      "name": "test-0000017-req-001-regression-promotion.sh",
+      "sourceFeature": "0000017-ratchet-forgery-detection-and-telemetry-schema-spec",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000017-req-001-regression-promotion.sh"
+    },
+    {
+      "name": "test-0000017-req-002-ratchet-approve.sh",
+      "sourceFeature": "0000017-ratchet-forgery-detection-and-telemetry-schema-spec",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000017-req-002-ratchet-approve.sh"
+    },
+    {
+      "name": "test-0000017-req-004-cross-platform-hooks.sh",
+      "sourceFeature": "0000017-ratchet-forgery-detection-and-telemetry-schema-spec",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000017-req-004-cross-platform-hooks.sh"
+    },
+    {
+      "name": "test-0000017-req-005-scope-lock-suggested-answers.sh",
+      "sourceFeature": "0000017-ratchet-forgery-detection-and-telemetry-schema-spec",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000017-req-005-scope-lock-suggested-answers.sh"
+    },
+    {
+      "name": "test-0000017-req-006-structured-discovery-pass.sh",
+      "sourceFeature": "0000017-ratchet-forgery-detection-and-telemetry-schema-spec",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000017-req-006-structured-discovery-pass.sh"
+    },
+    {
+      "name": "test-0000017-req-007-change-agent-archive.sh",
+      "sourceFeature": "0000017-ratchet-forgery-detection-and-telemetry-schema-spec",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000017-req-007-change-agent-archive.sh"
+    },
+    {
+      "name": "test-0000018-req-001-remove-context-mode-mcp-coupling.sh",
+      "sourceFeature": "0000018-telemetry-emission-consistency",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000018-req-001-remove-context-mode-mcp-coupling.sh"
+    },
+    {
+      "name": "test-0000018-req-002-hook-failure-marker.sh",
+      "sourceFeature": "0000018-telemetry-emission-consistency",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000018-req-002-hook-failure-marker.sh"
+    },
+    {
+      "name": "test-0000018-req-003-orchestrator-marker-check-and-prompt.sh",
+      "sourceFeature": "0000018-telemetry-emission-consistency",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000018-req-003-orchestrator-marker-check-and-prompt.sh"
+    },
+    {
+      "name": "test-0000018-req-004-phase-skill-telemetry-rewrite.sh",
+      "sourceFeature": "0000018-telemetry-emission-consistency",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000018-req-004-phase-skill-telemetry-rewrite.sh"
+    },
+    {
+      "name": "test-0000018-req-005-build-log-telemetry-record.sh",
+      "sourceFeature": "0000018-telemetry-emission-consistency",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000018-req-005-build-log-telemetry-record.sh"
+    },
+    {
+      "name": "test-0000018-req-006-telemetry-standards-update.sh",
+      "sourceFeature": "0000018-telemetry-emission-consistency",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000018-req-006-telemetry-standards-update.sh"
+    },
+    {
+      "name": "test-0000018-req-007-discovery-md-hard-limit.sh",
+      "sourceFeature": "0000018-telemetry-emission-consistency",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000018-req-007-discovery-md-hard-limit.sh"
+    },
+    {
+      "name": "test-0000019-req-002-component-yml-matcher.sh",
+      "sourceFeature": "0000019-self-description-and-session-hygiene-fixes",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-0000019-req-002-component-yml-matcher.sh"
+    },
+    {
+      "name": "test-commit-msg-hook.sh",
+      "sourceFeature": "0000005-framework-governance",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-commit-msg-hook.sh"
+    },
+    {
+      "name": "test-gate-write-windows.sh",
+      "sourceFeature": "0000003-hook-based-enforcement",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-gate-write-windows.sh"
+    },
+    {
+      "name": "test-regression-pack.sh",
+      "sourceFeature": "0000017-ratchet-forgery-detection-and-telemetry-schema-spec",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-regression-pack.sh"
+    },
+    {
+      "name": "test-skill-telemetry.sh",
+      "sourceFeature": "0000018-telemetry-emission-consistency",
+      "promotionDate": "2026-08-01",
+      "promotedBy": "agent",
+      "filePath": "tests/regression/test-skill-telemetry.sh"
+    }
+  ]
 }

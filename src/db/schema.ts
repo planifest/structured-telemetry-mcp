@@ -9,6 +9,7 @@ export const CREATE_EVENTS_TABLE = `
     event        VARCHAR    NOT NULL,
     session_id   VARCHAR    NOT NULL,
     initiative_id VARCHAR,
+    product_id   VARCHAR,
     phase        VARCHAR    NOT NULL,
     agent        VARCHAR    NOT NULL,
     tool         VARCHAR    NOT NULL,
@@ -25,6 +26,11 @@ export const CREATE_EVENTS_TABLE = `
 /** Run against existing databases to add the model_config column without data loss. */
 export const MIGRATE_ADD_MODEL_CONFIG = `
   ALTER TABLE events ADD COLUMN IF NOT EXISTS model_config JSON
+`;
+
+/** Run against existing databases to add the product_id column without data loss (0000015, ADR-017). */
+export const MIGRATE_ADD_PRODUCT_ID = `
+  ALTER TABLE events ADD COLUMN IF NOT EXISTS product_id VARCHAR
 `;
 
 export const CREATE_SESSION_INDEX = `

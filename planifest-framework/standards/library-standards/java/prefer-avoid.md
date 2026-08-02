@@ -18,32 +18,17 @@
 | ORM | `Spring Data JPA` + `Hibernate` or `jOOQ` | `MyBatis` (acceptable), raw JDBC only | jOOQ for type-safe SQL; Spring Data JPA for standard CRUD |
 | Migrations | `Flyway` | `Liquibase` (acceptable) | Flyway is simpler; Liquibase for XML-heavy orgs |
 
-## Validation
-
-| Concern | Prefer | Avoid | Reason |
-|---------|--------|-------|--------|
-| Validation | `jakarta.validation` (Bean Validation) + `Hibernate Validator` | hand-rolled | Standard API; works with Spring Boot natively |
-
 ## HTTP Client
 
 | Concern | Prefer | Avoid | Reason |
 |---------|--------|-------|--------|
 | HTTP client | `WebClient` (Spring) or `java.net.http.HttpClient` (Java 11+) | `Apache HttpClient 4.x`, `OkHttp` (acceptable) | WebClient is reactive; stdlib HttpClient is sufficient for non-reactive |
 
-## Serialisation
+## Validation, Serialisation, Logging & Build
 
 | Concern | Prefer | Avoid | Reason |
 |---------|--------|-------|--------|
+| Validation | `jakarta.validation` (Bean Validation) + `Hibernate Validator` | hand-rolled | Standard API; works with Spring Boot natively |
 | JSON | `Jackson` | `Gson` (acceptable), `org.json` | Jackson is the Spring default and most feature-complete |
-
-## Logging
-
-| Concern | Prefer | Avoid | Reason |
-|---------|--------|-------|--------|
 | Logging | `SLF4J` + `Logback` or `Log4j2` | `java.util.logging` directly | SLF4J is the standard façade; never log to System.out |
-
-## Build
-
-| Concern | Prefer | Avoid | Reason |
-|---------|--------|-------|--------|
 | Build tool | `Gradle` (Kotlin DSL) | `Maven` (acceptable), Groovy DSL | Kotlin DSL has IDE support and type safety |

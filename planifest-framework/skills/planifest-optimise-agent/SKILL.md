@@ -14,12 +14,7 @@ hooks:
 
 ## Scope
 
-Target: `planifest-framework/skills/` only.
-
-Do NOT review:
-- `planifest-overrides/capability-skills/`
-- Workflow files
-- Standards, templates, or any other directory
+Target: `planifest-framework/skills/` only. Do NOT review `planifest-overrides/capability-skills/`.
 
 ---
 
@@ -41,7 +36,7 @@ Scan for these four categories:
 
 ### Phase 1 — Scan
 
-Read each `SKILL.md` in `planifest-framework/skills/`. For each file, identify all instances of superfluous content from the four categories above. Build an internal list — do not present anything yet.
+Read each `SKILL.md` in `planifest-framework/skills/`. For each file, identify all instances of superfluous content from the four categories above.
 
 ### Phase 2 — Present (one at a time)
 
@@ -63,34 +58,11 @@ Wait for the human to respond before presenting the next suggestion.
 
 ### Phase 3 — Accumulate
 
-After each response:
-- `confirm` → add to the confirmed list and show it
-- `reject` → note the rejection and continue
-
-Show the running confirmed list after each confirmation:
-
-```
-Confirmed so far:
-  1. {file} — {section} — {one-line description}
-  2. {file} — {section} — {one-line description}
-  ...
-```
+After each response, add confirmations to a running list and show it: `Confirmed so far: 1. {file} — {section} — {one-line description} ...`
 
 ### Phase 4 — Summary
 
-When all suggestions have been reviewed, produce the end-of-review summary:
-
-```
-Review complete.
-
-{N} suggestions presented. {M} confirmed. {P} rejected.
-
-Confirmed changes (suitable as Change Pipeline input):
-  1. Remove from {file}, section "{section}": {description}
-  2. ...
-
-To action these: start a Change Pipeline run and paste this list as the change request.
-```
+When all suggestions have been reviewed, report "Review complete" with the counts (`{N} suggestions presented. {M} confirmed. {P} rejected.`) and list the confirmed changes as Change Pipeline input: `1. Remove from {file}, section "{section}": {description}` — then point to starting a Change Pipeline run with this list as the change request.
 
 ---
 

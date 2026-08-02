@@ -3,7 +3,7 @@
 > Living document. Shows how components relate. Updated after every pipeline run.
 > Do not archive this file — update it in place.
 
-Last updated: 0000011-defects-and-query-telemetry-fix
+Last updated: 0000015-telemetry-log-viewer-ui
 
 ---
 
@@ -16,6 +16,7 @@ flowchart LR
     Agent[Agent tool<br/>Claude Code, Cursor, etc.] -->|MCP stdio| Server[structured-telemetry-mcp]
     Server -->|writes/reads| DB[(DuckDB<br/>telemetry.db)]
     Human[Human on the loop] -->|query_telemetry| Server
+    Browser[Human's browser<br/>Log Viewer UI] -->|GET /ui, POST /query| Server
 
     Windows[Windows: nssm] -.->|supervises| Server
     MacOS[macOS: launchd user agent] -.->|supervises| Server

@@ -8,7 +8,7 @@
 |-----------|-------------------|-------|-------|
 | Unit | `vitest` | `jest`, `mocha`, `tap` | Vitest is faster, native ESM, no config overhead |
 | Integration | `vitest` + `supertest` or native `fetch` | `jest` | For HTTP endpoint tests; supertest wraps fastify/express |
-| Contract | `pact` | hand-rolled | Consumer-driven contract tests |
+| Contract | `pact` | hand-rolled | |
 | E2E / API smoke | `playwright` (API mode) or `k6` | `cucumber` alone | Playwright API mode for HTTP E2E; k6 for load |
 | Performance / load | `k6` | `artillery`, `autocannon` | k6 is scriptable TypeScript/JS, good CI integration |
 

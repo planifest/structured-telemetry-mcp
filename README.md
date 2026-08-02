@@ -7,7 +7,8 @@ Agents emit typed events (phase timings, failures, context pressure) into a loca
 - **Transport:** stdio (works with Claude Code, Claude Desktop, Cursor, Antigravity)
 - **Storage:** DuckDB (embedded, zero-config, local file)
 - **Validation:** JSON Schema 2020-12 via AJV
-- **Version:** 0.1.0
+- **Browser UI:** a read-only log viewer at `GET /ui` on the local HTTP backend (`http://127.0.0.1:3741/ui`) — filter, page, and inspect events without hand-writing a query (0000015)
+- **Version:** 0.11.0
 
 ---
 
@@ -113,6 +114,7 @@ All events share a common envelope. The `data` field is typed per event.
 | `event` | string enum | Yes | Event type discriminator |
 | `session_id` | string (UUID) | Yes | Agent session identifier |
 | `initiative_id` | string | No | Feature/initiative from `plan/current/` |
+| `product_id` | string | No | Identifies the emitting repo/project — git repo root path, falling back to `cwd` (0000015). NULL/absent displays as "unknown"; never backfilled on existing rows |
 | `phase` | string enum | Yes | Pipeline phase |
 | `agent` | string | Yes | Emitting skill name |
 | `tool` | string | Yes | Agent tool (e.g. `claude-code`) |
@@ -566,6 +568,42 @@ All context pressure and MCP impact events for a specific session.
 { "query": { "mode": "drill_down", "session_id": "uuid-here" } }
 ```
 
+### Event Log Query (`mode: "event_log"`)
+
+Returns raw events (not an aggregate) — the query family backing the [Log Viewer UI](#log-viewer-ui). No scope filter is required as of 0000015 (ADR-016) — every request is bounded solely by `limit`/`offset`.
+
+```json
+{ "query": { "mode": "event_log", "limit": 50, "offset": 0, "sort": "desc" } }
+```
+
+| Field | Type | Default | Description |
+| --- | --- | --- | --- |
+| `session_id` | string | — | Exact match |
+| `initiative_id` | string | — | Exact match |
+| `event_type` | string | — | Exact match against one of the 25 event types |
+| `phase` | string | — | Exact match _(0000015)_ |
+| `agent` | string | — | Exact match _(0000015)_ |
+| `product_id` | string | — | Exact match against the full repo-root path — not the truncated basename shown in the UI _(0000015)_ |
+| `from` / `to` | ISO 8601 timestamp | — | Inclusive range, full timestamp precision _(0000015)_ |
+| `limit` | number | `100` | Capped at `1000` — a higher value is rejected with an error _(0000015)_ |
+| `offset` | number | `0` | For pagination _(0000015)_ |
+| `sort` | `"asc"` \| `"desc"` | `"asc"` | `"desc"` = newest first. Default stays `"asc"` for backward compatibility with pre-0000015 callers _(0000015)_ |
+
+All filters combine with AND semantics. The response's `JSON` section includes `total_count` (all matching rows, independent of the current page) alongside `event_count` (rows in this page) and `events` (the full row objects).
+
+---
+
+## Log Viewer UI
+
+`GET /ui` on the local HTTP backend (`http://127.0.0.1:3741/ui`) serves a small, dependency-free browser page (0000015, ADR-018) for browsing telemetry without hand-writing queries:
+
+- Paginated, newest-first table with a filter for every `event_log` field above
+- Click a row to see the full envelope + `data` payload as pretty-printed JSON — no extra request
+- Filters, page, page size, and sort persist in the URL query string — refreshing, bookmarking, or sharing a link reproduces the exact same view
+- Read-only, no authentication (same 127.0.0.1-only posture as every other endpoint — see the 0000015 feature's security report under `plan/_archive/`), makes zero external network calls
+
+Plain HTML/CSS/vanilla JS — no build step, no framework, no new dependency. Served from the same process as `/emit` and `/query`; nothing extra to install or run.
+
 ---
 
 ## Setup Reference
@@ -657,12 +695,14 @@ npm run benchmark       # load test (tests/benchmark.ts)
 
 ```
 src/
-  server.ts             # MCP server entry — emit_event + query_telemetry tools
+  server.ts             # MCP server entry — emit_event + query_telemetry tools (stdio)
+  server-http.ts         # HTTP backend daemon — /health, /emit, /query, /ui (0000015)
+  server-factory.ts       # Tool handlers + dispatchQuery — shared by both entry points
   cli.ts                # CLI entry — setup / doctor commands
   db/
     index.ts            # openDatabase() — DuckDB connection + migrations
     schema.ts           # CREATE TABLE + ALTER TABLE migrations
-    events-repository.ts # writeEvent(), readEvents()
+    duckdb-event-repository.ts # write(), findById()
   validation/
     ajv-instance.ts     # AJV 8 + JSON Schema 2020-12 (CJS interop via createRequire)
     validate-event.ts   # validateEvent() against telemetry-event.schema.json
@@ -670,7 +710,10 @@ src/
     bottlenecks.ts      # group_by queries on phase_end events
     failures.ts         # retry_summary / loop_candidates / failure_sequence / failure_cluster
     token-efficiency.ts # context_pressure / mcp_impact / request_volume / trend / drill_down
-    format-results.ts   # renderMarkdownTable(), buildQueryResponse()
+    event-log.ts         # event_log: raw events, pagination, filters (0000015)
+    format-results.ts   # renderMarkdownTable(), buildQueryResponse(), buildScopeHint()
+  ui/
+    index-html.ts         # Log Viewer UI — embedded HTML/CSS/vanilla JS (0000015, ADR-018)
   types/
     events.ts           # TelemetryEvent TypeScript type
 schemas/
@@ -685,8 +728,8 @@ scripts/
 
 - DuckDB `@duckdb/node-api` — embedded columnar store, no server process. All queries use named parameters via `prepare().bind({}).runAndReadAll()`. `COUNT(*)` returns BigInt; serialised to Number before JSON output.
 - AJV 8 with JSON Schema 2020-12 (`ajv/dist/2020`). CJS interop isolated in `ajv-instance.ts` via `createRequire` to avoid ESM/CJS conflicts under NodeNext module resolution.
-- Schema (`telemetry-event.schema.json`) is bundled inline via `import ... with { type: 'json' }` — runtime path resolution breaks inside esbuild bundles.
-- stdio transport — no network port, no auth, works with all MCP-compatible tools.
+- Schema (`telemetry-event.schema.json`) is bundled inline via `import ... with { type: 'json' }` — runtime path resolution breaks inside esbuild bundles. The Log Viewer UI's HTML/CSS/JS (`src/ui/index-html.ts`) is embedded the same way, for the same reason (0000015, ADR-018).
+- stdio transport — no network port, no auth, works with all MCP-compatible tools. The HTTP backend (`server-http.ts`) is 127.0.0.1-only, also no auth — the Log Viewer UI inherits this posture unchanged.
 
 ---
 

@@ -18,6 +18,6 @@ TOOL_HOOKS_SRC="hooks/context-mode"
 TOOL_HOOKS_DIR=".claude/hooks/context-mode"
 TOOL_SETTINGS_FILE=".claude/settings.json"
 
-# structured telemetry hooks — installed when both --structured-telemetry-mcp and --context-mode-mcp are passed
+# structured telemetry hooks — installed when --structured-telemetry-mcp is passed (0000018 req-001)
 TOOL_TELEMETRY_HOOKS_SRC="hooks/telemetry"
 TOOL_TELEMETRY_HOOKS_DIR=".claude/hooks/telemetry"

@@ -17,13 +17,13 @@ See `docs/api-index.md` at the repo root for the full endpoint/tool table. This 
 
 ## `query_telemetry` (MCP tool)
 
-**Argument:** `query` (object) — unchanged by this feature. See `docs/usage-guide.md` §7 for the full query shape reference (bottleneck / failure / token-efficiency / event_log query families).
+**Argument:** `query` (object). See `docs/usage-guide.md` §7 for the full query shape reference (bottleneck / failure / token-efficiency / event_log query families). As of 0000015 (ADR-016), the `event_log` family no longer requires a scope filter — every request is bounded solely by `limit`/`offset` — and gained `phase`/`agent`/`product_id`/`from`/`to`/`sort` parameters plus a `total_count` field in the response.
 
 **Response:** formatted text with three sections — `## Results` (Markdown table), `## JSON` (aggregation), `## Raw Sample` (up to 5 raw events).
 
 ## REST equivalents
 
-`POST /emit` and `POST /query` on the local HTTP backend (`127.0.0.1:3741`) mirror the two MCP tools — used by the stdio proxy (ADR-009) and directly by scripts/CI. `GET /health` is a liveness check, used by all three platforms' service scripts to verify a successful install/restart.
+`POST /emit` and `POST /query` on the local HTTP backend (`127.0.0.1:3741`) mirror the two MCP tools — used by the stdio proxy (ADR-009) and directly by scripts/CI. `GET /health` is a liveness check, used by all three platforms' service scripts to verify a successful install/restart. `GET /ui` (0000015, ADR-018) serves the static Log Viewer browser page from the same process; the page itself calls `POST /query` via same-origin `fetch()`, not a separate contract.
 
 ## Consumers
 

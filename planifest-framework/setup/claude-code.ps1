@@ -14,7 +14,7 @@
     HooksSrc       = 'hooks/context-mode'
     HooksDir       = '.claude/hooks/context-mode'
     SettingsFile   = '.claude/settings.json'
-    # structured telemetry hooks — installed when both flags are passed
+    # structured telemetry hooks — installed when --structured-telemetry-mcp is passed (0000018 req-001)
     TelemetryHooksSrc = 'hooks/telemetry'
     TelemetryHooksDir = '.claude/hooks/telemetry'
     # planifest enforcement hooks — always installed (gate-write, check-design)

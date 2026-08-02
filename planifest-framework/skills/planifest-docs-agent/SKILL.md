@@ -15,8 +15,6 @@ hooks:
 
 ## Living Documentation Layer
 
-`docs/` at the repository root is the **living state layer** — it reflects what the repo currently is. `plan/` reflects what is changing or has changed. These are distinct concerns:
-
 | Layer | Directory | What it contains | Updated when |
 |-------|-----------|-----------------|-------------|
 | Living state | `docs/` | Current system state — components, architecture, decisions, APIs | Every pipeline run |
@@ -40,8 +38,6 @@ Read the relevant template before writing any living doc for the first time:
 - `planifest-framework/templates/decisions-index.template.md`
 - `planifest-framework/templates/api-index.template.md`
 
----
-
 ## P6 Gate
 
 Before doing any docs work, run both gate checks in order:
@@ -50,15 +46,7 @@ Before doing any docs work, run both gate checks in order:
 
 Check whether `docs/` exists at the repository root.
 
-**If `docs/` is absent:** Fail immediately.
-
-```
-P6: Gate A failed — docs/ does not exist.
-No docs directory found. The ship-agent cannot archive without docs/.
-Create docs/ and the mandatory living docs before proceeding.
-```
-
-Do not proceed to any other docs work until this is resolved.
+**If `docs/` is absent:** Fail immediately with `P6: Gate A failed — docs/ does not exist. Create docs/ and the mandatory living docs before proceeding.` Do not proceed to any other docs work until this is resolved.
 
 ### Gate B — assess whether a docs update is needed
 
@@ -75,17 +63,13 @@ Confirm? (proceed / skip docs update / update different docs)
 
 Wait for the human to confirm before proceeding. Record the confirmed decision in the P6 build log block.
 
-**One question at a time.** If any clarification is needed, ask one question, wait for the answer, then continue. Never present a list of questions.
-
----
+**One question at a time.**
 
 ## Input
 
 - All artifacts produced by prior phases at `plan/`
 - The implementation at `src/{component-id}/` (all components in the feature)
 - The design at `plan/current/design.md`
-
----
 
 ## What You Produce
 
@@ -105,46 +89,27 @@ For each component in the feature, write to `src/{component-id}/docs/`:
 | Tech Debt | `tech-debt.md` | Explicitly acknowledged debt |
 | Test Coverage Summary | `test-coverage.md` | Coverage state at point of generation |
 
-### System-wide artifacts
-
-Write to `docs/` at the repository root:
-
-| Artifact | File | Purpose |
-|---|---|---|
-| Component Registry | `component-registry.md` | Index of every component - ID, type, one-liner summary, status |
-| Dependency Graph | `dependency-graph.md` | Mermaid diagram showing how components relate |
+System-wide artifacts (Component Registry, Dependency Graph) are covered by the Mandatory living docs table above.
 
 ### Feature-level completeness
 
-Confirm the following exist at `plan/` and are consistent:
-
-- Execution Plan (from spec-agent)
-- OpenAPI Specification (from spec-agent, if applicable)
-- Scope (from spec-agent)
-- Risk Register (from spec-agent)
-- Domain Glossary (from spec-agent)
-- Operational Model (from spec-agent)
-- SLO Definitions (from spec-agent)
-- Cost Model (from spec-agent)
-- ADRs at `plan/current/adr/` (from adr-agent)
-- Security Report (from security-agent)
-- Recommendations (`plan/current/recommendations.md` - produce this now if it doesn't exist)
+Confirm the following exist at `plan/` and are consistent: Execution Plan, OpenAPI Specification (if applicable), Scope, Risk Register, Domain Glossary, Operational Model, SLO Definitions, Cost Model, ADRs at `plan/current/adr/`, Security Report, and Recommendations (`plan/current/recommendations.md` - produce this now if it doesn't exist).
 
 ### Audit trail
 
 Write `plan/changelog/{feature-id}-<YYYY-MM-DD>.md`. Read `planifest-framework/templates/iteration-log.template.md` now before producing the audit trail.
-
----
 
 ## Rules
 
 - **Every artifact must be accounted for.** If one is missing, produce it. If one cannot be produced (e.g. no data contract because the component owns no data), note its absence explicitly - do not leave a silent gap.
 - **Cross-references.** The component registry must link to each component's purpose document. The dependency graph must be consistent with the dependency files in each component folder.
 - **Consistency check.** The domain glossary terms should match what appears in the code. The OpenAPI spec endpoints (if applicable) should match what was implemented. Flag any drift you find - do not silently fix it.
+- **Recommendations.** Produce `plan/current/recommendations.md` - suggested improvements for future iterations. Be constructive and specific. Reference concrete files or decisions.
+- Load a capability skill if one exists for a document generation format the feature needs (e.g. `docx`, `pdf`).
 
 ### Drift Detection
 
-> **Context-Mode Protocol:** When `ctx_batch_execute` is available, run all drift checks as a single batch call — pass grep/find commands for each check type in `commands` and your consistency questions in `queries`. This replaces sequential file reads across `src/`, `plan/`, and `docs/` — only drift findings enter context.
+> When `ctx_batch_execute` is available, run all drift checks as a single batch call rather than sequential file reads.
 
 Perform these specific drift checks:
 
@@ -165,19 +130,7 @@ Perform these specific drift checks:
 
 Do not flag legitimate absences as drift. Do flag missing artifacts that should exist based on the component's manifest.
 
-- **Recommendations.** Produce `plan/current/recommendations.md` - suggested improvements for future iterations. Be constructive and specific. Reference concrete files or decisions.
-
----
-
-## Capability Skills
-
-If a capability skill exists for document generation formats needed by the feature (e.g. `docx` for Word documents, `pdf` for PDF reports), load it where relevant.
-
----
-
 ## Parallelism Directive
-
-Independent documentation artifacts MUST be written in parallel. Per-component docs for components that have no cross-references MUST be produced in a single parallel batch.
 
 | MUST parallelise | Cannot parallelise |
 |------------------|--------------------|
@@ -185,15 +138,9 @@ Independent documentation artifacts MUST be written in parallel. Per-component d
 | Drift checks across independent areas (API endpoints, domain terms, data ownership) | Component registry before all component purpose.md files exist |
 | Recommendations + iteration log (independent documents) | Consistency check before individual artifacts are written |
 
-**In practice:** Produce all per-component doc files for each component in one parallel batch. Run all drift checks as a single parallel `ctx_batch_execute` call. Write the registry and dependency graph after all component docs are confirmed present.
-
----
-
 ## Telemetry
 
-See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership.
-
-**Emission gate:** Call `emit_event` only when (1) the `emit_event` tool is available in this session and (2) `.claude/telemetry-enabled` exists in the project root. If either condition fails, skip silently — do not emit.
+See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership. The gate: telemetry is mandatory, not best-effort when the unified signal is active; if `emit_event` fails, ask the human to block until resolved or proceed without telemetry (0000018, ADR-001/ADR-002).
 
 **`doc_gap`** — when documentation is missing or incomplete for a component:
 ```json
@@ -215,8 +162,6 @@ See `planifest-framework/standards/telemetry-standards.md` for the full event en
 { "phase_name": "docs", "action_id": "<action>", "attempt_count": 5 }
 ```
 
----
-
 ## Commit Cadence (Hard Limit 7)
 
-Commit after every meaningful artifact write — each requirement doc, ADR, completed TDD cycle, fix batch, or report — not batched to the phase gate. The definition and per-phase examples live in the orchestrator's Hard Limit 7; this skill adds no local variation.
+Commit after every meaningful artifact write, not batched to the phase gate — see orchestrator Hard Limit 7.

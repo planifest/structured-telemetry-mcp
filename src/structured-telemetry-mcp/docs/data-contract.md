@@ -26,6 +26,7 @@ The single table that stores all telemetry events. One row per event.
 | `event` | VARCHAR | no | — | NOT NULL; one of the 25 event types |
 | `session_id` | VARCHAR | no | — | NOT NULL |
 | `initiative_id` | VARCHAR | yes | NULL | — |
+| `product_id` | VARCHAR | yes | NULL | Added 0000015. Identifies the emitting repo (git root path, fallback cwd). No backfill — NULL is permanent for pre-0000015 rows and for any emitter not yet updated to populate it (ADR-017). |
 | `phase` | VARCHAR | no | — | NOT NULL |
 | `agent` | VARCHAR | no | — | NOT NULL |
 | `tool` | VARCHAR | no | — | NOT NULL |
@@ -52,6 +53,7 @@ The single table that stores all telemetry events. One row per event.
 3. `timestamp` is the agent-reported event time; `inserted_at` is the server ingestion time. They may differ.
 4. `data` column is nullable to allow forward-compatibility with new event types before their schema is finalised. All current event types have a non-null `data` payload.
 5. `schema_version` is stored on every row. Current version: `"1.0"`.
+6. `product_id` is never backfilled (0000015, ADR-017). A NULL value is permanent for any row written before the migration or by an emitter not yet updated — not a defect.
 
 ---
 

@@ -44,14 +44,14 @@ Each feature should be **small enough for one agent session**. Think:
 
 The Priority column uses MoSCoW: must-have, should-have, could-have. The orchestrator builds must-haves first.
 
-### Phases
+### Waves
 
-Only needed if you have more than 5-6 features. Phases are sequential iterations of the Agentic Iteration Loop:
-- Phase 1 ships before Phase 2 begins
-- Phase 2's agent reads Phase 1's component manifests for context
+Only needed if you have more than 5-6 features. Waves are sequential iterations of the Agentic Iteration Loop:
+- Wave 1 ships before Wave 2 begins
+- Wave 2's agent reads Wave 1's component manifests for context
 - This is how Planifest manages context at scale
 
-If you don't need phases, delete this section.
+If you don't need waves, delete this section.
 
 ### Target Architecture
 

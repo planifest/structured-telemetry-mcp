@@ -9,9 +9,39 @@
  *   e.g.  node emit-phase-end.mjs spec
  *
  * Silent on all errors (ADR-005). No retries. 3-second abort on HTTP.
+ *
+ * Durable failure marker (req-002, ADR-002): on emission failure this hook
+ * still exits 0 and never blocks (ADR-005 unchanged) — but it now also
+ * writes a best-effort marker file recording the root cause, instead of
+ * swallowing the error with no trace.
+ *
+ *   Location: {cwd}/plan/.telemetry-failures/<slug>.json
+ *     (plan/, not .claude/ — durable, git-visible, survives across sessions;
+ *     a sibling of plan/.orchestrator-active, deliberately outside
+ *     plan/current/ so it is never swept up by ratchet-check or archived at
+ *     the P7 ship step.)
+ *
+ *   One file per distinct root cause — the filename is derived from
+ *   `${hook}::${error_type}::${slugified error message}`. A repeat of the
+ *   same failure updates the existing file (last_seen, occurrences); a
+ *   genuinely different failure gets its own file. Clearing a marker
+ *   (after the human is asked and answers, req-003) is a plain file delete.
+ *
+ *   Marker JSON shape:
+ *     {
+ *       "hook": "emit-phase-start" | "emit-phase-end" | "context-pressure",
+ *       "root_cause_key": "<hook>::<error_type>::<slugified message>",
+ *       "error_type": string,    // e.g. "TypeError", "AbortError", "http_500"
+ *       "error_message": string,
+ *       "phase": string | null,
+ *       "session_id": string | null,
+ *       "first_seen": ISO 8601 timestamp,
+ *       "last_seen": ISO 8601 timestamp,
+ *       "occurrences": number
+ *     }
  */
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -46,14 +76,74 @@ function getFlagPath(sessionId) {
   return join(tmpdir(), "planifest-telemetry", `phase-start-${sessionId}-${PHASE}`);
 }
 
+// Best-effort durable failure marker (req-002, ADR-002) — see file header for
+// the format contract. Never throws; a failure here is swallowed so it can
+// never affect the hook's exit-zero/never-block behaviour (ADR-005).
+function recordTelemetryFailure(hookName, err, context = {}) {
+  try {
+    const cwd = context.cwd ?? process.cwd();
+    const errorType = context.errorType ?? err?.name ?? err?.constructor?.name ?? "Error";
+    const errorMessage = String(err?.message ?? err ?? "unknown error");
+    const slug =
+      errorMessage.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) ||
+      "unknown";
+    const rootCauseKey = `${hookName}::${errorType}::${slug}`;
+    const dir = join(cwd, "plan", ".telemetry-failures");
+    // Colon-free filename (Windows-safe) — "::" separators collapse to "--".
+    // "::" segment separators are preserved as "--"; unsafe characters within
+    // each segment collapse to a single "-" (Windows-safe filename).
+    const fileSlug = rootCauseKey
+      .split("::")
+      .map((seg) => seg.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "unknown")
+      .join("--");
+    const markerPath = join(dir, `${fileSlug}.json`);
+
+    mkdirSync(dir, { recursive: true });
+
+    const now = new Date().toISOString();
+    let occurrences = 1;
+    let firstSeen = now;
+    if (existsSync(markerPath)) {
+      try {
+        const prev = JSON.parse(readFileSync(markerPath, "utf-8"));
+        if (typeof prev.occurrences === "number") occurrences = prev.occurrences + 1;
+        if (prev.first_seen) firstSeen = prev.first_seen;
+      } catch {
+        // Corrupt/unreadable prior marker — overwrite fresh below.
+      }
+    }
+
+    const marker = {
+      hook: hookName,
+      root_cause_key: rootCauseKey,
+      error_type: errorType,
+      error_message: errorMessage,
+      phase: context.phase ?? null,
+      session_id: context.sessionId ?? null,
+      first_seen: firstSeen,
+      last_seen: now,
+      occurrences,
+    };
+
+    const tmpMarkerPath = `${markerPath}.tmp`;
+    writeFileSync(tmpMarkerPath, JSON.stringify(marker, null, 2));
+    renameSync(tmpMarkerPath, markerPath);
+  } catch {
+    // Marker write is best-effort — never let this throw (ADR-005).
+  }
+}
+
+let cwd;
+let sessionId;
+
 try {
   // Sentinel check: no telemetry URL or no phase arg = silent exit (REQ-004)
   if (!BACKEND_URL || !PHASE) process.exit(0);
 
   const raw = await readStdin();
   const input = JSON.parse(raw);
-  const cwd = input?.cwd ?? process.cwd();
-  const sessionId = getSessionId(input, cwd);
+  cwd = input?.cwd ?? process.cwd();
+  sessionId = getSessionId(input, cwd);
   const now = Date.now();
 
   // Read start timestamp from flag file for duration_ms (ADR-003)
@@ -87,15 +177,21 @@ try {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), 3_000);
   try {
-    await fetch(`${BACKEND_URL}/emit`, {
+    const res = await fetch(`${BACKEND_URL}/emit`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(event),
       signal: ac.signal,
     });
+    if (!res.ok) {
+      const httpErr = new Error(`emission POST failed: HTTP ${res.status}`);
+      httpErr.name = `http_${res.status}`;
+      throw httpErr;
+    }
   } finally {
     clearTimeout(timer);
   }
-} catch {
+} catch (err) {
   // Stop hook must never block the session — silent fallback (ADR-005).
+  recordTelemetryFailure("emit-phase-end", err, { cwd, phase: PHASE, sessionId });
 }

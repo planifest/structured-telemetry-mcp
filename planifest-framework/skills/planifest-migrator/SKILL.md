@@ -21,13 +21,6 @@ hooks:
 
 ---
 
-## Input
-
-- Migration file path (passed by orchestrator)
-- Working directory (cwd)
-
----
-
 ## Process
 
 ### Step 1 — Read and summarise
@@ -36,13 +29,7 @@ Read the migration file. Output a one-paragraph summary: what it scans for, what
 
 ### Step 2 — Scan
 
-Scan the declared scope directories for matches as described in the migration file. Collect all findings before presenting any.
-
-For each finding record:
-- File path (relative to project root)
-- Line number
-- Current value
-- Proposed correction
+Scan the declared scope directories for matches as described in the migration file. Collect all findings before presenting any, recording the file path, line number, current value, and proposed correction for each.
 
 ### Step 3 — Present findings
 
@@ -65,8 +52,6 @@ Apply all in this batch? (all / none / pick — enter numbers to apply selective
 ### Step 4 — Apply confirmed changes
 
 For each confirmed correction, apply the change using the Edit tool. Do not apply any change the human declined.
-
-After each batch, confirm: `Batch {n} complete — {applied} applied, {skipped} skipped.`
 
 ### Step 5 — Archive
 
@@ -101,4 +86,4 @@ When uncertain whether a match is prose or code, present it with a note: `(uncer
 
 ## Response Style
 
-Follow `formatting-standards.md` § Response Verbosity. Present findings concisely. Do not narrate what you are about to do — just do it.
+Follow `formatting-standards.md` § Response Verbosity.

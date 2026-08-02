@@ -8,25 +8,19 @@ version: "0.1.0"
 
 **Feature ID:** {{0000000}}-{{kebab-case-name}}
 
-> Written by a human. This is the input document that kicks off the confirmed design Agentic Iteration Loop. The orchestrator reads this and coaches you through any gaps before passing it to the spec-agent.
+> Written by a human. The orchestrator reads this and coaches you through any gaps before passing it to the spec-agent.
 >
-> **Feature ID format:** A 7-digit zero-padded number followed by a kebab-case name (e.g., `0000001-user-auth`, `0000002-payment-gateway`). The numeric prefix keeps features in chronological order when sorted alphabetically. Choose the next available number.
-
----
+> **Feature ID format:** A 7-digit zero-padded number followed by a kebab-case name (e.g., `0000001-user-auth`, `0000002-payment-gateway`). Choose the next available number.
 
 ## Business Goal
-
-What problem does this feature solve? Who benefits and how?
 
 > Write 2-3 sentences. Be specific. "Improve performance" is not a goal - "Reduce checkout latency from 3s to under 500ms because 40% of users abandon at payment" is.
 
 {{business-goal}}
 
----
-
 ## Features
 
-Break the feature into discrete features. Each feature should be small enough that an agent can implement it within a single session (roughly: one API endpoint with its data model, validation, tests, and docs - or one UI screen with its state management and tests).
+Break the feature into discrete features. Each feature should be small enough that an agent can implement it within a single session.
 
 > **Rule of thumb:** If a feature has more than 3 user stories, it's too big. Split it further. Big features should have many small features, not a few large ones.
 >
@@ -34,34 +28,23 @@ Break the feature into discrete features. Each feature should be small enough th
 
 | Feature | User Stories | Priority | Wave |
 |---------|-------------|----------|------|
-| {{feature-name}} | As a developer, I can run setup.ps1 with --include-full-skill-library, so that external skills are installed without manual copying | must-have | 1 |
 | {{feature-name}} | As a [role], I [action], so that [outcome] | should-have | 1 |
 | {{feature-name}} | As a [role], I [action], so that [outcome] | could-have | 2 |
-
----
 
 ## Waves
 
 If the feature has more than 5-6 features, split it into waves. Each wave becomes a separate iteration of the Agentic Iteration Loop with its own execution plan, ADRs, and codegen pass. Earlier waves ship before later waves begin.
-
-> **Why waves matter:** An agent working on wave 2 only needs the context from wave 2's brief plus the component manifests from wave 1. It doesn't need to hold the entire feature in context. This is how Planifest manages context at scale.
->
-> (Waves were previously called "Phases" in this template — renamed to avoid collision with the P0–P9 pipeline phases.)
 
 | Wave | Features Included | Ships When |
 |------|-------------------|------------|
 | 1 | {{feature-list}} | {{criteria}} |
 | 2 | {{feature-list}} | {{criteria}} |
 
----
-
 ## Target Architecture
 
-What architectural decisions have you already made? The agent implements within these constraints - it does not choose the architecture.
+The agent implements within these constraints - it does not choose the architecture.
 
 ### Components
-
-What components does this feature create or modify?
 
 | Component | Type | New or Existing | Responsibility |
 |-----------|------|-----------------|---------------|
@@ -69,25 +52,17 @@ What components does this feature create or modify?
 
 ### Data Ownership
 
-Which components own which data? Each data store is owned by exactly one component.
-
 | Data Store | Owner Component | Shared With |
 |------------|----------------|-------------|
 | {{store}} | {{component}} | {{consumers - read only}} |
 
 ### Integration Points
 
-How do components communicate?
-
 | From | To | Method | Contract |
 |------|-----|--------|----------|
 | {{component}} | {{component}} | REST / gRPC / event / queue | {{brief description}} |
 
----
-
 ## Stack
-
-What technology stack has been decided? The agent builds with this - it does not choose a different stack.
 
 > If you haven't decided yet, leave this section empty. The orchestrator will ask you to fill it before the pipeline proceeds.
 
@@ -106,11 +81,7 @@ What technology stack has been decided? The agent builds with this - it does not
 | CI | {{e.g. GitHub Actions, GitLab CI}} |
 | Build target | local \| docker \| ci-only |
 
----
-
 ## Scope Boundaries
-
-What is explicitly in scope, out of scope, and deferred?
 
 ### In Scope
 - {{what this feature will deliver}}
@@ -121,8 +92,6 @@ What is explicitly in scope, out of scope, and deferred?
 ### Deferred
 - {{what might be delivered later but not now}}
 - {{note what is blocked until deferred items are resolved}}
-
----
 
 ## Non-Functional Requirements
 
@@ -135,19 +104,13 @@ Specific, measurable targets. If you don't have a target, leave it blank - the s
 | Throughput | {{e.g. 1000 req/s}} | {{peak or sustained}} |
 | Security | {{e.g. SOC2 compliance}} | {{certification or audit}} |
 
----
-
 ## Constraints and Assumptions
-
-Anything the agents need to know that doesn't fit elsewhere.
 
 ### Constraints
 - {{hard constraints - regulatory, contractual, technical}}
 
 ### Assumptions
 - {{assumptions you've made - agents will flag if these conflict with the spec}}
-
----
 
 ## Scenario Paths
 
@@ -169,17 +132,9 @@ Before writing acceptance criteria, consider the paths your feature must handle.
 
 > {{cross-session-continuity}}
 
----
-
 ## Acceptance Criteria
-
-How do you know this feature is done?
 
 - [ ] {{criterion 1}}
 - [ ] {{criterion 2}}
 - [ ] {{criterion 3}}
-
----
-
-*This brief will be read by the orchestrator skill. See [planifest/skills/orchestrator/SKILL.md](../skills/orchestrator/SKILL.md)*
 

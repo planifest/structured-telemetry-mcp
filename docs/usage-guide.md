@@ -13,6 +13,7 @@ Structured telemetry for agentic pipelines. Stores events in a local DuckDB data
 5. [Event envelope schema](#5-event-envelope-schema)
 6. [Event types and data payloads](#6-event-types-and-data-payloads)
 7. [Query reference](#7-query-reference)
+8. [Log Viewer UI](#8-log-viewer-ui)
 
 ---
 
@@ -245,6 +246,7 @@ Every event shares the same outer envelope. All fields are required unless marke
 | `mcp_mode` | string | `none` `workspace` `context` `workspace+context` |
 | `timestamp` | string | ISO 8601 date-time |
 | `initiative_id` | string | **Optional.** Feature/initiative identifier |
+| `product_id` | string | **Optional.** Identifies the emitting repo/project — git repo root path, falling back to `cwd` (0000015). NULL/absent displays as "unknown"; never backfilled on existing rows |
 | `model_config` | object | **Optional.** Tool-specific model config (e.g. `{ "thinking": true }`) |
 | `data` | object | **Optional.** Typed payload — structure depends on `event` |
 
@@ -648,14 +650,24 @@ Optional filters: `session_id`, `initiative_id`.
 
 ### Event log query — `mode: "event_log"`
 
-Raw event log. At least one scope parameter is required.
+Raw event log — returns individual events, not an aggregate. As of 0000015 (ADR-016), no scope parameter is required: every request is bounded solely by `limit`/`offset`. This is the query family backing the [Log Viewer UI](#8-log-viewer-ui).
 
-| Parameter | Type | Description |
-|---|---|---|
-| `mode` | string | `"event_log"` |
-| `session_id` | string | Filter by session |
-| `initiative_id` | string | Filter by initiative |
-| `event_type` | string | Filter by event type |
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `mode` | string | — | `"event_log"` |
+| `session_id` | string | — | Filter by session (exact match) |
+| `initiative_id` | string | — | Filter by initiative (exact match) |
+| `event_type` | string | — | Filter by event type (exact match) |
+| `phase` | string | — | Filter by phase (exact match) _(0000015)_ |
+| `agent` | string | — | Filter by agent (exact match) _(0000015)_ |
+| `product_id` | string | — | Filter by the full repo-root path — not the truncated basename shown in the UI _(0000015)_ |
+| `from` | ISO 8601 timestamp | — | Inclusive lower bound, full timestamp precision _(0000015)_ |
+| `to` | ISO 8601 timestamp | — | Inclusive upper bound, full timestamp precision _(0000015)_ |
+| `limit` | number | `100` | Capped at `1000` — a higher value is rejected with an error _(0000015)_ |
+| `offset` | number | `0` | For pagination, paired with `total_count` in the response _(0000015)_ |
+| `sort` | `"asc"` \| `"desc"` | `"asc"` | `"desc"` = newest first. Default stays `"asc"` for backward compatibility with pre-0000015 callers _(0000015)_ |
+
+All filters combine with AND semantics. The `## JSON` section of the response includes `total_count` (all rows matching the filters, independent of the current page) alongside `event_count` (rows in this page) and `events` (full row objects — every envelope field, not a summary).
 
 **Examples:**
 ```json
@@ -663,4 +675,30 @@ Raw event log. At least one scope parameter is required.
 { "mode": "event_log", "initiative_id": "0000009-ship-phase-enum" }
 { "mode": "event_log", "event_type": "test_failure" }
 { "mode": "event_log", "session_id": "my-session-001", "event_type": "phase_start" }
+{ "mode": "event_log", "limit": 50, "offset": 0, "sort": "desc" }
+{ "mode": "event_log", "phase": "validate", "agent": "planifest-validate-agent", "from": "2026-08-01T00:00:00Z" }
 ```
+
+---
+
+## 8. Log Viewer UI
+
+Added in 0000015. A read-only browser page for browsing telemetry without hand-writing a query — served at `GET /ui` on the same daemon that handles `/emit` and `/query`:
+
+```
+http://127.0.0.1:3741/ui
+```
+
+No installation, build step, or new dependency — plain HTML/CSS/vanilla JS, embedded in the daemon (ADR-018) and served the moment the daemon starts.
+
+### What it does
+
+- Paginated, newest-first table of events with a filter for every `event_log` parameter from Section 7 (`session_id`, `initiative_id`, `event_type`, `phase`, `agent`, `product_id`, `from`, `to`), plus page size and sort controls
+- Click any row to expand its full envelope + `data` payload as pretty-printed JSON — reuses the already-fetched row, no extra request
+- Filters, page number, page size, and sort all live in the URL query string — reload, bookmark, or share the exact same view
+- `product_id` displays as a truncated basename with the full path as a hover tooltip; the filter itself matches the full path (same exact-match semantics as the underlying query)
+- A backend-unreachable banner and distinct "no events yet" / "no matching events" states replace blank or broken pages when there's nothing to show
+
+### What it does not do
+
+Read-only — no editing or deleting events. No authentication (inherits the daemon's existing 127.0.0.1-only, no-auth posture unchanged). No aggregation/dashboard charts (bottleneck/failure/token-efficiency queries remain MCP/REST-only) — those may become a future wave on top of this UI's shell, but are out of scope today.

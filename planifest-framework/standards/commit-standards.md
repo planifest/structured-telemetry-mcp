@@ -1,7 +1,5 @@
 # Commit Message Standards
 
-> Planifest commit standard — applies to all commits on Planifest-managed projects.
-
 ---
 
 ## Format
@@ -19,21 +17,15 @@ type(scope): short description
 ```
 feat(0000003): add gate-write enforcement hook
 fix(auth-service): correct token expiry calculation
-docs(0000003): update ADR-003 with flag-file rationale
-chore: update .gitattributes for LF enforcement
 ```
 
 ---
 
 ## Rules
 
-### 1. Subject line ≤72 characters
+### 1. Subject line ≤72 characters, entire `type(scope): description` line.
 
-The entire subject line (`type(scope): description`) must not exceed 72 characters.
-
-### 2. Imperative mood, present tense
-
-Write as a command: "add X", "fix Y", "remove Z" — not "added X", "fixed Y", "removes Z".
+### 2. Imperative mood, present tense: "add X", "fix Y", "remove Z" — not "added X", "fixed Y", "removes Z".
 
 ### 3. No AI attribution
 
@@ -53,19 +45,14 @@ Messages are objective and scope-focused. Prohibited:
 - `Done!`, `Fixed!`, `Working now`, `All done`, `Finally works`
 - `Claude helped with this`, `Looks good now`
 - Phrases that confirm rather than describe
+- Contradictory messaging: describing a change then reversing it in the same message. One atomic commit, one clear description.
 
-### 5. No contradictory messaging
+### 5. Body (optional)
 
-Do not describe a change and then reverse it in the same message. One atomic commit, one clear description.
-
-### 6. Body (optional)
-
-A blank line after the subject may be followed by a body explaining *why*, not *what*. The subject line already states what.
+A blank line after the subject may be followed by a body explaining *why*, not *what*.
 
 ---
 
 ## Enforcement hook
 
 `planifest-framework/hooks/commit-msg` checks messages against these rules and **exits 1 (blocks the commit)** on any violation (ADR-008). Use `git commit --no-verify` to bypass intentionally.
-
-To install: run `./planifest-framework/setup.sh <tool>` — the hook is wired automatically via `git config core.hooksPath`.

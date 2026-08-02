@@ -66,6 +66,16 @@ beforeAll(async () => {
   // Seed: event with no initiative_id to test COALESCE null handling.
   await repo.write({ ...BASE, initiative_id: undefined, event: 'phase_end', phase: 'adr', data: { phase_name: 'adr', status: 'pass', duration_ms: 500 } });
 
+  // Seed: event with a product_id, for req-003 event_log product_id filter tests (0000015).
+  await repo.write({ ...BASE, product_id: 'product-alpha', event: 'phase_start', phase: 'orchestrator', data: { phase_name: 'orchestrator' } });
+
+  // Seed: distinct, staggered timestamps for req-002/req-003 sort-order and
+  // from/to range tests (0000015) — BASE's other events all share one timestamp,
+  // which can't distinguish ASC from DESC.
+  await repo.write({ ...BASE, session_id: 'order-test-session', event: 'phase_start', phase: 'orchestrator', timestamp: '2026-04-13T10:00:00Z', data: { phase_name: 'orchestrator' } });
+  await repo.write({ ...BASE, session_id: 'order-test-session', event: 'phase_end', phase: 'spec', timestamp: '2026-04-13T11:00:00Z', data: { phase_name: 'spec', status: 'pass', duration_ms: 100 } });
+  await repo.write({ ...BASE, session_id: 'order-test-session', event: 'phase_end', phase: 'codegen', timestamp: '2026-04-13T12:00:00Z', data: { phase_name: 'codegen', status: 'pass', duration_ms: 200 } });
+
   // Seed: a session with only a phase_start (never a phase_end) — for the
   // zero-result scope hint tests. Real data exists for this scope, but no
   // event of the type any query family aggregates.
@@ -252,8 +262,89 @@ describe('req-004-event-log-query: DuckDbQueryService.eventLog', () => {
     expect(result.event_count).toBe(0);
   });
 
-  it('throws when no scope parameter is provided', async () => {
-    await expect(qs.eventLog({ mode: 'event_log' })).rejects.toThrow('requires at least one scope parameter');
+  // 0000015 ADR-016: no scope parameter is required — bounded by limit/offset alone.
+  it('succeeds with no scope parameter, bounded by the default limit (ADR-016)', async () => {
+    const response = await qs.eventLog({ mode: 'event_log' });
+    const result = response.json as { event_count: number; total_count: number };
+    expect(result.event_count).toBeGreaterThan(0);
+    expect(result.event_count).toBeLessThanOrEqual(100);
+  });
+
+  it('rejects a limit above the maximum (1000)', async () => {
+    await expect(qs.eventLog({ mode: 'event_log', limit: 1001 })).rejects.toThrow('must not exceed 1000');
+  });
+
+  it('paginates with offset, returning total_count independent of the current page', async () => {
+    const page1 = await qs.eventLog({ mode: 'event_log', session_id: 'query-test-session', limit: 1, offset: 0 });
+    const page2 = await qs.eventLog({ mode: 'event_log', session_id: 'query-test-session', limit: 1, offset: 1 });
+    const r1 = page1.json as { total_count: number; events: Array<{ id: string }> };
+    const r2 = page2.json as { total_count: number; events: Array<{ id: string }> };
+    expect(r1.total_count).toBe(r2.total_count);
+    expect(r1.total_count).toBeGreaterThan(1);
+    expect(r1.events[0]?.id).not.toBe(r2.events[0]?.id);
+  });
+
+  it('sorts descending (newest first) when sort: "desc" is requested', async () => {
+    const response = await qs.eventLog({ mode: 'event_log', session_id: 'order-test-session', sort: 'desc' });
+    const result = response.json as { events: Array<{ phase: string }> };
+    // seeded at 10:00 (orchestrator), 11:00 (spec), 12:00 (codegen) — newest first:
+    expect(result.events.map((e) => e.phase)).toEqual(['codegen', 'spec', 'orchestrator']);
+  });
+
+  it('defaults to ascending order when sort is omitted (back-compat)', async () => {
+    const response = await qs.eventLog({ mode: 'event_log', session_id: 'order-test-session' });
+    const result = response.json as { events: Array<{ phase: string }> };
+    expect(result.events.map((e) => e.phase)).toEqual(['orchestrator', 'spec', 'codegen']);
+  });
+
+  it('filters by phase (0000015)', async () => {
+    const response = await qs.eventLog({ mode: 'event_log', session_id: 'query-test-session', phase: 'validate' });
+    const result = response.json as { events: Array<{ phase: string }> };
+    expect(result.events.length).toBeGreaterThan(0);
+    expect(result.events.every((e) => e.phase === 'validate')).toBe(true);
+  });
+
+  it('filters by agent (0000015)', async () => {
+    const response = await qs.eventLog({ mode: 'event_log', session_id: 'query-test-session', agent: 'planifest-codegen-agent' });
+    const result = response.json as { events: Array<{ agent: string }> };
+    expect(result.events.length).toBeGreaterThan(0);
+    expect(result.events.every((e) => e.agent === 'planifest-codegen-agent')).toBe(true);
+  });
+
+  it('filters by product_id (0000015)', async () => {
+    const response = await qs.eventLog({ mode: 'event_log', product_id: 'product-alpha' });
+    const result = response.json as { events: Array<{ product_id: string | null }> };
+    expect(result.events.length).toBeGreaterThan(0);
+    expect(result.events.every((e) => e.product_id === 'product-alpha')).toBe(true);
+  });
+
+  it('null product_id is returned as null (displays as "unknown" client-side) (0000015)', async () => {
+    const response = await qs.eventLog({ mode: 'event_log', session_id: 'query-test-session' });
+    const result = response.json as { events: Array<{ product_id: string | null }> };
+    expect(result.events.some((e) => e.product_id === null)).toBe(true);
+  });
+
+  it('filters by from/to timestamp range (0000015)', async () => {
+    const response = await qs.eventLog({
+      mode: 'event_log',
+      session_id: 'order-test-session',
+      from: '2026-04-13T10:30:00Z',
+      to: '2026-04-13T11:30:00Z',
+    });
+    const result = response.json as { events: Array<{ timestamp: string; phase: string }> };
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0]?.phase).toBe('spec');
+  });
+
+  it('returned events include the full row (schema_version, tool, model, mcp_mode, inserted_at) (0000015)', async () => {
+    const response = await qs.eventLog({ mode: 'event_log', session_id: 'query-test-session', limit: 1 });
+    const result = response.json as { events: Array<Record<string, unknown>> };
+    const event = result.events[0]!;
+    expect(event['schema_version']).toBe('1.0');
+    expect(event['tool']).toBe('claude-code');
+    expect(event['model']).toBe('claude-sonnet-4-6');
+    expect(event['mcp_mode']).toBeDefined();
+    expect(event['inserted_at']).toBeDefined();
   });
 });
 

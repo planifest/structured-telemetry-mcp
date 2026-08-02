@@ -6,9 +6,8 @@ status: "active | done | escalated"
 # Loop State: {{loop-id}}
 
 > Path: `plan/current/loop-state-{loop-id}.md`. Git-tracked; committed after every
-> update so budget/iteration counters survive interrupt/resume (ADR-007). An
-> interrupted session resumes mid-loop by reading this file per the existing
-> `Px: Resuming…` convention. While a loop-state file has `status: active`, the
+> update so budget/iteration counters survive interrupt/resume (ADR-007). Resume
+> convention: see `pause.template.md`. While a loop-state file has `status: active`, the
 > ratchet hook is armed for `plan/current/` artifact writes.
 
 | Field | Value |
@@ -36,8 +35,7 @@ Append-only — one record per iteration. Never rewrite a prior record.
 
 ## Escalation Context
 
-Populated only when `status: escalated`. Carries full context so the human (or a
-resumed session) needs nothing from the dead conversation.
+Populated only when `status: escalated`.
 
 - **Stop rule hit:** {{iteration cap | no-progress (same finding 2 consecutive iterations) | budget exhausted}}
 - **Outstanding gap/finding:** {{exact statement}}

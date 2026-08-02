@@ -5,21 +5,13 @@ version: "1.0.0"
 ---
 # Language Quirks: en-GB
 
-The framework default is **British English**. This file documents deliberate exceptions — cases where a different convention is used, and why. Agents and humans consult this file before writing or correcting framework content.
+This file documents deliberate exceptions — cases where a different convention is used, and why. Agents and humans consult this file before writing or correcting framework content.
 
 ---
 
 ## Category 1 — Code is never corrected
 
-The following are identifiers, not prose. Spelling correction tools must skip them entirely:
-
-- Fenced code blocks (` ``` `-delimited)
-- Inline code spans (backtick-wrapped: `` `value` ``)
-- File paths and URLs
-- Variable names, function names, class names
-- API endpoint strings and HTTP header names
-- Configuration keys and YAML/JSON values
-- Command-line arguments and flags
+Code and identifiers (fenced blocks, inline spans, file paths, URLs, variable/function/class names, endpoint strings, config keys, CLI flags) are never spelling-corrected. This precedence applies throughout the categories below: where a term appears in code rather than prose, Category 1 wins.
 
 ---
 
@@ -56,8 +48,6 @@ In prose, use British spelling. In code (Category 1) or when referring to a name
 | `licence` | Noun | "distributed under an MIT licence" |
 | `license` | Verb | "licensed under MIT" |
 
-In code identifiers (e.g. `package.json` `"license"` field, `LICENSE` file), Category 1 applies — the identifier is not corrected.
-
 ---
 
 ## Category 5 — Capitalisation in prose
@@ -65,8 +55,6 @@ In code identifiers (e.g. `package.json` `"license"` field, `LICENSE` file), Cat
 Always uppercase in running prose, regardless of surrounding text:
 
 `ID`, `URL`, `API`, `CLI`, `SDK`, `MCP`, `PR`, `CI`, `CD`, `IaC`, `ORM`
-
-In code (variable names, config keys), follow the casing convention of the language/framework — Category 1 applies.
 
 ---
 
@@ -76,8 +64,6 @@ In code (variable names, config keys), follow the casing convention of the langu
 
 - ✓ "the data is stored"
 - ✗ "the data are stored"
-- ✓ "the metadata is missing"
-- ✗ "the metadata are missing"
 
 ---
 
@@ -87,7 +73,3 @@ In code (variable names, config keys), follow the casing convention of the langu
 
 - ✓ "Build Assessment: results and findings"
 - ✗ "Build Assessment — results and findings"
-- ✓ "Three tiers: local, docker, ci-only"
-- ✗ "Three tiers — local, docker, ci-only"
-
-In code (Category 1) em dashes are not corrected if they appear as literal string content.

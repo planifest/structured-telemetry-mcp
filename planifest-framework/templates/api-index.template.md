@@ -6,29 +6,18 @@
 
 Last updated: {feature-id}
 
----
-
 ## Endpoints
 
 | Method | Path | Component | Description | Auth |
 |--------|------|-----------|-------------|------|
 | POST | /api/v1/{resource} | {component-id} | {what it does} | {none / bearer / api-key} |
-| GET | /api/v1/{resource}/:id | {component-id} | {what it does} | {none / bearer / api-key} |
-
----
 
 ## Versioning Strategy
 
-{e.g. URI versioning — /api/v1/ prefix; breaking changes increment the version. Non-breaking additions are backwards-compatible.}
-
----
+{e.g. URI versioning — /api/v1/ prefix}
 
 ## Full Specifications
 
 | Component | OpenAPI Spec |
 |-----------|-------------|
 | {component-id} | `plan/{feature-id}/openapi-spec.yaml` (archived) |
-
----
-
-*Template: api-index.template.md*

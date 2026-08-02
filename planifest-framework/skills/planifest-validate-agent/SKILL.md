@@ -25,18 +25,14 @@ When `Build target: docker` is declared in `plan/current/design.md`:
 - Do not fail or warn because a runtime is absent on the host — it is expected to be absent
 - Report check results from container output, not host output
 
----
-
 ## Input
 
 - The implementation at `src/{component-id}/` (all components in the feature)
 - The project's CI check commands (read `package.json`, `Makefile`, or equivalent)
 
----
-
 ## Process
 
-> **Context-Mode Protocol:** When `ctx_execute` is available, run CI checks via `ctx_execute(language:"shell", code:"...")` so that large test/build output stays in the sandbox — only the failure summary enters context. Use `ctx_execute_file` to read failing source files for analysis without loading them into context.
+> When `ctx_execute` is available, run CI checks through it so large test/build output stays in the sandbox — only the failure summary enters context.
 
 Run the project's CI checks in this strict order:
 
@@ -58,13 +54,7 @@ Run the project's CI checks in this strict order:
 
 If all checks pass (including semantic traceability) -> report success, proceed to the next phase.
 
-If any check fails -> self-correct:
-
-1. Read the error output carefully
-2. Identify the root cause - not just the symptom
-3. Fix it
-4. Re-run the failing check
-5. If the fix introduces new failures, address those too
+If any check fails -> self-correct: read the error, identify the root cause (not just the symptom), fix it, re-run the failing check, and address any new failures the fix introduces.
 
 Maximum **5 self-correct cycles**. The mechanics of this loop (state file, run-log records, stop rules, escalation format) follow `planifest-loop-runner` — load it when entering self-correction. Your cap stays **5** (loop-runner's default of 3 does not apply to P4) and your halt/escalate behaviour is unchanged. Track each cycle:
 
@@ -97,51 +87,18 @@ Recommended action: <what the human should do>
 
 Do NOT proceed to the next pipeline phase if any check is failing. The pipeline is blocked until validation passes or the human overrides.
 
----
-
 ## Rules
 
-- **One question at a time.** When you need human input — to confirm a fix approach, escalate an unresolvable failure, or clarify a requirement ambiguity — ask one question, wait for the answer, then continue. Lead with a recommendation where you can derive one.
+- **One question at a time.**
 - **Fix the actual bug.** Do not suppress linting rules, skip failing tests, or weaken type checks to make errors go away.
-- **Do not widen scope.** Fix the failure. Do not refactor adjacent code, improve test coverage beyond what failed, or restructure the project.
+- **Do not widen scope.** Fix the failure. Do not refactor adjacent code, improve test coverage beyond what failed, or restructure the project. Do not refactor code to meet standards during validation either — if you notice a standards violation that isn't causing a test/lint/build failure, record it in recommendations for the docs-agent.
 - **If a test failure reveals a requirements ambiguity**, record it in `src/{component-id}/docs/quirks.md` and note it for the human. Fix the test to match your best interpretation of the requirements, but flag the ambiguity.
 - **Track every cycle.** Record what failed and how you fixed it - this goes into `plan/current/build-log.md`.
-
----
-
-## Standards References
-
-Do not refactor code to meet standards during validation - only fix actual failures. If you notice a standards violation that isn't causing a test/lint/build failure, record it in recommendations for the docs-agent.
-
----
-
-## Capability Skills
-
-If a capability skill exists for the declared testing framework (e.g. `webapp-testing`), load it for guidance on test patterns and debugging strategies.
-
----
-
-## Pre-Execution Parallelism Plan
-
-Run this step **before executing any CI check**. Do not skip it.
-
-1. **List all checks required** for this validation run (lint, typecheck, test, build, custom scripts).
-2. **Identify independent checks** — checks are independent if neither produces output the other reads as input. Lint and typecheck are always independent of each other. Tests depend on typecheck passing (type errors cause spurious test failures). Build depends on tests passing.
-3. **Dispatch all independent checks in a single parallel batch** — multiple Bash or ctx_execute calls in one message.
-4. **State the dependency reason** for any check run sequentially: "running X after Y because Y's output is X's input."
-
-**Correct dispatch order:**
-- Batch 1 (parallel): lint + typecheck
-- Batch 2 (after Batch 1 passes): test suite
-- Batch 3 (after Batch 2 passes): build
-
-Never run lint → wait → typecheck → wait as a serial chain without a stated dependency reason.
-
----
+- **Capability skills:** load one if it exists for the declared testing framework (e.g. `webapp-testing`).
 
 ## Parallelism Directive
 
-Independent CI checks MUST be run in parallel. Where the tool supports multiple simultaneous Bash calls, lint, typecheck, and test MUST be dispatched in a single parallel batch — not sequentially.
+**Pre-Execution Parallelism Plan:** before executing any CI check, identify independent checks and dispatch them in a single parallel batch (multiple Bash or ctx_execute calls in one message); state the dependency reason for anything run serially.
 
 | MUST parallelise | Cannot parallelise |
 |------------------|--------------------|
@@ -149,15 +106,11 @@ Independent CI checks MUST be run in parallel. Where the tool supports multiple 
 | Library audit + semantic correctness check | Build before tests pass |
 | Independent component test suites | Self-correct cycle N+1 before N's fix is verified |
 
-**In practice:** Dispatch lint and typecheck together. If both pass, dispatch the test suite. Run the build last. Never run lint → wait → typecheck → wait as a serial chain.
-
----
+**Dispatch order:** Batch 1 (parallel): lint + typecheck. Batch 2 (after Batch 1 passes): test suite. Batch 3 (after Batch 2 passes): build. Never run lint → wait → typecheck → wait as a serial chain without a stated dependency reason.
 
 ## Telemetry
 
-See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership.
-
-**Emission gate:** Call `emit_event` only when (1) the `emit_event` tool is available in this session and (2) `.claude/telemetry-enabled` exists in the project root. If either condition fails, skip silently — do not emit.
+See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership. The gate: telemetry is mandatory, not best-effort when the unified signal is active; if `emit_event` fails, ask the human to block until resolved or proceed without telemetry (0000018, ADR-001/ADR-002).
 
 **`validation_failure`** — for each test or check failure:
 ```json
@@ -174,8 +127,6 @@ See `planifest-framework/standards/telemetry-standards.md` for the full event en
 { "phase_name": "validate", "action_id": "<action>", "attempt_count": 5 }
 ```
 
----
-
 ## Commit Cadence (Hard Limit 7)
 
-Commit after every meaningful artifact write — each requirement doc, ADR, completed TDD cycle, fix batch, or report — not batched to the phase gate. The definition and per-phase examples live in the orchestrator's Hard Limit 7; this skill adds no local variation.
+Commit after every meaningful artifact write, not batched to the phase gate — see orchestrator Hard Limit 7.

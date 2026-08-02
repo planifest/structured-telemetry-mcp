@@ -12,12 +12,6 @@ hooks:
 
 ---
 
-## Model Tier Rationale
-
-This skill is assigned `recommended_model: haiku` (or equivalent cheaper tier). The task is constrained and mechanical: improve code quality without changing observable behaviour. No new requirements are introduced, no architectural decisions are made. A smaller, faster model handles this well. The orchestrating codegen-agent retains the full model for cross-requirement synthesis and coordination.
-
----
-
 ## Hard Limits
 
 1. Do **not** add new behaviour. Not even "useful" behaviour you notice is missing.
@@ -25,8 +19,7 @@ This skill is assigned `recommended_model: haiku` (or equivalent cheaper tier). 
 3. All tests MUST pass after your changes. Run the full suite. Confirm all green.
 4. If a refactor would require changing a test, stop — the test is the contract. Escalate to the codegen-agent.
 5. Credentials are never in your context.
-
----
+6. Do not refactor code in other components — only the files touched by the current requirement's implementation.
 
 ## Input
 
@@ -35,55 +28,27 @@ This skill is assigned `recommended_model: haiku` (or equivalent cheaper tier). 
 - The stack capability skill (if available — load it alongside this skill)
 - The domain glossary at `plan/current/domain-glossary.md` — ensure all identifiers use domain terms
 
----
-
 ## What You Produce
 
-Improved implementation code. No new files unless splitting an existing file. Full test suite runs green.
+Improved implementation code. No new files unless splitting an existing file.
 
-Quality improvements in scope:
-- Extract repeated logic into well-named functions
-- Rename identifiers to match the domain glossary
-- Remove unnecessary complexity (over-engineered conditionals, redundant variables)
-- Improve error messages and comments
-- Split large functions into smaller, single-purpose ones
-- Correct inconsistent formatting or style
+Quality improvements in scope: standard refactoring moves (extract repeated logic, split large functions, remove unnecessary complexity, correct inconsistent formatting), plus renaming identifiers to match the domain glossary.
 
-Quality improvements out of scope:
-- Adding error handling not exercised by tests
-- Adding logging or observability
-- Changing function signatures in ways that would require test updates
-- Extracting shared utilities used by only one place
-
----
+Quality improvements out of scope: extracting shared utilities used by only one place.
 
 ## Process
 
-1. **Read** the implementation code just written by the implementer.
-2. **Load** the stack capability skill if available.
-3. **Identify** refactoring opportunities from the in-scope list above.
-4. **Apply** improvements incrementally — one concern at a time.
-5. **Run the full test suite** after each significant change:
+1. **Identify** refactoring opportunities from the in-scope list above.
+2. **Apply** improvements incrementally — one concern at a time.
+3. **Run the full test suite** after each significant change:
    ```
    bash planifest-framework/tests/run-tests.sh
    # or the appropriate full suite command for the stack
    ```
-6. **Confirm ALL GREEN**: every test in the suite must pass, not just the current requirement's test. If any test breaks, revert the last change and try a different approach.
-7. **Report** the refactor completion:
+4. **Confirm ALL GREEN**: every test in the suite must pass, not just the current requirement's test. If any test breaks, revert the last change and try a different approach.
+5. **Report** the refactor completion:
    ```
    REFACTOR ✓  req-{id}: refactor complete
                Changes: {list of improvements made}
                Full suite: {n} passed, 0 failed
    ```
-
----
-
-## What You Do NOT Do
-
-- Do not write new tests
-- Do not modify test files
-- Do not add new features, endpoints, or behaviours
-- Do not refactor code in other components — only the files touched by the current requirement's implementation
-- Do not run only the current requirement's test — you must run the full suite
-
----

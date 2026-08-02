@@ -19,8 +19,6 @@ hooks:
 - Feature Brief at `plan/current/feature-brief.md`
 - Existing Domain Knowledge Store at `plan/` (if retrofit or change)
 
----
-
 ## What You Produce
 
 Write each spec artifact to `plan/` as you complete it. Write the component manifest to `src/{component-id}/component.yml`. Do not accumulate artifacts in memory.
@@ -30,7 +28,7 @@ Write each spec artifact to `plan/` as you complete it. Write the component mani
 | Execution Plan | `plan/current/execution-plan.md` | Non-functional requirements, API/Data summary |
 | Functional Requirements | `plan/current/requirements/` | Granular requirement files (e.g., `req-001-auth.md`) |
 | OpenAPI Specification | `plan/current/openapi-spec.yaml` | Language-agnostic API contract (if the component acts as an API provider) |
-| Component Manifest | `src/{component-id}/component.yml` | Draft manifest - purpose, scope, risk seeded from the brief. Follow the [Component Template](../templates/component.template.yml) and its [guide](../templates/component-guide.md). The `stack` section will already be pre-seeded by the human or orchestrator; populate `purpose`, `scope`, `risk`, and `contract` based on your requirements set |
+| Component Manifest | `src/{component-id}/component.yml` | Draft manifest - purpose, scope, risk seeded from the brief. Follow the [Component Template](../templates/component.template.yml) and its [guide](../templates/component-guide.md). The `stack` section will already be pre-seeded by the human or orchestrator; populate `purpose`, `scope`, `risk`, and `contract` based on your requirements set. Do not modify the `stack` section. |
 | Scope | `plan/current/scope.md` | In / out / deferred - all three stated explicitly |
 | Risk Register | `plan/current/risk-register.md` | Technical, operational, security, compliance risks with likelihood and impact |
 | Domain Glossary | `plan/current/domain-glossary.md` | Ubiquitous language for this feature - agents and humans use these terms |
@@ -39,11 +37,11 @@ Write each spec artifact to `plan/` as you complete it. Write the component mani
 | Cost Model | `plan/current/cost-model.md` | Compute, storage, egress, third-party cost estimates |
 | Data Contract (per component) | `src/{component-id}/docs/data-contract.md` | Schema ownership, table definitions, invariants, relationships. Follow the [Data Contract Template](../templates/data-contract.template.md) and its [guide](../templates/data-contract-guide.md). One per data-owning component. |
 
----
-
 ## Rules
 
-**One question at a time.** When you need human input — to resolve an ambiguity, confirm a gap, or clarify a requirement — ask one question, wait for the answer, then continue. Lead with a recommendation where you can derive one. Never present a list of questions.
+**One question at a time.**
+
+**Retrofit mode:** if `adoption_mode: retrofit`, follow the orchestrator's Adoption Modes → Retrofit scan; the execution plan must describe the system as it exists and what is changing — not just the change in isolation.
 
 **Functional requirements:**
 - Derive directly from user stories in the brief. Do not invent requirements not stated or implied.
@@ -51,7 +49,7 @@ Write each spec artifact to `plan/` as you complete it. Write the component mani
 - Do NOT output a monolithic list in the Execution Plan. Use discrete files.
 
 **Non-functional requirements:**
-- Must include specific, measurable targets. "The system should be fast" is not a requirement. "p95 latency < 200ms for the primary endpoint" is.
+- Must include specific, measurable targets — not vague qualifiers.
 - If the confirmed design records a deferred NFR, note it in the scope document and do not fabricate a target.
 
 **OpenAPI specification (if applicable):**
@@ -61,12 +59,10 @@ Write each spec artifact to `plan/` as you complete it. Write the component mani
 - Generate this early (if applicable) - everything downstream implements against it.
 
 **Domain glossary:**
-- Define every domain term used in the spec. If the brief introduces terms, define them.
 - If the feature is a retrofit, read the existing codebase for terms already in use and include them.
 - Never invent domain language. If a concept has no clear name, flag it for the human.
 
 **Scope:**
-- State what is in, what is out, and what is deferred. All three sections must be present.
 - Deferred items must note what is blocked until they are resolved.
 
 **Risk register:**
@@ -75,7 +71,6 @@ Write each spec artifact to `plan/` as you complete it. Write the component mani
 
 **Component manifest:**
 - Write the draft manifest to `src/{component-id}/component.yml`. Create the component folder if it doesn't exist.
-- Populate the `purpose`, `scope`, `risk`, and `contract` sections based on the requirements you produce. The `stack` section is pre-seeded - do not modify it.
 - Set `pipeline.domainKnowledgePath` to `plan`.
 - `purpose.notResponsibleFor` is mandatory. Derive exclusions from the scope boundaries.
 - Leave `contract.consumedBy` empty - it is unknown at requirements phase.
@@ -84,8 +79,6 @@ Write each spec artifact to `plan/` as you complete it. Write the component mani
 - You may make documented assumptions for genuinely minor gaps. Record them in the risk register with likelihood: medium.
 - You must not assume away significant ambiguity. If something material is missing, report it back to the orchestrator - do not fill in the blank.
 
----
-
 ## Waved Features
 
 When the confirmed design indicates a waved feature (features grouped into waves — the decomposition grouping formerly called "phases", renamed to avoid collision with the P0–P9 pipeline phases):
@@ -93,20 +86,9 @@ When the confirmed design indicates a waved feature (features grouped into waves
 - **Produce spec artifacts for the current wave only.** Do not spec features in later waves - they may change based on what Wave 1 reveals.
 - **Name wave-specific artifacts with the wave suffix:** `execution-plan-wave-2.md`, `scope-wave-2.md`, etc. The confirmed design itself is updated per wave, not duplicated.
 - **Reference prior wave artifacts.** Wave 2's design requirements should reference Wave 1's component manifests and data contracts as existing context, not re-specify them.
-- **Carry forward the domain glossary.** The glossary is cumulative - add new terms from each wave, never remove terms from prior waves.
-- **Carry forward the risk register.** Prior wave risks remain unless explicitly mitigated. Add new risks from the current wave.
-
----
-
-## Retrofit Mode
-
-When the confirmed design indicates `adoption_mode: retrofit`, read the existing codebase before producing artifacts. Infer the existing architecture, identify components, surface undocumented decisions. Reconcile the Feature Brief against the discovered reality. The execution plan must describe the system as it exists and what is changing - not just the change in isolation.
-
----
+- **Carry forward the domain glossary and risk register.** Both are cumulative — add new terms/risks from each wave; never remove prior-wave entries (risks remain unless explicitly mitigated).
 
 ## Parallelism Directive
-
-Independent spec artifacts MUST be written in parallel. Apply the dependency test: "Can I start writing artifact B before artifact A is complete?" If yes, dispatch in parallel.
 
 | MUST parallelise | Cannot parallelise |
 |------------------|--------------------|
@@ -114,23 +96,15 @@ Independent spec artifacts MUST be written in parallel. Apply the dependency tes
 | Scope, Risk Register, and Domain Glossary (all independent) | Execution Plan summary before requirements are drafted |
 | Multiple component manifest drafts | Data contract before data ownership is confirmed |
 
-**In practice:** Write all independent requirement files in a single pass. Write scope, risk register, and glossary together in a single parallel batch.
-
----
-
 ## Telemetry
 
-See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership.
-
-**Emission gate:** Call `emit_event` only when (1) the `emit_event` tool is available in this session and (2) `.claude/telemetry-enabled` exists in the project root. If either condition fails, skip silently — do not emit.
+See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership. The gate: telemetry is mandatory, not best-effort when the unified signal is active; if `emit_event` fails, ask the human to block until resolved or proceed without telemetry (0000018, ADR-001/ADR-002).
 
 **`spec_gap`** — when the spec cannot proceed without human input:
 ```json
 { "question": "<blocking question>", "phase_name": "spec" }
 ```
 
----
-
 ## Commit Cadence (Hard Limit 7)
 
-Commit after every meaningful artifact write — each requirement doc, ADR, completed TDD cycle, fix batch, or report — not batched to the phase gate. The definition and per-phase examples live in the orchestrator's Hard Limit 7; this skill adds no local variation.
+Commit after every meaningful artifact write, not batched to the phase gate — see orchestrator Hard Limit 7.

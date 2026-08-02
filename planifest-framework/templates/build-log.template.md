@@ -5,7 +5,6 @@ summary: "Working telemetry file maintained by the orchestrator throughout the p
 # Build Log - {{feature-id}}
 
 > Created at P0. Appended by the orchestrator at each phase boundary. Survives session changes.
-> Filed to the archive at P7. Read by the build-assessment-agent at P8.
 
 ## Header
 
@@ -21,8 +20,6 @@ summary: "Working telemetry file maintained by the orchestrator throughout the p
 
 ## Phase Log
 
-<!-- Orchestrator: append one block per phase using the template below. -->
-
 ### P0 — Assess & Coach
 
 | Field | Value |
@@ -33,6 +30,7 @@ summary: "Working telemetry file maintained by the orchestrator throughout the p
 | Agents spawned | `{{count}}` |
 | MCP calls | `{{count}}` |
 | Parallel task batches | `{{count}}` |
+| Telemetry | emitted / failed-with-recorded-choice / confirmed-disabled |
 | Notes | `{{free text or "none"}}` |
 
 ---
@@ -49,6 +47,7 @@ summary: "Working telemetry file maintained by the orchestrator throughout the p
 | Agents spawned | `{{count}}` |
 | MCP calls | `{{count}}` |
 | Parallel task batches | `{{count}}` |
+| Telemetry | emitted / failed-with-recorded-choice / confirmed-disabled |
 | Notes | `{{free text or "none"}}` |
 
 -->
@@ -67,3 +66,4 @@ summary: "Working telemetry file maintained by the orchestrator throughout the p
 | Cheaper tier agent calls | `{{count}}` |
 | Self-corrections | `{{count}}` |
 | Phases skipped | `{{list or "none"}}` |
+| Phases with a recorded telemetry gap | `{{count — phases where Telemetry was failed-with-recorded-choice, or "0"}}` |

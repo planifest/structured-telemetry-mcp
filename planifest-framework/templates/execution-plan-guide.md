@@ -22,7 +22,7 @@ The **spec-agent** produces this document during the Requirements step of the Ag
 
 - **After** the orchestrator confirms the design (end of Phase 0)
 - **Before** ADRs are generated (Phase 2 reads this as input)
-- **One per feature**, or one per phase if the feature is phased (`execution-plan-phase-2.md`)
+- **One per feature**, or one per wave if the feature is waved (`execution-plan-wave-2.md`)
 
 ---
 
@@ -83,7 +83,7 @@ The execution plan is the central artifact. ADRs explain HOW to implement the re
 
 `plan/current/execution-plan.md`
 
-If phased: `plan/execution-plan-phase-{n}.md`
+If waved: `plan/execution-plan-wave-{n}.md`
 
 ---
 

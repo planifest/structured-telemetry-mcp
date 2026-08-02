@@ -19,28 +19,13 @@
 | Query generation | `sqlc` | `gorm`, `ent` | sqlc generates type-safe Go from SQL — no runtime ORM magic |
 | Migrations | `golang-migrate` | `goose` (acceptable) | golang-migrate is the most widely used |
 
-## HTTP Client
+## HTTP Client, Validation, Logging & Configuration
 
 | Concern | Prefer | Avoid | Reason |
 |---------|--------|-------|--------|
 | HTTP client | stdlib `net/http` | third-party wrappers | Go's stdlib HTTP client is excellent; add `resty` only if needed |
-
-## Validation
-
-| Concern | Prefer | Avoid | Reason |
-|---------|--------|-------|--------|
-| Struct validation | `go-playground/validator` v10 | hand-rolled reflection | validator is the de facto standard |
-
-## Logging
-
-| Concern | Prefer | Avoid | Reason |
-|---------|--------|-------|--------|
+| Struct validation | `go-playground/validator` v10 | hand-rolled reflection | |
 | Logging | `slog` (stdlib, Go 1.21+) | `logrus`, `zap` (unless high-perf) | slog is now in the standard library; zap for high-throughput services |
-
-## Configuration
-
-| Concern | Prefer | Avoid | Reason |
-|---------|--------|-------|--------|
 | Config | `viper` or `envconfig` | hand-rolled os.Getenv | viper handles multi-source config; envconfig for struct-based env mapping |
 
 ## Concurrency

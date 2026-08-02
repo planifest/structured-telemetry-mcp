@@ -18,11 +18,9 @@ hooks:
 Emit the correct phase prefix as you move through each step:
 - `P7:` for all archive work (Steps 1–7)
 - `P8:` for build assessment (Step 8)
-- `P9:` for ship steps (Steps 8–11)
+- `P9:` for ship steps (Steps 9–12)
 
 No exceptions. Including single-line acknowledgements.
-
----
 
 ## Hard Limits
 
@@ -30,26 +28,19 @@ No exceptions. Including single-line acknowledgements.
 2. Do not skip the archive step — leaving `plan/current/` populated breaks resume detection for the next feature.
 3. Credentials are never in your context.
 4. Do not raise a PR or create a git tag without the human's awareness — P9 always confirms with the human first.
-5. **One question at a time.** When you need input from the human (version confirmation, PR decision, regression confirmation), ask one question, wait for the answer, then ask the next. Never present a list of questions. Lead with a recommendation where possible.
-
----
-
-## Input
-
-- All artifacts at `plan/current/`
-- `.skips` file at `plan/current/.skips` (if any phases were skipped)
-
----
+5. **One question at a time.**
 
 ## P7 — Archive
 
 **Build log first:** Append a P7 phase block to `plan/current/build-log.md` before doing any work in this phase.
 
-Work through these steps in order. Write each artifact to disk before proceeding to the next step.
+Work through these steps in order. Write each artifact to disk before proceeding to the next step. Input: all artifacts at `plan/current/`, plus `plan/current/.skips` if any phases were skipped.
+
+**Cross-reference check (run first, before Step 1):** Before writing the changelog, search the repo for links pointing at `plan/current/...` — `docs/*.md` (especially `docs/decisions-index.md`'s ADR links), `src/*/docs/*.md`, and any other living doc. Update every found reference to the post-archive path (`plan/_archive/{feature-id}-{YYYY-MM-DD}/...`) in the same commit as the archive move. A moved folder with stale incoming links silently breaks navigation for the next reader.
 
 ### Step 1 — Write changelog
 
-> **Audience:** PR reviewers and team members. This is the human-readable audit trail for the PR — it records *what* was built and *why*. It is NOT the execution trace. The iteration log (written by docs-agent at P6) is the machine-readable execution trace for build-assessment-agent and post-run technical review.
+> **Audience:** PR reviewers and team members — the human-readable *what and why*, not the execution trace (that's the iteration log written by docs-agent at P6).
 
 Write `plan/changelog/{feature-id}-{YYYY-MM-DD}.md` as the permanent audit trail (filename uses `YYYY-MM-DD`; body uses `DD MMM YYYY`):
 
@@ -58,7 +49,7 @@ Write `plan/changelog/{feature-id}-{YYYY-MM-DD}.md` as the permanent audit trail
 
 **Feature:** {feature name from brief}
 **Pipeline run:** {phases completed, phases skipped}
-**PR:** {pending — updated after PR is raised in Step 9}
+**PR:** {pending — updated after PR is raised in Step 10}
 
 ## What Was Built
 {Summary from feature brief}
@@ -77,14 +68,11 @@ Write `plan/changelog/{feature-id}-{YYYY-MM-DD}.md` as the permanent audit trail
 
 If `plan/current/.skips` exists:
 1. Read its contents
-2. The changelog (Step 1) already includes the skips under `## Skipped Phases`
-3. Delete `plan/current/.skips` after the changelog is confirmed written
+2. Delete `plan/current/.skips` after the changelog is confirmed written
 
 ### Step 3 — Write .feature-id marker
 
 Write `plan/current/.feature-id` containing the feature ID (e.g. `0000012-docs-restructure-commit-directives`).
-
-This marker enables resume detection to identify stale artifacts from a failed archive.
 
 ### Step 4 — Regression confirmation
 
@@ -114,12 +102,11 @@ Generate the test report artifact before archiving.
 1. Determine archive path: `plan/_archive/{feature-id}-{YYYY-MM-DD}/`
 2. If path exists, use `{feature-id}-{YYYY-MM-DD}-2/`, `-3/`, etc.
 3. Recursively copy all files from `plan/current/` to the archive path (including `capability-skills/` if present)
-4. Confirm the copy is complete before proceeding
-5. Delete `plan/current/` contents — including `.skips` (already processed), `.planifest-session`, `.feature-id`, `capability-skills/`
-6. Confirm `plan/current/` is empty
-7. Delete `plan/.orchestrator-active` — this sentinel must be removed last, after archive is confirmed complete
-8. Delete `plan/.orchestrator-ack` if it exists — removes the strict-mode session ack so the next pipeline starts clean
-9. Delete `plan/.run-mode` if it exists — removes the run-mode preference so the next P0 always asks fresh
+4. Delete `plan/current/` contents — including `.skips` (already processed), `.planifest-session`, `.feature-id`, `capability-skills/`
+5. Delete `plan/.orchestrator-active` — this sentinel must be removed last, after archive is confirmed complete
+6. Delete `plan/.orchestrator-ack` if it exists — removes the strict-mode session ack so the next pipeline starts clean
+7. Delete `plan/.run-mode` if it exists — removes the run-mode preference so the next P0 always asks fresh
+8. Cross-reference check: confirm the check above (which updates `docs/decisions-index.md` ADR links and other living-doc references pointing at `plan/current/...`) has already run before this point.
 
 ### Step 6b — Write docs/about.md
 
@@ -127,27 +114,7 @@ Generate the test report artifact before archiving.
 
 1. Create `docs/` if it does not exist
 2. Read `planifest-framework/templates/about.template.md` for the exact format
-3. Write `docs/about.md` with:
-   - `version`: the human-confirmed version from `plan/current/design.md` (the value confirmed at P0)
-   - `feature`: the current feature ID
-   - `updated`: today's date in `DD MMM YYYY` format (e.g. `19 May 2026`)
-
-```markdown
----
-version: "{confirmed-version}"
-feature: "{feature-id}"
-updated: "{DD MMM YYYY}"
----
-# About
-
-| Field | Value |
-|-------|-------|
-| Version | `{confirmed-version}` |
-| Last feature | `{feature-id}` |
-| Updated | `{DD MMM YYYY}` |
-```
-
-Do not copy the template comment block (`> This file is the canonical version record...`) into the output — write only the table.
+3. Write `docs/about.md` with `version` (the human-confirmed version from `plan/current/design.md`, confirmed at P0), `feature` (the current feature ID), and `updated` (today's date, `DD MMM YYYY`, e.g. `19 May 2026`). Do not copy the template's comment block (`> This file is the canonical version record...`) into the output — write only the frontmatter and table.
 
 ### Step 7 — Commit archive
 
@@ -158,11 +125,9 @@ git add plan/_archive/ plan/changelog/ docs/about.md
 git commit -m "plan(p7): archive {feature-id}"
 ```
 
----
-
 ## P8 — Build Assessment
 
-**Build log:** Append a P8 phase block to `plan/current/build-log.md` before invoking the build-assessment-agent. Note: at this point `plan/current/` has been archived — append to `plan/_archive/{feature-id}-{YYYY-MM-DD}/build-log.md` instead (that is the copy). The original `plan/current/build-log.md` no longer exists.
+**Build log:** Append a P8 phase block to `plan/_archive/{feature-id}-{YYYY-MM-DD}/build-log.md` before invoking the build-assessment-agent — `plan/current/` has already been archived by Step 6, so this is the only copy of the log.
 
 **Before acting:** Load the `planifest-build-assessment-agent` skill now.
 
@@ -176,16 +141,13 @@ git commit -m "plan(p7): archive {feature-id}"
      prompt: "Load the planifest-build-assessment-agent skill. Archive path: plan/_archive/{feature-id}-{YYYY-MM-DD}/. Read build-log.md from the archive and write build-report.md to the same directory. Confirm with P8: Complete when done."
    })
    ```
-3. The build-assessment-agent reads `build-log.md` from the archive and writes `build-report.md` to the same directory
-4. Wait for `P8: Complete` before proceeding to P9
-
----
+3. Wait for `P8: Complete` before proceeding to P9
 
 ## P9 — Ship
 
 **Build log:** Append a P9 phase block to `plan/_archive/{feature-id}-{YYYY-MM-DD}/build-log.md` before beginning ship steps.
 
-### Step 8 — Create git tag
+### Step 9 — Create git tag
 
 Determine the release version (ADR-002, product-level versioning):
 
@@ -203,9 +165,7 @@ Validate the final value: must match `[0-9]+\.[0-9]+(\.[0-9]+)?` and be ≤20 ch
 git tag v{version} -m "{feature-id}"
 ```
 
-Confirm the tag was created locally.
-
-### Step 9 — Push/PR decision
+### Step 10 — Push/PR decision
 
 Check `planifest-overrides/instructions/` for any file containing "local-git-only" or "no remote" or "no push". If found, skip the prompt and proceed directly to option [2].
 
@@ -259,12 +219,12 @@ Output the following as a fenced markdown code block for copy-paste:
 
 Also output the suggested PR title: `{feature-id}: {one-line feature summary}`
 
-### Step 10 — Confirm to human
+### Step 11 — Confirm to human
 
 ```
 P9: Ship complete.
 
-Git tag: v{version} (push with: git push origin --tags)
+Git tag: v{version} ({if Option [1] was chosen: "already pushed" | "push with: git push origin --tags"})
 PR: {URL if agent raised it | "See PR description above"}
 Archive: plan/_archive/{feature-id}-{YYYY-MM-DD}/
 Changelog: plan/changelog/{feature-id}-{YYYY-MM-DD}.md
@@ -274,19 +234,13 @@ Build report: plan/_archive/{feature-id}-{YYYY-MM-DD}/build-report.md
 plan/current/ is empty and ready for the next feature.
 ```
 
-### Step 11 — New session recommendation
+### Step 12 — New session recommendation
 
-After the confirmation above, emit this advisory message:
+After the confirmation above, emit this advisory (do not block, do not ask for confirmation, do not repeat it):
 
 ```
 ⚡ For best results on your next feature, start a fresh session before beginning P0.
-   Context from this run may reduce P0 coaching quality. This is advisory — continuing
-   in this session is fine if you prefer.
 ```
-
-This is a recommendation only — do not block, do not ask for confirmation, do not repeat it.
-
----
 
 ## Telemetry
 
@@ -297,12 +251,12 @@ See `planifest-framework/standards/telemetry-standards.md` for the full event en
 { "phase_name": "archive" }
 ```
 
-**`phase_start`** — before Step 8 (P9):
+**`phase_start`** — before Step 9 (P9):
 ```json
 { "phase_name": "ship" }
 ```
 
-**`phase_end`** — after Step 10:
+**`phase_end`** — after Step 11:
 ```json
 { "phase_name": "ship", "status": "pass", "duration_ms": <elapsed> }
 ```

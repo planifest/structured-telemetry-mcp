@@ -4,11 +4,11 @@
 - Problem: {one-line problem statement}
 - Adoption mode: greenfield | standard-iterative | retrofit | external-anchor
 - Feature ID: {0000000}-{kebab-case-name}
+- Discovery: see `plan/current/discovery.md` (raw P0 findings — do not embed them here; this document records confirmed decisions only)
 
 ## Product Layer
 - User stories:
   - US-001: As a [role], I [action], so that [outcome]
-  - US-002: As a [role], I [action], so that [outcome]
 - Acceptance criteria confirmed: {count}
 - Constraints: {list}
 - Integrations: {list or "none"}
@@ -56,5 +56,4 @@
 {Contents of planifest-overrides/instructions/ files, or "None"}
 
 ## Confirmation
-Human confirmed this design before proceeding: yes / no
-Date confirmed: {DD MMM YYYY}
+Human confirmed this design before proceeding: yes / no // Date and Time confirmed: {DD MMM YYYY} @ {HH:MM AM/PM} {timezone abbreviation}
