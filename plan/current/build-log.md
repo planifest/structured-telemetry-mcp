@@ -96,11 +96,11 @@ P1 exchange — spec_gap (sort field): Q: design assumed a pre-existing "sort-fi
 | Start | `2026-08-02T23:45:00Z` |
 | Model tier | primary |
 | Skills loaded | planifest-adr-agent |
-| Agents spawned | TBD |
+| Agents spawned | 0 (written directly — the 4 ADRs are interdependent per the skill's own parallelism table, not safe to parallelise) |
 | MCP calls | 0 |
-| Parallel task batches | TBD |
+| Parallel task batches | 0 |
 | Telemetry | confirmed-disabled |
-| Notes | continuous_run active — no phase-gate stop |
+| Notes | 4 ADRs written: ADR-024 (shared column allow-list, resolves the req-002/req-003 divergence), ADR-025 (event_log real per-column sortField), ADR-026 (distinct_values as a POST /query mode, not a new route), ADR-027 (polling-based auto-refresh, not push/WebSocket). continuous_run active — no phase-gate stop; proceeding to P3. |
 
 ---
 
