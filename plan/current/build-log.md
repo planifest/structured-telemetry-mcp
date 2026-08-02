@@ -213,6 +213,21 @@ All acceptance criteria covered. No failures.
 
 ---
 
+### P7 — Archive
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-01T18:16:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-ship-agent |
+| Agents spawned | `{{tbd}}` |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | `{{tbd}}` |
+| Telemetry | emitted |
+| Notes | `{{tbd}}` |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
