@@ -3,7 +3,7 @@
 > Living document. Shows how components relate. Updated after every pipeline run.
 > Do not archive this file — update it in place.
 
-Last updated: 0000015-telemetry-log-viewer-ui
+Last updated: 0000016-e2e-playwright-test-suites
 
 ---
 

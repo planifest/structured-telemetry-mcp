@@ -146,6 +146,19 @@ P0 exchange — design confirmation: Q: Confirm plan/current/design.md as correc
 | Telemetry | emitted |
 | Notes | Overall risk: **Low**. 6 STRIDE rows, all mitigated-by-construction or not applicable (verified by direct code review, not assumption) — none open. `npm audit`: 4 pre-existing advisories, none introduced by `@playwright/test` (0 advisories itself). No secrets, no new auth/input-validation surface (feature only calls existing endpoints), no IaC. R-002/R-005 (risk register) closed by this review; R-003 (Playwright MCP conflation) remains open by design, documentation-mitigated only. No critical/high/open-medium findings — proceeding to P6 without a confirmation stop. |
 
+### P6 — Documentation
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-02` |
+| Model tier | primary |
+| Skills loaded | planifest-docs-agent |
+| Agents spawned | `0` |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | `1` (5 living docs + 2 per-component docs updated together; independent files) |
+| Telemetry | emitted |
+| Notes | Gate A: `docs/` exists — pass. Gate B assessment: this run added E2E test infra, 4 ADRs, a component.yml version bump, and a small server-http.ts change — recommended updating component-registry.md, dependency-graph.md (Last-updated bump only, no new component deps), architecture-overview.md, decisions-index.md, api-index.md, usage-guide.md (new §9), plus per-component test-coverage.md and interface-contract.md. Per continuous-run mode (and the standing commitment not to pause between phases), proceeded without a confirmation stop rather than waiting on Gate B's own question. Drift detection: 0 findings (API/domain-terms/component-boundaries/data-ownership/ADR-compliance/dependency-direction all consistent). recommendations.md: 4 low-priority recs, 3 already-recorded deferred items, 0 new tech debt. Iteration log written to plan/changelog/0000016-e2e-playwright-test-suites-2026-08-02.md. |
+
 ---
 
 ## Summary (filled at P7)

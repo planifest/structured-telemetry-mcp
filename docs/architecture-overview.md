@@ -3,13 +3,13 @@
 > Living document. Reflects current system state. Updated after every pipeline run.
 > Do not archive this file — update it in place.
 
-Last updated: 0000015-telemetry-log-viewer-ui
+Last updated: 0000016-e2e-playwright-test-suites
 
 ---
 
 ## System Summary
 
-`structured-telemetry-mcp` is a local MCP server that ingests structured telemetry events (phase timings, failures, context pressure, loop iterations, phase reversals) from Planifest pipeline agents and answers structured queries over them. It runs continuously as a background service — on Windows via `nssm`, and as of 0000010 also on macOS (`launchd`) and Linux (`systemd --user`) — so any Planifest project's telemetry hooks work without a foreground terminal. As of 0000015, the same backend also serves a read-only browser UI (`GET /ui`) for browsing, filtering, and paging events — the first human-facing (non-MCP, non-CLI) surface this component exposes.
+`structured-telemetry-mcp` is a local MCP server that ingests structured telemetry events (phase timings, failures, context pressure, loop iterations, phase reversals) from Planifest pipeline agents and answers structured queries over them. It runs continuously as a background service — on Windows via `nssm`, and as of 0000010 also on macOS (`launchd`) and Linux (`systemd --user`) — so any Planifest project's telemetry hooks work without a foreground terminal. As of 0000015, the same backend also serves a read-only browser UI (`GET /ui`) for browsing, filtering, and paging events — the first human-facing (non-MCP, non-CLI) surface this component exposes. As of 0000016, the HTTP/browser surface (`/emit`, `/query`, `/health`, `/ui`) has true black-box E2E coverage (`@playwright/test`, real server process + ephemeral DuckDB per run) — the first automated test layer in this project that exercises the live `node:http` server rather than its exported handlers.
 
 ---
 
@@ -70,6 +70,10 @@ Reference `docs/decisions-index.md` for the full list.
 - **ADR-017:** `product_id` is additive (optional envelope field + nullable column) and never backfilled on existing rows — no reliable signal exists for pre-0000015 data.
 - **ADR-018:** The Log Viewer UI is plain HTML/CSS/vanilla JS with no build step, embedded as a TypeScript string and served in-process — no new component, no new dependency.
 - **ADR-019:** Populating `product_id` in `planifest-framework`'s own emission hooks is that product's responsibility, not this one's — tracked as a cross-product backlog dependency, not built here.
+- **ADR-020:** `@playwright/test` adopted as the E2E test framework for both suites (backend HTTP, browser UI) — Vitest continues to own all unit/integration tests unchanged.
+- **ADR-021:** The Playwright MCP server is an interactive test-authoring/verification aid used during codegen only — `@playwright/test` remains the sole CI-executed engine for the shipped suites.
+- **ADR-022:** Both E2E suites use an ephemeral real-server-process + temp-DuckDB harness per run (never handler-level mocking, never a shared dev instance) — genuine black-box coverage, isolated by construction.
+- **ADR-023:** The UI E2E suite is Chromium-only — the vanilla-JS, framework-free `/ui` page (ADR-018) carries low cross-browser risk, and the narrower scope keeps CI runtime well within budget.
 
 ---
 

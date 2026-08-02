@@ -14,6 +14,7 @@ Structured telemetry for agentic pipelines. Stores events in a local DuckDB data
 6. [Event types and data payloads](#6-event-types-and-data-payloads)
 7. [Query reference](#7-query-reference)
 8. [Log Viewer UI](#8-log-viewer-ui)
+9. [E2E testing](#9-e2e-testing)
 
 ---
 
@@ -702,3 +703,23 @@ No installation, build step, or new dependency — plain HTML/CSS/vanilla JS, em
 ### What it does not do
 
 Read-only — no editing or deleting events. No authentication (inherits the daemon's existing 127.0.0.1-only, no-auth posture unchanged). No aggregation/dashboard charts (bottleneck/failure/token-efficiency queries remain MCP/REST-only) — those may become a future wave on top of this UI's shell, but are out of scope today.
+
+---
+
+## 9. E2E testing
+
+Added in 0000016. Two `@playwright/test` suites give black-box coverage of the HTTP and browser surface described in this guide — real requests and a real browser against a real running daemon, not handler-level mocking.
+
+```bash
+npm run test:e2e            # both suites
+npm run test:e2e:backend    # /emit, /query, /health only
+npm run test:e2e:ui         # GET /ui only (Chromium)
+```
+
+Each suite starts its own `server-http.ts` process on an OS-assigned ephemeral port against a fresh temp-file DuckDB, and tears both down afterward — no shared state between runs, no need for a daemon to already be running. First local run (or first CI run) needs the Chromium browser binary once:
+
+```bash
+npx playwright install chromium --with-deps
+```
+
+CI runs both suites as a blocking check on every PR (`.github/workflows/ci.yml`, `e2e` job) — Chromium-only (ADR-023), combined runtime budget p95 < 5 min (NFR-001, measured ~3s in practice). See ADR-020 through ADR-023 for the full rationale, including why the Playwright MCP server (used only for interactive test authoring, never in CI) is a distinct tool from `@playwright/test` (the CI-executed framework) — see ADR-021.
