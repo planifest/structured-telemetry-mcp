@@ -11,7 +11,7 @@
 
 The telemetry backend is a single shared store (`$HOME/.planifest/telemetry.db`) used by every project that registers this MCP server. Nothing on the event envelope currently identifies which repo/project emitted a given event. The new log-viewer UI (0000015) needs to distinguish events across projects, so a new field is required.
 
-See ADR-017 (`plan/current/adr/ADR-017-product-id-additive-no-backfill.md`) for the full decision record, including why no backfill of existing rows is attempted (other projects besides this repo have historically used this shared backend — there is no reliable signal to reconstruct which repo produced a pre-existing row).
+See ADR-017 (`plan/_archive/0000015-telemetry-log-viewer-ui-2026-08-01/adr/ADR-017-product-id-additive-no-backfill.md`) for the full decision record, including why no backfill of existing rows is attempted (other projects besides this repo have historically used this shared backend — there is no reliable signal to reconstruct which repo produced a pre-existing row).
 
 ---
 

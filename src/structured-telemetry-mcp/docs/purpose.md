@@ -20,4 +20,4 @@ Planifest-compliant agents (Claude Code, Cursor, etc., running Planifest skills)
 
 ## What it is not
 
-See `component.yml`'s `exceptions` list and `plan/current/scope.md` for the authoritative boundary. In short: it does not emit telemetry itself (sink, not source), does not detect loops server-side (query-side only, ADR-006), does not run in the cloud, does not authenticate callers (bound to `127.0.0.1`, no auth model), and its UI (0000015) does not provide aggregation/dashboard views, editing, or multi-user access — read-only raw event browsing only.
+See `component.yml`'s `exceptions` list and this component's `scope.md` (`src/structured-telemetry-mcp/docs/scope.md`) for the authoritative boundary. In short: it does not emit telemetry itself (sink, not source), does not detect loops server-side (query-side only, ADR-006), does not run in the cloud, does not authenticate callers (bound to `127.0.0.1`, no auth model), and its UI (0000015) does not provide aggregation/dashboard views, editing, or multi-user access — read-only raw event browsing only.

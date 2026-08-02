@@ -1,6 +1,6 @@
 # Scope — structured-telemetry-mcp (component-scoped)
 
-Component-scoped mirror of `plan/current/scope.md` (0000010). See that file for the full feature-level scope; this file tracks what the component itself is responsible for, cumulatively across all features it has shipped.
+Component-scoped mirror of the most recent feature's scope document (currently `plan/_archive/0000015-telemetry-log-viewer-ui-2026-08-01/scope.md`). See that file for the full feature-level scope; this file tracks what the component itself is responsible for, cumulatively across all features it has shipped.
 
 ## In scope (cumulative, as of 0.11.0)
 

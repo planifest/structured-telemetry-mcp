@@ -25,7 +25,7 @@ The primary interface. Registered by `src/server-factory.ts`'s `createServer()`.
 | GET | `/health` | structured-telemetry-mcp | Liveness check — used by the macOS/Linux/Windows service scripts (0000010) to verify a successful install/restart | none |
 | GET | `/ui` | structured-telemetry-mcp | Serves the static Log Viewer browser page (0000015, ADR-018) — calls `POST /query` (`event_log` mode) via same-origin `fetch()` | none |
 
-**Auth is intentionally `none`** — the backend is bound to `127.0.0.1` only, never exposed to the network. This is the trust boundary established in `0000008-mcp-server-foundation` and re-confirmed unchanged in `0000010-macos-launchd-service`'s security report (`plan/current/security-report.md`).
+**Auth is intentionally `none`** — the backend is bound to `127.0.0.1` only, never exposed to the network. This is the trust boundary established in `0000008-mcp-server-foundation`, re-confirmed unchanged in `0000010-macos-launchd-service`'s security report (`plan/_archive/0000010-macos-launchd-service-2026-07-19/security-report.md`), and re-confirmed again in `0000015-telemetry-log-viewer-ui`'s security report (`plan/_archive/0000015-telemetry-log-viewer-ui-2026-08-01/security-report.md`) when the new `GET /ui` route and the `event_log` scope-filter relaxation were reviewed.
 
 ---
 
