@@ -133,6 +133,19 @@ P0 exchange — design confirmation: Q: Confirm plan/current/design.md as correc
 | Telemetry | emitted |
 | Notes | Library audit: `@playwright/test` is the framework's own recommended E2E library (typescript/test-frameworks.md), not avoided. No lint script configured in this project — skipped. Semantic coverage: req-001 (9/9 criteria covered — 7 by test assertion, 2 by construction/config: server-per-run isolation via server-harness.ts, CI wiring via ci.yml); req-002 (8/8 criteria covered — 6 by test assertion, 2 by construction/config, same pattern). Checks: typecheck clean, Vitest 362/362 pass (existing suite unaffected, NFR-005), E2E 17/17 pass (~2.8s combined, NFR-001's 5-min budget), build clean (tsc + esbuild x3). **Zero self-corrections — first-attempt pass on all checks.** Per P4 gate exception, proceeding to P5 without a confirmation stop. |
 
+### P5 — Security
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-02` |
+| Model tier | primary |
+| Skills loaded | planifest-security-agent |
+| Agents spawned | `0` |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | `1` (STRIDE threat modelling + dependency audit run together) |
+| Telemetry | emitted |
+| Notes | Overall risk: **Low**. 6 STRIDE rows, all mitigated-by-construction or not applicable (verified by direct code review, not assumption) — none open. `npm audit`: 4 pre-existing advisories, none introduced by `@playwright/test` (0 advisories itself). No secrets, no new auth/input-validation surface (feature only calls existing endpoints), no IaC. R-002/R-005 (risk register) closed by this review; R-003 (Playwright MCP conflation) remains open by design, documentation-mitigated only. No critical/high/open-medium findings — proceeding to P6 without a confirmation stop. |
+
 ---
 
 ## Summary (filled at P7)
