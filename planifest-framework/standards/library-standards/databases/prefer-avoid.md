@@ -1,7 +1,6 @@
 # Database Client Standards
 
-> Covers preferred and avoided client libraries per database paradigm across languages. For schema/query pattern guidance, see `database-standards.md`.
-> Check `planifest-overrides/library-standards/databases/prefer-avoid.md` first.
+> Covers preferred and avoided client libraries per database paradigm across languages. See `database-standards.md` for schema/query guidance; overrides take precedence at `planifest-overrides/library-standards/databases/prefer-avoid.md`.
 
 ---
 
@@ -23,7 +22,7 @@
 |----------|--------|-------|-------|
 | TypeScript/Node.js | `drizzle` (mysql2 driver), `prisma` | `mysql` (deprecated), `sequelize` | mysql2 is the maintained driver |
 | Python | `aiomysql` or `PyMySQL` | `MySQLdb` | aiomysql for async |
-| Go | `go-sql-driver/mysql` | `ziutek/mymysql` | go-sql-driver is the standard |
+| Go | `go-sql-driver/mysql` | `ziutek/mymysql` | |
 
 ### SQLite
 
@@ -43,7 +42,7 @@
 |----------|--------|-------|-------|
 | TypeScript/Node.js | MongoDB Node.js driver v6 | `mongoose` (unless justified) | Mongoose adds ODM magic that can obscure query behaviour |
 | Python | `motor` (async) or `pymongo` | `mongoengine` | motor for FastAPI/asyncio |
-| Go | `mongo-driver` v2 | — | Official driver |
+| Go | `mongo-driver` v2 | — | |
 
 ### Redis
 
@@ -58,8 +57,8 @@
 | Language | Prefer | Avoid | Notes |
 |----------|--------|-------|-------|
 | TypeScript/Node.js | `@aws-sdk/client-dynamodb` + `@aws-sdk/lib-dynamodb` | `aws-sdk` v2 | AWS SDK v3 is modular and tree-shakeable |
-| Python | `boto3` + `botocore` | `pynamodb` (acceptable for ORM-style) | boto3 is the standard |
-| Go | `aws-sdk-go-v2` | `aws-sdk-go` v1 | v2 is modular |
+| Python | `boto3` + `botocore` | `pynamodb` (acceptable for ORM-style) | |
+| Go | `aws-sdk-go-v2` | `aws-sdk-go` v1 | |
 
 ---
 
@@ -67,11 +66,7 @@
 
 ### Firestore
 
-| Language | Prefer | Avoid | Notes |
-|----------|--------|-------|-------|
-| TypeScript/Node.js | `firebase-admin` (server) or `firebase` (client) | — | Use admin SDK for server-side |
-| Python | `google-cloud-firestore` | — | Official client |
-| Go | `cloud.google.com/go/firestore` | — | Official client |
+Official SDK per language: `firebase-admin` (server) / `firebase` (client) for Node.js, `google-cloud-firestore` for Python, `cloud.google.com/go/firestore` for Go.
 
 ---
 
@@ -90,11 +85,7 @@
 
 ### Neo4j
 
-| Language | Prefer | Avoid | Notes |
-|----------|--------|-------|-------|
-| TypeScript/Node.js | `neo4j-driver` | — | Official driver |
-| Python | `neo4j` Python driver | `py2neo` (unmaintained) | Official driver |
-| Go | `neo4j-go-driver` | — | Official driver |
+Official driver per language: `neo4j-driver` (Node.js), `neo4j` driver (Python), `neo4j-go-driver` (Go). Avoid `py2neo` (unmaintained).
 
 ---
 

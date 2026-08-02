@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * PreToolUse hook: ratchet — blocks silent weakening of acceptance criteria
- * and scope during loops/reversals (REQ-018, ADR-004, ADR-007, feature 0000016).
+ * and scope during loops/reversals (REQ-018, ADR-007, feature 0000016;
+ * approval mechanism amended by ADR-001, feature 0000017).
  * Same family as gate-write.mjs.
  *
  * Armed only while a loop or reversal is in flight: a plan/current/loop-state-*.md
@@ -11,20 +12,45 @@
  * section, or removing a bullet from an "## In Scope" / "## Scope" section, of a
  * plan/current/ markdown artifact. Additions (strengthening) always pass.
  *
- * Human approval path (ADR-004): plan/current/.ratchet-approve lists repo-relative
- * paths whose weakening is approved. A matching line is consumed on use
- * (single-use); every consumption is appended to plan/current/ratchet-log.md.
- * Agents must never write the marker — that is a Hard Limit in loop-runner.
+ * Human approval path (ADR-001, amends ADR-004): plan/current/.ratchet-approve
+ * holds one approval per line in the format `path | reason | timestamp`
+ * (pipe-delimited, 3 fields, reason verbatim from the human). A line missing
+ * the `|` delimiter or missing a field is malformed and is treated as no
+ * approval present for that line (the standard weakening-block applies).
+ *
+ * The agent MAY write this marker, but only when the human explicitly
+ * instructs it in the moment (path + reason + go-ahead, same turn) and the
+ * write is committed immediately in its own commit — that gating is an
+ * orchestrator-level (chat instruction) concern, not enforced by this hook.
+ *
+ * Same-uncommitted-changeset backstop (kept from ADR-004, extended by ADR-001):
+ * if a matching approval line exists but plan/current/.ratchet-approve itself
+ * has uncommitted changes (per `git status --porcelain`), the write is
+ * blocked with an EXPLICIT message naming the pending path and instructing
+ * the approver to commit the marker first — never a silent block. Best-effort:
+ * if git is unavailable/not a repo, this check is skipped (does not block).
+ *
+ * On consumption, the matched line is removed (file deleted when empty) and
+ * the full record (path, reason, timestamp) is copied into the permanent
+ * audit log at plan/ratchet-audit-log.md (top-level plan/, not plan/current/,
+ * so it survives both per-feature archiving at P7 and framework re-vendoring —
+ * see ADR-001 Affected Components). The reason field is capped at 500 chars
+ * in the audit log, truncated with a trailing marker if longer.
  *
  * Exit codes: 0 = pass, 2 = block. Unexpected errors exit 0 — hooks never block
  * a session unexpectedly (matching gate-write.mjs contract).
  */
 
+import { execFileSync } from "node:child_process";
 import {
   appendFileSync, existsSync, readFileSync, readdirSync, realpathSync,
   unlinkSync, writeFileSync,
 } from "node:fs";
 import { join, normalize, relative, resolve } from "node:path";
+
+const AUDIT_LOG_REL = join("plan", "ratchet-audit-log.md");
+const MAX_REASON_LEN = 500;
+const TRUNCATE_MARKER = " …[truncated]";
 
 function realpathSafe(p) {
   try { return realpathSync(p); } catch { return resolve(p); }
@@ -89,24 +115,83 @@ function proposedContent(toolInput, currentText) {
   return null;
 }
 
-function consumeApproval(planCurrent, relPath, removedLines) {
+/**
+ * Parses one .ratchet-approve line as `path | reason | timestamp`.
+ * Returns null (malformed => no approval) if the delimiter or any of the
+ * three fields is missing.
+ */
+function parseApprovalLine(rawLine) {
+  const line = rawLine.replace(/\r$/, "");
+  if (line.trim() === "") return null;
+  const parts = line.split("|").map((s) => s.trim());
+  if (parts.length !== 3) return null; // missing (or extra) '|' delimiter
+  const [path, reason, timestamp] = parts;
+  if (!path || !reason || !timestamp) return null; // missing a field
+  return { path, reason, timestamp };
+}
+
+/** Finds the first well-formed line in the marker approving `relPath`. */
+function findApproval(markerPath, relPath) {
+  if (!existsSync(markerPath)) return null;
+  let raw;
+  try { raw = readFileSync(markerPath, "utf-8"); } catch { return null; }
+  const lines = raw.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i++) {
+    const parsed = parseApprovalLine(lines[i]);
+    if (!parsed) continue;
+    if (norm(parsed.path) === norm(relPath)) return { index: i, lines, ...parsed };
+  }
+  return null;
+}
+
+/** Best-effort: true if `absPath` has uncommitted changes (or is untracked). */
+function isUncommitted(projectRoot, absPath) {
+  try {
+    const relToRoot = norm(relative(projectRoot, absPath));
+    const out = execFileSync("git", ["status", "--porcelain", "--", relToRoot], {
+      cwd: projectRoot, encoding: "utf-8",
+    });
+    return out.trim().length > 0;
+  } catch {
+    return false; // no git / not a repo — backstop skipped, not blocked
+  }
+}
+
+function truncateReason(reason) {
+  if (reason.length <= MAX_REASON_LEN) return reason;
+  return reason.slice(0, MAX_REASON_LEN) + TRUNCATE_MARKER;
+}
+
+function appendAuditLog(projectRoot, record) {
+  const auditPath = join(projectRoot, AUDIT_LOG_REL);
+  const entry = `- ${record.timestamp} | ${record.path} | ${truncateReason(record.reason)} `
+    + `| consumed ${new Date().toISOString()}\n`;
+  try { appendFileSync(auditPath, entry); } catch { /* logging best-effort */ }
+}
+
+/**
+ * Attempts to consume an approval for `relPath`. Returns one of:
+ *   { outcome: "no-approval" }               no matching well-formed line
+ *   { outcome: "uncommitted", path }          matched, but marker uncommitted
+ *   { outcome: "consumed" }                   matched, committed, now consumed
+ */
+function consumeApproval(planCurrent, projectRoot, relPath) {
   const markerPath = join(planCurrent, ".ratchet-approve");
-  if (!existsSync(markerPath)) return false;
-  let lines;
-  try { lines = readFileSync(markerPath, "utf-8").split(/\r?\n/); } catch { return false; }
-  const idx = lines.findIndex((l) => norm(l.replace(/#.*$/, "").trim()) === norm(relPath));
-  if (idx === -1) return false;
-  lines.splice(idx, 1);
-  const remaining = lines.filter((l) => l.trim() !== "");
+  const found = findApproval(markerPath, relPath);
+  if (!found) return { outcome: "no-approval" };
+
+  if (isUncommitted(projectRoot, markerPath)) {
+    return { outcome: "uncommitted", path: found.path };
+  }
+
+  const remaining = found.lines.filter((_, i) => i !== found.index).filter((l) => l.trim() !== "");
   try {
     if (remaining.length === 0) unlinkSync(markerPath);
     else writeFileSync(markerPath, remaining.join("\n") + "\n");
-    appendFileSync(
-      join(planCurrent, "ratchet-log.md"),
-      `- ${new Date().toISOString()} — approved weakening of \`${relPath}\` consumed marker; removed: ${removedLines.map((l) => JSON.stringify(l)).join(", ")}\n`,
-    );
-  } catch { /* logging best-effort */ }
-  return true;
+  } catch { /* best-effort — still record the consumption below */ }
+
+  appendAuditLog(projectRoot, found);
+  return { outcome: "consumed" };
 }
 
 async function main() {
@@ -141,16 +226,28 @@ async function main() {
   const removed = before.filter((l) => !after.has(l));
   if (removed.length === 0) process.exit(0); // strengthening or neutral
 
-  if (consumeApproval(planCurrent, relPath, removed)) process.exit(0);
+  const consumption = consumeApproval(planCurrent, projectRoot, relPath);
+  if (consumption.outcome === "consumed") process.exit(0);
 
-  const reason = [
-    `Ratchet: this write weakens ${relPath} while a loop is active.`,
-    ...removed.map((l) => `  removed: "${l}"`),
-    "Loops may strengthen criteria/scope but never weaken them (ADR-007).",
-    `If this weakening is intentional, a HUMAN must add the line "${relPath}"`,
-    "to plan/current/.ratchet-approve and re-run the write (single-use, ADR-004).",
-    "Agents must not write that marker themselves.",
-  ].join("\n");
+  let reason;
+  if (consumption.outcome === "uncommitted") {
+    reason = [
+      `Ratchet: an approval for ${consumption.path} exists in plan/current/.ratchet-approve,`,
+      "but that marker file itself is uncommitted.",
+      `Pending path: ${consumption.path}`,
+      "Commit plan/current/.ratchet-approve in its own dedicated commit, then retry this write.",
+    ].join("\n");
+  } else {
+    reason = [
+      `Ratchet: this write weakens ${relPath} while a loop is active.`,
+      ...removed.map((l) => `  removed: "${l}"`),
+      "Loops may strengthen criteria/scope but never weaken them (ADR-007).",
+      "If this weakening is intentional, add a line to plan/current/.ratchet-approve:",
+      `  ${relPath} | <reason> | <timestamp>`,
+      "(ADR-001: the agent may write this only on explicit human instruction, committed",
+      "immediately in its own dedicated commit before this write proceeds.)",
+    ].join("\n");
+  }
   console.log(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: "PreToolUse",

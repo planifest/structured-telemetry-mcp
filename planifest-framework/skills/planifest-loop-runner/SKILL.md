@@ -9,18 +9,16 @@ hooks:
 
 # Planifest - loop-runner
 
-> You define how every loop in the pipeline behaves. Loops iterate; you make sure they iterate *boundedly*, *observably*, and *recoverably*. Any skill that loops (P0 completeness, design-critic, reversal protocol, verify-by-execution, cross-model review, P4 validate) loads this skill for its mechanics and defines only its own rubric and pass condition. Improvements here propagate to every loop at once.
+> You define how every loop in the pipeline behaves. Loops iterate; you make sure they iterate *boundedly*, *observably*, and *recoverably*. Any skill that loops (P0 completeness, design-critic, reversal protocol, verify-by-execution, cross-model review, P4 validate) loads this skill for its mechanics and defines only its own rubric and pass condition.
 
 ---
 
 ## Hard Limits
 
 1. **Every loop has an armed stop rule before its first iteration.** No cap, no loop.
-2. **Agents never write `plan/current/.ratchet-approve`.** That marker is the human's approval instrument (ADR-004). Writing it yourself is a violation, not a workaround.
+2. **Agents write `plan/current/.ratchet-approve` only on explicit human instruction — never on their own initiative.** The human must state the path, the reason, and the go-ahead in the same turn (0000017 ADR-001, superseding ADR-004's blanket prohibition). The line format is `path | reason | timestamp` with the human's exact reason text transcribed verbatim — note a reason containing a `|` character invalidates the line (strict 3-field parse, fails closed). The write is committed immediately, in its own dedicated commit, before any further work proceeds — the hook's same-uncommitted-changeset backstop blocks the guarded edit with an explicit message if this step is skipped. Writing the marker without that explicit in-the-moment instruction remains a violation, not a workaround.
 3. **Budget counters are never reset by an agent.** They live in the loop-state file, are git-tracked, and survive interrupt/resume (ADR-007).
 4. **Run-log records are append-only.** Never rewrite a prior iteration's record.
-
----
 
 ## Toggle Protocol (ADR-003)
 
@@ -29,19 +27,14 @@ Before arming any loop, read `planifest-overrides/loop-toggles.yml` (see `templa
 - Absent file, absent key, or unreadable/invalid value → the loop is **off**. Emit a one-line warning only for an invalid value on a known key.
 - `report-only` → run the loop, write findings/verdicts, block nothing, mutate nothing.
 - `on` → verdicts gate progression per the owning skill's rules.
-- With every toggle off, pipeline behaviour is identical to a pipeline without loop support — zero-config regression guarantee.
 
 The framework never creates `planifest-overrides/loop-toggles.yml`; enabling a loop is always a deliberate human act.
-
----
 
 ## Loop State (per instance)
 
 Create `plan/current/loop-state-{loop-id}.md` from `templates/loop-state.template.md` when the loop arms. Update and **commit after every iteration** — the state file is how an interrupted session resumes mid-loop (`Px: Resuming…` convention), and how budget counters survive resume.
 
 While any loop-state file has `status: active`, the `ratchet-check.mjs` hook is armed for `plan/current/` artifact writes. Set `status: done` or `status: escalated` when the loop exits — never leave a dead loop armed.
-
----
 
 ## The Iteration Cycle
 
@@ -66,7 +59,7 @@ Armed on every loop, checked at every DECIDE:
 | no-progress | The same gap/finding survives **2 consecutive iterations** without measurable change | `escalate` — do not spend the remaining cap restating the problem |
 | Budget | The relevant budget counter (e.g. reversal budget 2/feature) is exhausted | `escalate` — always to the human, regardless of run mode |
 
-Caps and budgets are enforced by orchestrator control flow reading the state file — not by this text (ADR-007). If you find yourself rationalizing "one more iteration past the cap", the control flow will stop you; file what you have.
+Caps and budgets are enforced by orchestrator control flow reading the state file — not by this text (ADR-007).
 
 ## Escalation Format
 
@@ -77,10 +70,6 @@ Px: Blocked — {loop-id}: {one-line outstanding finding}
 Escalation context: plan/current/loop-state-{loop-id}.md
 ```
 
-The escalation carries **full context in the state file** — a human or a fresh session must need nothing from the dead conversation.
-
----
-
 ## Telemetry
 
 Per `telemetry-standards.md` emission gate. After every RECORD step:
@@ -89,5 +78,3 @@ Per `telemetry-standards.md` emission gate. After every RECORD step:
 ```json
 { "loop_id": "<loop-id>", "iteration": <n>, "cap": <cap>, "decision": "continue | done | escalate", "toggle_level": "report-only | on" }
 ```
-
-Emission is async and non-blocking — a telemetry failure is logged once and never stops a loop.

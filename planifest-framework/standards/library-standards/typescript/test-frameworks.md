@@ -8,7 +8,7 @@
 |-----------|-------------------|-------|-------|
 | Unit | `vitest` | `jest`, `mocha`, `jasmine` | Vitest is faster, native ESM, compatible with Vite projects |
 | Integration | `vitest` | `jest` | Same runner; use `vi.fn()` for mocks |
-| Contract | `pact` | hand-rolled JSON comparison | Pact provides consumer-driven contract testing |
+| Contract | `pact` | hand-rolled JSON comparison | |
 | E2E | `playwright` | `cypress`, `selenium`, `puppeteer` | Playwright supports all browsers, has better async handling |
 | Performance / load | `k6` | `artillery`, `locust` | k6 scripts in TypeScript/JavaScript; good CI integration |
 

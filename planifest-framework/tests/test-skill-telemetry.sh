@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Validates that all 8 SKILL.md files contain the required Telemetry section.
 # Covers: REQ-004 (gate text), REQ-006 (event coverage per skill)
+# Gate text updated 0000018 (ADR-001/ADR-002): the old "skip silently if
+# unavailable" framing and the literal ".claude/telemetry-enabled" sentinel
+# reference are replaced by the unified-signal, mandatory-emission,
+# interactive-failure gate. See telemetry-standards.md for the full protocol.
 
 set -uo pipefail
 
@@ -38,8 +42,9 @@ check_skill() {
 
   assert_contains "## Telemetry"            "$content" "$skill: has ## Telemetry section"
   assert_contains "emit_event"              "$content" "$skill: gate references emit_event"
-  assert_contains "telemetry-enabled"       "$content" "$skill: gate references telemetry-enabled"
-  assert_contains "skip silently"           "$content" "$skill: gate specifies silent skip"
+  assert_contains "nified signal"           "$content" "$skill: gate references the unified signal (0000018)"
+  assert_contains "mandatory, not best-effort" "$content" "$skill: gate specifies mandatory emission, not silent skip"
+  assert_contains "lock until resolved"     "$content" "$skill: gate specifies the interactive block-or-proceed protocol"
   assert_contains "phase_start"             "$content" "$skill: emits phase_start"
   assert_contains "phase_end"               "$content" "$skill: emits phase_end"
 }

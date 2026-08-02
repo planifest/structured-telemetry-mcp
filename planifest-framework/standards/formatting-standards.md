@@ -1,7 +1,5 @@
 # Formatting Standards
 
-> Applies to all agents in all phases. These rules govern how Planifest agents write prose, dates, and responses. They are not suggestions.
-
 ---
 
 ## 1. Date Format
@@ -17,8 +15,6 @@ All human-readable dates in document body text, changelogs, ADRs, plans, comment
 | 02 May 2026 | 2026-05-02 |
 | 14 Jan 2025 | 01/14/2025 |
 | 07 Dec 2024 | 07/12/2024 |
-
-The day is zero-padded to two digits. The month is the three-letter English abbreviation with an initial capital. The year is four digits.
 
 ### Filename prefixes — YYYY-MM-DD
 
@@ -40,37 +36,11 @@ Frontmatter `date:` fields and JSON date values use **YYYY-MM-DD**.
 
 All Planifest prose, labels, comments, template text, and documentation use **British English** spellings.
 
-### Examples
-
-| British (correct) | American (incorrect in prose) |
-|-------------------|-------------------------------|
-| colour | color |
-| organise | organize |
-| licence (noun) | license (noun) |
-| behaviour | behavior |
-| analyse | analyze |
-| centre | center |
-| recognise | recognize |
-
 > **Exceptions:** `artifact`, `initialize`, `serialize`, `disk`, and `program` use American spelling in all contexts. See `planifest-framework/standards/language-quirks-en-gb.md` for the full exception list.
 
 ### Code identifier exception
 
-Code identifiers (variable names, function names, CSS properties, method names, type names) follow the conventions of the language or framework in use. American English in identifiers is acceptable — and sometimes required — where it is the ecosystem norm.
-
-| Context | Rule |
-|---------|------|
-| CSS property `color` | American spelling — ecosystem norm |
-| Ruby method `initialize` | American spelling — ecosystem norm |
-| React prop `className` | American spelling — ecosystem norm |
-| Comment explaining what `color` does | British spelling if writing prose |
-| Markdown document prose | British spelling always |
-
-### Current language support
-
-Planifest currently supports **English only** and defaults to **British English**.
-
-Multilingual support is planned for a future release. When implemented, locale will be configurable at the repo level via `planifest-overrides/`. Until then, all agents default to British English for all prose output.
+Code identifiers follow the conventions of the language or framework in use. American English in identifiers is acceptable — and sometimes required — where it is the ecosystem norm.
 
 ---
 
@@ -93,18 +63,6 @@ Planifest agents default to the **shortest response that fully communicates the 
 
 **Brief (correct):**
 > Done. Gap 6 added — business goal, closing paragraph, and acceptance criteria updated.
-
-**Verbose (incorrect):**
-> I am now going to read the gate-write hook to understand its current structure before making modifications.
-
-**Brief (correct):**
-> *(just read the file — no narration needed)*
-
-**Verbose (incorrect):**
-> That is a great point! I will update the document to reflect this change right away.
-
-**Brief (correct):**
-> *(just make the change)*
 
 ### When explanation is appropriate
 

@@ -1,5 +1,4 @@
 ﻿# Planifest Component Manifest
-# See p007 for the full Domain Knowledge Service schema.
 id: "{{component-id}}"
 name: "{{Human-Readable Name}}"
 feature: "{{feature-id}}"
@@ -12,11 +11,9 @@ systemContext: "Where this component sits in the wider system and why it exists.
 
 responsibilities:
   - "First thing this component is responsible for"
-  - "Second thing this component is responsible for"
 
 exceptions:
   - "Explicit exclusion - what this component must NOT do"
-  - "Another exclusion - equally important as responsibilities"
 
 stack:
   language: "typescript | go | python | rust"
@@ -57,26 +54,20 @@ data:
 scope:
   inScope:
     - "What is explicitly in scope for this component"
-  outOfScope:
-    - "What is explicitly out of scope"
-  deferred:
-    - "What is deferred to a future feature"
+  outOfScope: []
+  deferred: []
 
 risk:
   level: "low | medium | high | critical"
-  items:
-    - "Item 1"
-    - "Item 2"
+  items: []
 
 quality:
   testCoverage:
     unit: 0
     integration: 0
     e2e: 0
-  techDebt:
-    - "Debt item 1"
-  quirks:
-    - "Quirk 1"
+  techDebt: []
+  quirks: []
 
 pipeline:
   templateVersion: "1.0.0"
@@ -91,4 +82,3 @@ metadata:
   skill: "{{skill-name}}"
   tool: "{{agentic-tool-name}}"
   model: "{{model-name-and-version}}"
-

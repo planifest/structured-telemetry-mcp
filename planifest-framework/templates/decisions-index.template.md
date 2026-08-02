@@ -5,15 +5,11 @@
 
 Last updated: {feature-id}
 
----
-
 ## All Architecture Decision Records
 
 | ADR | Title | Feature | Status | Summary |
 |-----|-------|---------|--------|---------|
 | ADR-001 | {title} | {feature-id} | active / superseded / amended | {one-line decision and consequence} |
-
----
 
 ## Status Definitions
 
@@ -22,7 +18,3 @@ Last updated: {feature-id}
 | active | Decision stands; implementation follows it |
 | superseded | Replaced by a later ADR (reference provided in the ADR body) |
 | amended | Core decision unchanged but conditions or scope updated |
-
----
-
-*Template: decisions-index.template.md*

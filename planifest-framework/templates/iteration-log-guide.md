@@ -63,7 +63,7 @@ When reviewing a PR that was produced by Planifest:
 
 `plan/changelog/{feature-id}-<YYYY-MM-DD>.md`
 
-If phased: `plan/iteration-log-phase-{n}.md`
+If waved: `plan/iteration-log-wave-{n}.md`
 
 ---
 

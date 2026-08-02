@@ -26,38 +26,19 @@ When `Build target: docker` is declared in `plan/current/design.md`:
 
 ## Input
 
-**Precision Reading Protocol:**
-Do not read the entire `plan/` directory unconditionally. This wastes context tokens.
+**Precision Reading Protocol:** scope your context by navigating precisely — do not read the entire `plan/` directory unconditionally.
 
-> **Context-Mode Protocol:** When `ctx_execute_file` is available, use it for **analysis-only** reads (exploring structure, checking patterns, scanning for issues). Use the `Read` tool only when you need file content in context to edit it. For grepping across `src/`, use `ctx_execute(language:"shell", code:"grep ...")` — only your printed summary enters context.
+> **Context-Mode Protocol:** when available, use `ctx_execute_file` for analysis-only reads and `ctx_execute(language:"shell")` for grepping across `src/`; use `Read` only when editing.
 
-1. Scope your context by navigating precisely:
-   - Component Manifest at `src/{component-id}/component.yml` - read the YAML frontmatter first to determine if the body is needed.
-   - Execution Plan at `plan/current/execution-plan.md` - read for architecture overview.
-   - Individual Features at `plan/current/requirements/*.md` - **ONLY** read the specific requirement file you are actively implementing.
-   - OpenAPI Specification at `plan/current/openapi-spec.yaml` (if applicable).
-   - Domain Glossary at `plan/current/domain-glossary.md`.
+- Component Manifest at `src/{component-id}/component.yml` - read the YAML frontmatter first to determine if the body is needed.
+- Execution Plan at `plan/current/execution-plan.md` - read for architecture overview.
+- Individual Features at `plan/current/requirements/*.md` - **ONLY** read the specific requirement file you are actively implementing.
+- OpenAPI Specification at `plan/current/openapi-spec.yaml` (if applicable).
+- Domain Glossary at `plan/current/domain-glossary.md`.
 - Data Contracts at `src/{component-id}/docs/data-contract.md` (if they exist)
 - Code Quality Standards at [code-quality-standards.md](../standards/code-quality-standards.md)
 
----
-
-## Capability Skills
-
-Before generating code, check whether relevant capability skills are available for the declared stack. Load them alongside this skill. Capability skills encode craft - how to write good components in a specific technology. This skill encodes discipline - what to build and why.
-
-Examples of relevant capability skills by stack component:
-
-| Stack component | Capability skill (if available) | What it provides |
-|---|---|---|
-| React frontend | `frontend-design` | Production-grade UI patterns, component structure |
-| Web application tests | `webapp-testing` | Test strategy, patterns, coverage approach |
-| MCP servers | `mcp-builder` | MCP server best practices (relevant for future roadmap items) |
-| Document generation | `docx`, `pdf`, `xlsx` | Document format skills (if the feature produces non-markdown artifacts) |
-
-If a relevant capability skill exists, load it. If not, proceed with your own knowledge. Do not invent a skill reference that does not exist.
-
----
+Before generating code, check whether relevant capability skills are available for the declared stack (e.g. `frontend-design` for React, `webapp-testing` for test strategy) and load them alongside this skill. If none exists, proceed with your own knowledge. Do not invent a skill reference that does not exist.
 
 ## What You Produce
 
@@ -75,22 +56,9 @@ Full implementation at `src/{component-id}/`:
 
 ## Multi-Component Sequencing
 
-When the feature defines multiple components, build them in dependency order:
-
-1. **Read the confirmed design** to identify all components and their dependency relationships
-2. **Build shared packages first** - types, validation schemas, contracts that other components import
-3. **Build data-owning components next** - these define the schema that dependent components consume
-4. **Build dependent components last** - API consumers, frontends, workers that read from other components
-5. **Build each component fully** (code + tests + docs) before starting the next
+When the feature defines multiple components, build them in dependency order: shared packages first, then data-owning components, then dependent components (API consumers, frontends, workers) last, each built fully (code + tests + docs) before starting the next.
 
 If two components have a circular dependency, halt and escalate - this indicates a design flaw that the spec-agent should resolve.
-
-Between components, verify:
-- Shared types are importable by the next component
-- API contracts match between producer and consumer
-- Data contracts are consistent across component boundaries
-
----
 
 ## Library Standards — Pre-Scaffold Check
 
@@ -106,28 +74,23 @@ Before writing any dependency manifest (`package.json`, `pyproject.toml`, `go.mo
 
 If `planifest-overrides/` does not exist or the language subdir is a stub (contains `TODO: populate`), skip the override check and use framework defaults. If the framework subdir is also a stub, skip the library audit for that language and proceed.
 
----
-
 ## Rules
 
-**One question at a time.** When you need human input — to resolve a blocker, escalate a TDD failure, or confirm a deviation — ask one question, wait for the answer, then continue. Lead with a recommendation where you can derive one. Never present a list of questions.
+**One question at a time.** When you need human input — to resolve a blocker, escalate a TDD failure, or confirm a deviation — ask one question.
 
 **Implement against the requirements:**
 - If building an API, the OpenAPI spec defines the contract. Implement every endpoint it describes. Do not add or remove endpoints.
 - The ADRs define the decisions. Follow them. If an ADR is wrong, flag it - do not override it silently.
 - The stack configuration defines the technology. Do not introduce frameworks, libraries, or tools not declared in it.
-- Different stacks have different agent characteristics. The [Stack Summary](../standards/stack-summary.md) documents these trade-offs (with links to full evaluations if needed). Be deliberately attentive to known agent pitfalls:
-  - **Backend pitfalls:** missing `await` in Node.js, `any` escape hatch in TypeScript, verbose error messages in Rust.
-  - **Frontend pitfalls:** `useEffect` dependency arrays in React, stale closures, state management sprawl, hydration mismatches in SSR frameworks, and generic "AI slop" visual output without constrained design vocabulary (e.g. shadcn/ui).
+- The [Stack Summary](../standards/stack-summary.md) documents per-stack agent-characteristic trade-offs; be deliberately attentive to known agent pitfalls in the declared stack.
 
 **Deviation & Escalation Protocol:**
-- Software engineering is inherently discovery-driven. If a fundamental architectural blocker is identified that makes the pre-set specification flawed, you are empowered to manage it. You have two choices:
-  1. **Documented Deviation:** Proceed with an alternative path. Ensure the specific deviation and its justification are explicitly flagged in the final component manifest and `src/{component-id}/docs/quirks.md`.
+- If a fundamental architectural blocker makes the pre-set specification flawed, you have two choices:
+  1. **Documented Deviation:** Proceed with an alternative path. Flag the deviation and its justification in the final component manifest and `src/{component-id}/docs/quirks.md`.
   2. **Escalation (Stop-and-Ask):** Pause the build immediately if continuing would be wasteful or deviate too far from the original intent. Request a human review of the Plan and the encountered blocker before proceeding.
 
 **Domain language:**
 - Use the domain glossary terms throughout - in code, comments, file names, variable names.
-- If the glossary defines "Order" and you name a variable "purchase", that is a defect.
 
 **Data contracts:**
 - Before writing any component that owns data, check whether a data contract exists at `src/{component-id}/docs/data-contract.md`. If one exists, implement against it. If none exists, create one there before writing any schema code.
@@ -179,25 +142,14 @@ Recommended action: {what the human should do}
 **Code quality:**
 - Follow the standards in [Code Quality Standards](../standards/code-quality-standards.md). These are non-negotiable.
 - Organise by feature, not by type. Group related logic, types, tests, and validation together.
-- Keep functions short and single-purpose. Keep components focused. Keep modules small enough to regenerate entirely.
-- Read existing code patterns before generating new code. Match the conventions already established in the codebase.
-- Every module should pass the review test: a senior engineer should approve this in a PR review.
 
 **Shared types:**
 - All types shared between frontend and backend must be defined once in the shared package and imported by both. Never duplicate type definitions.
 
 **Testing & Requirement Traceability:**
 - Every functional requirement from `plan/current/requirements/` MUST have a mapped test case. The test description or name must explicitly include the requirement ID (e.g., `describe('req-001-auth: login flow', ...)`).
-- Every endpoint must have a corresponding integration test.
-- Every pure function must have a corresponding unit test.
 - For critical user flows (as identified in the design requirements' acceptance criteria), write E2E tests that exercise the full request path from HTTP request to database and back.
-- Use the testing framework declared in the stack configuration.
-- Run tests iteratively yourself to boundary semantic correctness before moving to the next requirement.
 - Follow the [Testing Standards](../standards/testing-standards.md) for test structure, data management, and mocking boundaries.
-
-**Infrastructure:**
-- IaC must be parameterised - no hardcoded environment values.
-- Dockerfiles must be multi-stage if the stack uses containers.
 
 **Component manifest - complete after build:**
 - After the implementation is built, update `component.yml` to reflect what was actually implemented.
@@ -206,7 +158,6 @@ Recommended action: {what the human should do}
 - Complete the `pipeline` section: set `templateVersion` and `domainKnowledgePath`.
 - Update `metadata.updatedAt` and `metadata.lastModifiedBy`.
 - Increment `version` to `0.1.0` on first build.
-- See the [Component Template](../templates/component.template.yml) for the full schema.
 
 **Framework component.yml close-out:**
 - If any file under `planifest-framework/` was modified during this P3 run, update `planifest-framework/component.yml` before committing:
@@ -219,74 +170,26 @@ Recommended action: {what the human should do}
 - If something doesn't fit cleanly, write it to `src/{component-id}/docs/quirks.md` and add it to the `quality.quirks` array in `component.yml`. Do not silently work around it.
 - If you discover tech debt, write it to `src/{component-id}/docs/tech-debt.md` and add it to the `quality.techDebt` array in `component.yml`.
 
----
+## Parallel Dispatch Checklist
 
-## Parallelism Directive
+Follows the orchestrator's canonical Parallelism Directive. Independent implementation work MUST be parallelised. Run this checklist **before writing any implementation code**:
 
-Independent implementation work MUST be parallelised. Components with no shared state or cross-dependencies MUST be generated in parallel.
+1. **List all requirements** for this phase from `plan/current/requirements/`.
+2. **Map dependencies** — a requirement depends on another only if it imports types from it, reads files it produces, or builds on a contract it defines.
+3. **Dispatch all leaf requirements** (no dependencies on siblings) **in a single parallel batch** — one Agent call per requirement in a single message; wait for them to complete, then dispatch dependent requirements in the next batch.
+4. **Record batch count in build log.**
 
 | MUST parallelise | Cannot parallelise |
 |------------------|--------------------|
 | Independent component implementations (no imports between them) | Component B that imports types from Component A |
-| Test file and implementation file for a single component (write together in one pass, not sequentially) | Implementation before its ADRs are accepted |
-| TDD sub-agents for independent requirements (planifest-test-writer + planifest-implementer for req-001 while req-002 is being reviewed) | Next requirement before current RED→GREEN cycle completes |
-| Codebase discovery searches across different areas | Code that depends on shared type resolution |
-
-**In practice:** When implementing a multi-component feature, check the dependency graph. All leaf components (no dependencies on siblings) MUST be built in a single parallel batch before building components that depend on them.
-
----
-
-## Parallel Dispatch Checklist
-
-Run this checklist **before writing any implementation code**. Do not skip it.
-
-1. **List all requirements** for this phase from `plan/current/requirements/`.
-2. **Map dependencies** — for each requirement, note which (if any) other requirements it depends on. A requirement depends on another only if it imports types from it, reads files it produces, or builds on a contract it defines.
-3. **Identify leaf requirements** — requirements with no dependencies on siblings.
-4. **Dispatch all leaf requirements in a single parallel batch** — one Agent call per requirement in a single message. Do not dispatch sequentially.
-5. **Wait for all leaf requirements to complete**, then dispatch dependent requirements in the next batch.
-6. **Record batch count in build log** — note how many parallel batches you dispatched.
-
-**Concrete example** (three requirements, two leaves, one dependent):
-
-```
-# Requirements: REQ-001 (no deps), REQ-002 (no deps), REQ-003 (depends on REQ-001)
-# Batch 1: dispatch REQ-001 and REQ-002 in parallel
-
-Agent({
-  description: "Implement REQ-001",
-  subagent_type: "general-purpose",
-  model: "claude-haiku-4-5",
-  prompt: "Implement REQ-001 per plan/current/requirements/req-001-....md. Stack: [stack]. ADRs: [paths]. Confirm when done."
-})
-
-Agent({
-  description: "Implement REQ-002",
-  subagent_type: "general-purpose",
-  model: "claude-haiku-4-5",
-  prompt: "Implement REQ-002 per plan/current/requirements/req-002-....md. Stack: [stack]. ADRs: [paths]. Confirm when done."
-})
-
-# After both complete:
-# Batch 2: dispatch REQ-003 (which depends on REQ-001's output)
-
-Agent({
-  description: "Implement REQ-003",
-  subagent_type: "general-purpose",
-  model: "claude-haiku-4-5",
-  prompt: "Implement REQ-003 per plan/current/requirements/req-003-....md. REQ-001 is complete — its output is at [path]. Stack: [stack]. ADRs: [paths]. Confirm when done."
-})
-```
+| Test file and implementation file for a single component (write together in one pass) | Implementation before its ADRs are accepted |
+| TDD sub-agents for independent requirements | Next requirement before current RED→GREEN cycle completes |
 
 If you cannot identify any parallelism opportunity, state the dependency reason explicitly in the build log before proceeding sequentially.
 
----
-
 ## Telemetry
 
-See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership.
-
-**Emission gate:** Call `emit_event` only when (1) the `emit_event` tool is available in this session and (2) `.claude/telemetry-enabled` exists in the project root. If either condition fails, skip silently — do not emit.
+See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership. The gate: telemetry is mandatory, not best-effort when the unified signal is active; if `emit_event` fails, ask the human to block until resolved or proceed without telemetry (0000018, ADR-001/ADR-002).
 
 **`deviation`** — when implementation diverges from the confirmed design:
 ```json
@@ -308,8 +211,6 @@ See `planifest-framework/standards/telemetry-standards.md` for the full event en
 { "phase_name": "codegen", "action_id": "<action>", "attempt_count": 5 }
 ```
 
----
-
 ## Commit Cadence (Hard Limit 7)
 
-Commit after every meaningful artifact write — each requirement doc, ADR, completed TDD cycle, fix batch, or report — not batched to the phase gate. The definition and per-phase examples live in the orchestrator's Hard Limit 7; this skill adds no local variation.
+Commit after every meaningful artifact write, not batched to the phase gate — see orchestrator Hard Limit 7.

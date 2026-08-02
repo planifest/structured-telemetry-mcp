@@ -5,21 +5,15 @@
 
 Last updated: {feature-id}
 
----
-
 ## System Summary
 
 {2-3 sentence description of what this system does and who it serves}
-
----
 
 ## Components
 
 | Component | Type | Purpose | Status |
 |-----------|------|---------|--------|
 | {component-id} | microservice / frontend / library | {one-liner} | active / deprecated |
-
----
 
 ## Communication Patterns
 
@@ -29,15 +23,11 @@ flowchart LR
     B -->|{method}| C[{component}]
 ```
 
----
-
 ## Data Ownership
 
 | Data Store | Owner | Consumers |
 |------------|-------|-----------|
 | {store} | {component-id} | {read-only consumers} |
-
----
 
 ## External Dependencies
 
@@ -45,14 +35,6 @@ flowchart LR
 |-----------|------|----------------------|
 | {service / library} | API / npm / database | {component-id} |
 
----
-
 ## Key Architectural Decisions
 
-Reference ADRs from `docs/decisions-index.md` that shaped this architecture.
-
 - {ADR-001}: {one-line summary of decision and consequence}
-
----
-
-*Template: architecture-overview.template.md*

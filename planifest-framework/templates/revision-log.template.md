@@ -5,9 +5,7 @@ summary: "One entry per artifact rev-bumped by a granted reversal — the audit 
 # Revision Log - {{feature-id}}
 
 > Path: `plan/current/revision-log.md`. Created on the first granted reversal.
-> Every artifact revised by a reversal gets exactly one entry per revision.
-> Together with the defect report, verdict, cascade list, and gate record this
-> makes each reversal reconstructable from artifacts alone (NFR-005).
+> Every artifact revised by a reversal gets exactly one entry per revision (NFR-005).
 
 | # | Artifact | Version | Defect Report | Classification | Date |
 |---|----------|---------|---------------|----------------|------|

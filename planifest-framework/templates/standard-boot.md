@@ -22,7 +22,7 @@ This project uses the confirmed design framework. These rules are non-negotiable
 
 ## Hook Enforcement
 
-Planifest installs deterministic enforcement hooks via `setup.sh`. These run automatically:
+Planifest installs these deterministic enforcement hooks via `setup.sh`:
 
 - **gate-write** (PreToolUse: Write, Edit): Blocks writes to `src/` unless `plan/current/design.md` exists AND the target path matches a declared component. Writes to `plan/`, `docs/`, and other always-permitted paths are never blocked.
 - **auto-trigger-orchestrator** (UserPromptSubmit): At the start of every session in a Planifest project (`planifest-framework/` present and `plan/.orchestrator-active` absent), automatically loads the `planifest-orchestrator` skill before the first prompt is processed. This is the primary trigger mechanism for Claude Code. For tools without `UserPromptSubmit` hook support (Cursor, Windsurf, Cline, etc.): **at the start of every session in a Planifest project, load the `planifest-orchestrator` skill** before doing any other work.
@@ -32,8 +32,6 @@ Planifest installs deterministic enforcement hooks via `setup.sh`. These run aut
 - **emit-phase-start / emit-phase-end**: Structured telemetry for pipeline phases (no-op if `PLANIFEST_TELEMETRY_URL` is unset).
 
 Enforcement failures exit 2 and surface a human-readable message. All unexpected errors exit 0 — hooks never block your session unexpectedly.
-
-Hook enforcement is active: `gate-write.mjs` blocks writes outside confirmed design scope; `check-design.mjs` injects scope context on every turn. Manual scope checks in these instructions are retained as documentation but are now redundant enforcement.
 
 ## Escalation
 

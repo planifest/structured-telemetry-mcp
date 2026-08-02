@@ -8,7 +8,7 @@
 |-----------|-------------------|-------|-------|
 | Unit | `pytest` | `unittest` | pytest fixtures, parametrise, and plugins are far superior to unittest |
 | Integration | `pytest` + `httpx` (async client) | `requests` in tests | Use httpx AsyncClient with FastAPI's TestClient |
-| Contract | `pact-python` | hand-rolled | Consumer-driven contract testing |
+| Contract | `pact-python` | hand-rolled | |
 | E2E | `playwright` (Python) | `selenium` | Playwright Python bindings are well maintained |
 | Performance / load | `locust` | `ab`, manual | Locust is scriptable Python, has web UI |
 

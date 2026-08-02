@@ -1,7 +1,7 @@
 id: "planifest-framework"
 name: "Planifest Framework"
-feature: "backlog-triage-2026-07-11"
-version: "0.16.1"
+feature: "0000021-framework-context-bloat-audit"
+version: "0.21.0"
 status: "active"
 type: "component-pack"
 domain: "developer-tooling"
@@ -42,6 +42,10 @@ responsibilities:
   - "Govern P0-P6 phase reversals: defect report, assessor verdict, scoped correction, 2/feature budget"
   - "Block silent weakening of acceptance criteria/scope during loops via ratchet-check hook"
   - "Verify acceptance criteria by executing the software at P4 via planifest-verify-by-execution"
+  - "Refresh an existing install without manual flag reverse-engineering via planifest-refresh-setup (standalone skill)"
+  - "Record the flags used at install time in a per-tool marker file (.planifest-setup-flags) at the end of setup.sh/setup.ps1"
+  - "Maintain a populated tests/regression/ pack as the safety net for cross-cutting skill/standards/template changes, gated by human review of the promoted test list before any baseline run"
+  - "Bound skill-content growth via a recorded audit-findings-report + dual-guardrail trim process (no enforcement-content loss, no ambiguity regression), never applied without a pre-recorded regression-pack baseline to compare against"
 
 exceptions:
   - "Does not write to planifest-overrides/ — that directory is user-owned"
@@ -108,6 +112,7 @@ scope:
     - "ratchet-check.mjs enforcement hook, consistency-check.mjs and product-version.mjs scripts"
     - "planifest-loop-runner, planifest-design-critic, planifest-reversal-assessor, planifest-verify-by-execution skills"
     - "Loop/reversal telemetry event types and planifest-overrides/loop-toggles.yml (all default off)"
+    - "tests/regression/ population and baseline-vs-post-trim comparison for skill/standards/template content edits"
   outOfScope:
     - "Application-level code generation (handled by planifest-codegen-agent)"
     - "CI pipeline configuration for consumer projects"
@@ -120,11 +125,12 @@ risk:
   items:
     - "Path translation on Windows/Git Bash requires cygpath guards in tests"
     - "Telemetry backend URL is env-var controlled — misconfiguration sends events to wrong endpoint"
+    - "Aggressive skill/instruction trimming can leave technically-complete but ambiguous wording that increases future agent confusion or retries even without losing enforcement content — mitigated by the regression-pack baseline comparison introduced in 0000021"
 
 quality:
   testCoverage:
     unit: 0
-    integration: 316
+    integration: 414
     e2e: 0
   techDebt: []
   quirks:
@@ -141,11 +147,12 @@ pipeline:
 
 metadata:
   createdAt: "2026-05-02"
-  updatedAt: "2026-07-11"
-  # Updated by backlog-triage-2026-07-11 (change-agent): fixed test-harness
-  # portability bugs and doc drift from backlog 0000001/0000003/0000004/0000006/0000007
+  updatedAt: "2026-08-01"
+  # Updated by 0000021 (spec-agent) P1: seeded requirements-derived
+  # responsibilities/scope/risk entries for the regression-pack and
+  # audit-findings-report/guardrailed-trim process ahead of P3 codegen.
   createdBy: "agent"
   lastModifiedBy: "agent"
-  skill: "planifest-change-agent"
+  skill: "planifest-spec-agent"
   tool: "claude-code"
   model: "claude-sonnet-5"

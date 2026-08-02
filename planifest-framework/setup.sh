@@ -267,20 +267,39 @@ copy_workflow() {
   echo "  + workflows/${name}.md"
 }
 
+context_mode_hook_command() {
+  # Builds the PreToolUse command string for a context-mode .mjs hook
+  # (REQ-004, 0000017 ADR-002). No Unix-shell dependency: `node <script>` is
+  # plain-invocation syntax understood by cmd.exe, PowerShell, and POSIX
+  # shells alike — no bash entry point, no jq. The `||` fallback surfaces a
+  # clear runtime message and still fails open (exit 0, no deny JSON) when
+  # the Node.js runtime itself is missing.
+  local hooks_dir="$1"
+  local script_name="$2"
+  local script_path="$hooks_dir/$script_name"
+  printf 'node "%s" || echo "[Planifest] context-mode enforcement (%s) did not run: Node.js runtime not found. Tool call proceeded unblocked." 1>&2' \
+    "$script_path" "$script_name"
+}
+
 merge_hook_settings() {
-  # Merge PreToolUse hook entries into .claude/settings.json (REQ-004)
+  # Merge PreToolUse hook entries into .claude/settings.json (REQ-004, 0000017 req-004)
   # Uses additive merge: existing content is preserved; Grep/Bash/WebFetch entries
   # are removed then re-added to ensure idempotency on re-run.
-  # Requires jq or node.
+  # Requires jq or node (to edit settings.json) — the hooks themselves are .mjs.
   local settings_file="$1"
   local hooks_dir="$2"  # relative path used in the command value (e.g. .claude/hooks/context-mode)
+
+  local grep_cmd bash_cmd fetch_cmd
+  grep_cmd=$(context_mode_hook_command "$hooks_dir" "block-grep.mjs")
+  bash_cmd=$(context_mode_hook_command "$hooks_dir" "block-bash.mjs")
+  fetch_cmd=$(context_mode_hook_command "$hooks_dir" "block-webfetch.mjs")
 
   if command -v jq >/dev/null 2>&1; then
     local new_hooks
     new_hooks=$(jq -n \
-      --arg grep_cmd  "$hooks_dir/block-grep.sh" \
-      --arg bash_cmd  "$hooks_dir/block-bash.sh" \
-      --arg fetch_cmd "$hooks_dir/block-webfetch.sh" \
+      --arg grep_cmd  "$grep_cmd" \
+      --arg bash_cmd  "$bash_cmd" \
+      --arg fetch_cmd "$fetch_cmd" \
       '[
         {"matcher":"Grep",     "hooks":[{"type":"command","command":$grep_cmd}]},
         {"matcher":"Bash",     "hooks":[{"type":"command","command":$bash_cmd}]},
@@ -307,14 +326,14 @@ merge_hook_settings() {
       echo "  + .claude/settings.json (created with context-mode hook entries)"
     fi
   elif command -v node >/dev/null 2>&1; then
-    PLANIFEST_HOOKS_DIR="$hooks_dir" PLANIFEST_SETTINGS="$settings_file" node -e '
+    PLANIFEST_GREP_CMD="$grep_cmd" PLANIFEST_BASH_CMD="$bash_cmd" PLANIFEST_FETCH_CMD="$fetch_cmd" \
+    PLANIFEST_SETTINGS="$settings_file" node -e '
       const fs = require("fs"), path = require("path");
-      const hd = process.env.PLANIFEST_HOOKS_DIR;
       const sf = process.env.PLANIFEST_SETTINGS;
       const newHooks = [
-        {matcher:"Grep",     hooks:[{type:"command",command:hd+"/block-grep.sh"}]},
-        {matcher:"Bash",     hooks:[{type:"command",command:hd+"/block-bash.sh"}]},
-        {matcher:"WebFetch", hooks:[{type:"command",command:hd+"/block-webfetch.sh"}]}
+        {matcher:"Grep",     hooks:[{type:"command",command:process.env.PLANIFEST_GREP_CMD}]},
+        {matcher:"Bash",     hooks:[{type:"command",command:process.env.PLANIFEST_BASH_CMD}]},
+        {matcher:"WebFetch", hooks:[{type:"command",command:process.env.PLANIFEST_FETCH_CMD}]}
       ];
       let s = {};
       if (fs.existsSync(sf)) s = JSON.parse(fs.readFileSync(sf,"utf8").replace(/^\uFEFF/,""));
@@ -337,7 +356,8 @@ merge_hook_settings() {
 }
 
 install_context_mode_hooks() {
-  # Copy enforcement hook scripts to the target project and wire settings.json (REQ-004)
+  # Copy enforcement hook scripts to the target project and wire settings.json
+  # (REQ-004; ported to .mjs in 0000017 req-004 — no bash entry point, no jq).
   local hooks_src_rel="$1"   # relative to SCRIPT_DIR  e.g. hooks/context-mode
   local hooks_dir_rel="$2"   # relative to PROJECT_ROOT e.g. .claude/hooks/context-mode
   local settings_rel="$3"    # relative to PROJECT_ROOT e.g. .claude/settings.json
@@ -354,16 +374,25 @@ install_context_mode_hooks() {
   echo ""
   echo "  Installing context-mode enforcement hooks"
 
+  # Setup-time Node.js runtime check (0000017 req-004): these hooks are .mjs —
+  # Node is required to run them at all. Warn clearly but still install and
+  # wire the hooks; the wired command itself fails open with a runtime
+  # message if Node turns out to be missing when Claude Code invokes it.
+  if ! command -v node >/dev/null 2>&1; then
+    echo "  ! Warning: Node.js runtime not found on this machine."
+    echo "  ! context-mode enforcement hooks (block-grep/block-bash/block-webfetch) require Node.js."
+    echo "  ! Hooks will be installed and wired, but will not enforce anything until Node.js is installed."
+  fi
+
   # Create target directory
   mkdir -p "$dest"
 
-  # Copy and chmod each script
-  for script in "$src"/*.sh; do
+  # Copy each script
+  for script in "$src"/*.mjs; do
     [ -f "$script" ] || continue
     local script_name
     script_name="$(basename "$script")"
     cp "$script" "$dest/$script_name"
-    chmod +x "$dest/$script_name"
     echo "  + $hooks_dir_rel/$script_name"
   done
 
@@ -638,7 +667,7 @@ merge_telemetry_hook_settings() {
 
 install_telemetry_hooks() {
   # Copy context-pressure hook script and wire PostToolUse in settings.json (REQ-008, REQ-010)
-  # Only called when both --structured-telemetry-mcp and --context-mode-mcp are active.
+  # Only called when --structured-telemetry-mcp is active (0000018 req-001).
   local hooks_src_rel="$1"   # relative to SCRIPT_DIR  e.g. hooks/telemetry
   local hooks_dir_rel="$2"   # relative to PROJECT_ROOT e.g. .claude/hooks/telemetry
   local settings_rel="$3"    # relative to PROJECT_ROOT e.g. .claude/settings.json
@@ -1097,8 +1126,10 @@ setup_tool() {
     fi
   fi
 
-  # Install telemetry hooks only when BOTH flags are active (REQ-010)
-  if [ "$STRUCTURED_TELEMETRY_MCP" = true ] && [ "$CONTEXT_MODE_MCP" = true ] && \
+  # Install telemetry hooks whenever --structured-telemetry-mcp is active (0000018 req-001)
+  # No longer requires --context-mode-mcp — that AND-condition silently left telemetry
+  # hooks unwired for any project passing --structured-telemetry-mcp alone.
+  if [ "$STRUCTURED_TELEMETRY_MCP" = true ] && \
      [ -n "${TOOL_TELEMETRY_HOOKS_SRC:-}" ] && [ -n "${TOOL_TELEMETRY_HOOKS_DIR:-}" ] && \
      [ -n "${TOOL_SETTINGS_FILE:-}" ]; then
     install_telemetry_hooks "$TOOL_TELEMETRY_HOOKS_SRC" "$TOOL_TELEMETRY_HOOKS_DIR" "$TOOL_SETTINGS_FILE" "$BACKEND_URL"
@@ -1167,6 +1198,48 @@ TOML
   fi
 
   echo "  Done."
+}
+
+# Write the flags-used marker recording what was applied at install time (REQ-008, ADR-002).
+# Called only after a tool's setup completes successfully. set -euo pipefail means a failed
+# setup_tool/opencode.sh call aborts the script before this function is ever reached, satisfying
+# REQ-008's "a failed install does not write the marker" requirement without extra bookkeeping.
+write_setup_flags_marker() {
+  local tool="$1"
+  local tool_dir="$2"
+
+  mkdir -p "$PROJECT_ROOT/$tool_dir"
+  local marker="$PROJECT_ROOT/$tool_dir/.planifest-setup-flags"
+
+  local flags=()
+  [ "$CONTEXT_MODE_MCP" = true ] && flags+=("--context-mode-mcp")
+  [ "$STRUCTURED_TELEMETRY_MCP" = true ] && flags+=("--structured-telemetry-mcp")
+  [ "$INCLUDE_FULL_SKILL_LIBRARY" = true ] && flags+=("--include-full-skill-library")
+  [ "$STRICT_ORCHESTRATOR" = true ] && flags+=("--strict-orchestrator")
+
+  local flags_json="[]"
+  if [ ${#flags[@]} -gt 0 ]; then
+    flags_json=$(printf '"%s",' "${flags[@]}")
+    flags_json="[${flags_json%,}]"
+  fi
+
+  local backend_url_json="null"
+  [ "$STRUCTURED_TELEMETRY_MCP" = true ] && backend_url_json="\"$BACKEND_URL\""
+
+  local written_at
+  written_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  cat > "$marker" << MARKER_EOF
+{
+  "tool": "$tool",
+  "flags": $flags_json,
+  "backendUrl": $backend_url_json,
+  "writtenAt": "$written_at",
+  "attemptStatus": "completed"
+}
+MARKER_EOF
+
+  echo "  + $tool_dir/.planifest-setup-flags"
 }
 
 # --- Main ---
@@ -1250,8 +1323,12 @@ run_tool_setup() {
   # opencode has its own bespoke setup script (Tier 2: Bun plugin)
   if [ "$t" = "opencode" ]; then
     bash "$SETUP_DIR/opencode.sh"
+    write_setup_flags_marker "$t" ".opencode"
   else
     setup_tool "$t"
+    # TOOL_SKILLS_DIR is set globally by the tool config sourced inside setup_tool
+    # (e.g. ".claude/skills"); its parent is the tool's own config directory (REQ-008).
+    write_setup_flags_marker "$t" "$(dirname "$TOOL_SKILLS_DIR")"
   fi
   # Re-sync external skills after tool setup (REQ-024/REQ-025)
   local sync_script="$SCRIPT_DIR/scripts/skill-sync.sh"

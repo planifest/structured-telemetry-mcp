@@ -15,30 +15,19 @@ hooks:
 
 ## Input
 
-> **Context-Mode Protocol:** When `ctx_batch_execute` is available, use it for the full security scan — pass grep/find commands targeting auth patterns, input handling, secrets, and IaC in `commands`; pass your STRIDE threat questions in `queries`. Use `ctx_execute_file` to analyse specific files flagged for review. Raw code never enters context — only your findings do.
+> When `ctx_batch_execute` is available, use it for the full security scan; use `ctx_execute_file` to analyse specific flagged files.
 
-- The validated implementation at `src/{component-id}/` (all components in the feature)
-- Infrastructure as Code at `src/{component-id}/` (Terraform, Pulumi, CDK, etc. - if declared in the stack)
+- The validated implementation and any Infrastructure as Code (Terraform, Pulumi, CDK, etc., if declared in the stack) at `src/{component-id}/` (all components in the feature)
 - Design at `plan/current/design.md`
 - OpenAPI Specification at `plan/current/openapi-spec.yaml` (if applicable)
 - Risk Register at `plan/current/risk-register.md`
 
----
-
-## What You Produce
-
-Security report at `plan/current/security-report.md`.
-
----
-
-## Report Structure
+## Report Structure — written to `plan/current/security-report.md`
 
 ```markdown
 # Security Report - {feature-id}
 
 ## Threat Model (STRIDE)
-
-For each STRIDE category, identify specific threats relevant to this component.
 
 | Threat | Category | Severity | Mitigation |
 |---|---|---|---|
@@ -46,33 +35,27 @@ For each STRIDE category, identify specific threats relevant to this component.
 
 ## Dependency Audit
 
-List dependencies with known vulnerabilities, abandoned maintenance, or excessive permissions. Flag any requiring immediate action.
+Known vulnerabilities, abandoned maintenance, excessive permissions. Flag any requiring immediate action.
 
 ## Secrets Management
 
-Confirm how secrets are handled. Flag any hardcoded credentials, environment variable exposure risks, or gaps.
+How secrets are handled. Flag hardcoded credentials, environment variable exposure risks, or gaps.
 
 ## Authentication & Authorisation Review
 
-If an API, review the auth strategy against the OpenAPI spec. Flag endpoints missing auth, over-permissioned roles, or token handling issues.
+If an API: auth strategy against the OpenAPI spec. Flag missing auth, over-permissioned roles, token handling issues.
 
 ## Input Validation Review
 
-If an API, confirm all inputs are validated per the OpenAPI spec. Flag any endpoints accepting unvalidated input.
+If an API: inputs validated per the OpenAPI spec. Flag endpoints accepting unvalidated input.
 
 ## Network Policy
 
-Review ingress and egress surface. Flag unnecessarily open ports or missing network policies.
+Ingress/egress surface. Flag unnecessarily open ports or missing network policies.
 
 ## Infrastructure as Code Review
 
-If IaC files exist (Terraform, Pulumi, CDK, CloudFormation), review for:
-- Overly permissive IAM roles or security groups
-- Public exposure of resources that should be private
-- Missing encryption at rest or in transit
-- Missing logging or audit trail configuration
-- Hardcoded secrets or default credentials
-- Non-compliant storage bucket policies
+If IaC files exist (Terraform, Pulumi, CDK, CloudFormation): review for overly permissive IAM/security groups, public exposure of resources that should be private, missing encryption or audit logging, and hardcoded secrets or non-compliant bucket policies.
 
 ## Summary
 
@@ -84,23 +67,14 @@ Top actions before production:
 3. {third}
 ```
 
----
-
 ## Rules
 
-- **One question at a time.** When you need human input — to clarify a risk tolerance, confirm a finding's severity, or resolve an ambiguity — ask one question, wait for the answer, then continue. Lead with a recommendation where you can derive one.
-- **Be specific.** Every finding must reference a specific file, endpoint, or configuration in the implementation. "SQL injection is a risk" is not a finding. "The `/api/orders` endpoint at `apps/api/src/routes/orders.ts:42` accepts a `sortBy` parameter that is interpolated into a query without sanitisation" is.
-- **Base your assessment on the actual code.** Do not fabricate findings. If the code correctly validates all inputs, say so - do not invent a hypothetical bypass.
-- **If you cannot assess a risk area due to missing information**, say so explicitly rather than guessing.
+- **One question at a time.**
 - **Rate overall risk conservatively.** If in doubt, rate higher.
 - **Cross-reference the Risk Register.** The spec-agent already identified risks. Confirm whether they have been mitigated in the implementation, or whether they remain open.
 - **Critical and high findings are flagged for human attention** at the PR gate. Be sure these are genuine.
 
----
-
 ## Parallelism Directive
-
-Independent security review scans MUST be run in parallel. Where the feature has multiple components with no cross-dependency in the security analysis, review them simultaneously.
 
 | MUST parallelise | Cannot parallelise |
 |------------------|--------------------|
@@ -108,15 +82,9 @@ Independent security review scans MUST be run in parallel. Where the feature has
 | Multi-component security reviews (components do not share secrets or auth logic) | IaC review before the component's network policy is understood |
 | Secrets scan + input validation scan (independent grep patterns) | Summary risk rating before all section findings are complete |
 
-**In practice:** Run STRIDE, dependency audit, and secrets scan as a parallel batch. Synthesise findings into the report sections after all scans complete.
-
----
-
 ## Telemetry
 
-See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership.
-
-**Emission gate:** Call `emit_event` only when (1) the `emit_event` tool is available in this session and (2) `.claude/telemetry-enabled` exists in the project root. If either condition fails, skip silently — do not emit.
+See `planifest-framework/standards/telemetry-standards.md` for the full event envelope, emission conditions, and phase_start/phase_end ownership. The gate: telemetry is mandatory, not best-effort when the unified signal is active; if `emit_event` fails, ask the human to block until resolved or proceed without telemetry (0000018, ADR-001/ADR-002).
 
 **`security_finding`** — for each vulnerability or risk identified:
 ```json
@@ -139,8 +107,6 @@ See `planifest-framework/standards/telemetry-standards.md` for the full event en
 { "phase_name": "security", "action_id": "<action>", "attempt_count": 5 }
 ```
 
----
-
 ## Commit Cadence (Hard Limit 7)
 
-Commit after every meaningful artifact write — each requirement doc, ADR, completed TDD cycle, fix batch, or report — not batched to the phase gate. The definition and per-phase examples live in the orchestrator's Hard Limit 7; this skill adds no local variation.
+Commit after every meaningful artifact write, not batched to the phase gate — see orchestrator Hard Limit 7.

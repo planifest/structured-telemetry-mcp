@@ -28,9 +28,7 @@
 
 ## Validation
 
-| Concern | Prefer | Avoid | Reason |
-|---------|--------|-------|--------|
-| Input validation | `zod` | `joi`, `yup`, `class-validator` | See TypeScript standards |
+Input validation follows `typescript/prefer-avoid.md` (`zod`, not `joi`/`yup`/`class-validator`).
 
 ## Authentication
 
@@ -39,20 +37,10 @@
 | JWT | `jose` | `jsonwebtoken` | `jose` supports Web Crypto API, works in edge runtimes |
 | Password hashing | `argon2` | `bcrypt` (acceptable), `md5`, `sha1` | Argon2 is the current best-practice algorithm |
 
-## Queues / Background Jobs
-
-| Concern | Prefer | Avoid | Reason |
-|---------|--------|-------|--------|
-| Job queue | `bullmq` | `bull` (deprecated), `agenda`, `node-cron` for heavy work | BullMQ is the maintained successor to Bull |
-
-## Logging
+## Logging, Environment & Queues
 
 | Concern | Prefer | Avoid | Reason |
 |---------|--------|-------|--------|
 | Logging | `pino` | `winston`, `morgan` alone | Pino is fastest, structured JSON by default |
-
-## Environment
-
-| Concern | Prefer | Avoid | Reason |
-|---------|--------|-------|--------|
 | Env parsing | `zod` + manual | `dotenv` alone | Type-safe env validation prevents runtime surprises |
+| Job queue | `bullmq` | `bull` (deprecated), `agenda`, `node-cron` for heavy work | BullMQ is the maintained successor to Bull |

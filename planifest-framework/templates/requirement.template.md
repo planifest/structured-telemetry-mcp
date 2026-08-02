@@ -11,15 +11,11 @@ version: "0.1.0"
 **Source:** {{user story ID from design.md — e.g. US-001}}
 **Priority:** must-have | should-have
 
----
-
 ## User Story
 
-> One requirement doc = one user story. If this story implies more than 3 acceptance criteria, split it into two requirement docs.
+> One requirement doc = one user story.
 
 As a [role], I [action], so that [outcome].
-
----
 
 ## Functional Requirements
 - {{specific, testable requirement 1}}
@@ -31,24 +27,6 @@ As a [role], I [action], so that [outcome].
 
 ## Dependencies
 - {{Any other components or requirements this depends on}}
-
-<!-- INPUT VALIDATION — CONDITIONAL SECTION
-     Include this section ONLY when the requirement reads content from an untrusted
-     source (filesystem, hook stdin, environment variables, HTTP response, user input)
-     AND uses that content in output visible to the model or user (banners, logs,
-     displayed text, model context injection).
-     
-     If this requirement does not involve untrusted external input, delete this section.
-     
-     EXAMPLE (featureId read from a sentinel file, interpolated into a hook banner):
-     
-     ## Input Validation
-     - [ ] Input source: filesystem read of `plan/.orchestrator-active`
-     - [ ] Allowed characters: `[a-zA-Z0-9\-_.]` only — all other characters stripped
-     - [ ] Maximum length: 80 characters — content beyond this limit is truncated
-     - [ ] Failure behaviour: on read error or empty result, substitute default value `"unknown"` — do not halt
-     - [ ] Logging policy: raw value is not logged; only the sanitised value appears in output
--->
 
 ## Input Validation
 

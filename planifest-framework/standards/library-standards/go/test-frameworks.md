@@ -8,7 +8,7 @@
 |-----------|-------------------|-------|-------|
 | Unit | `testing` (stdlib) + `testify` | `gocheck`, `ginkgo` (unless BDD required) | testify provides assert/require/mock; stdlib testing is sufficient for simple cases |
 | Integration | `testing` + `testcontainers-go` | mocking the database | Real DB via testcontainers is more reliable than mock |
-| Contract | `pact-go` | hand-rolled | Consumer-driven contract testing |
+| Contract | `pact-go` | hand-rolled | |
 | E2E / HTTP | `net/http/httptest` + `testing` | Separate E2E tool for most cases | httptest is sufficient for API smoke tests |
 | Performance / load | `k6` (external) or `testing.B` | — | Benchmarks with `testing.B`; load tests with k6 |
 
