@@ -220,11 +220,26 @@ All acceptance criteria covered. No failures.
 | Start | `2026-08-01T18:16:00Z` |
 | Model tier | primary |
 | Skills loaded | planifest-ship-agent |
-| Agents spawned | `{{tbd}}` |
-| MCP calls | `{{tbd}}` |
-| Parallel task batches | `{{tbd}}` |
+| Agents spawned | 0 |
+| MCP calls | 0 |
+| Parallel task batches | 0 (sequential archive steps by design — changelog before archive move before sentinel cleanup) |
 | Telemetry | emitted |
-| Notes | `{{tbd}}` |
+| Notes | Cross-reference check found and fixed several `plan/current/...` links before archiving: our own new ones (migrations/applied-add-product-id.md, risk.md, test-coverage.md → now point at plan/_archive/0000015-.../...) plus pre-existing stale ones from 0000010 discovered along the way (docs/api-index.md, purpose.md, scope.md, quirks.md → now point at plan/_archive/0000010-.../... or generalized). No REGRESSION-CANDIDATE tags found. Wrote changelog and test-report to plan/changelog/. No .skips file existed. Wrote plan/current/.feature-id before archiving. docs/about.md already correct from P6 (v0.11.0, feature 0000015, 01 Aug 2026) — no change needed at this step. Archived via copy-then-delete: plan/current/ → plan/_archive/0000015-telemetry-log-viewer-ui-2026-08-01/ (git detected as renames, preserving history). Deleted plan/.orchestrator-active, plan/.run-mode (plan/.orchestrator-ack did not exist). Committed as a single commit alongside the cross-reference fixes. |
+
+---
+
+### P8 — Build Assessment
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-01T18:20:00Z` |
+| Model tier | cheaper (sub-agent) |
+| Skills loaded | planifest-build-assessment-agent |
+| Agents spawned | 1 |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | 0 |
+| Telemetry | emitted |
+| Notes | Sub-agent spawned to read this build-log.md and produce build-report.md in the same archive directory. |
 
 ---
 
