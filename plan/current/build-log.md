@@ -46,6 +46,8 @@ P0 exchange — framework note: human is separately updating planifest-framework
 
 Scope Lock — deferred: Aggregation/dashboard views (bottleneck/failure/token-efficiency charts) — blocked until a future pipeline run revisits ADR-018 (static vanilla-JS UI) and this feature's Wave 1 ships; filed as backlog entry 00004-aggregation-dashboard-views
 
+Next (resume here — no pause.md, this is the checklist): `plan/current/feature-brief.md` was never written — author it first, from the Wave 1 scope (live auto-refresh/tail mode; filter dropdown/free-text combobox suggesting existing values; sortable table column headers with two-way sync to the sort-field dropdown/direction control) plus this build log. Then continue P0 coaching in priority order: (1) problem statement / user stories per Wave 1 item, (2) acceptance criteria per item, (3) stack declaration — almost certainly inherited as-is from 0000015 (single component `structured-telemetry-mcp`, vanilla JS/DOM `/ui` page in `server-http.ts`, no new deps) but confirm explicitly, don't assume, (4) scope.md (in/out/deferred — aggregation views OUT, deferred to backlog #00004), (5) at least one measurable NFR, (6) risks — flag that `product_id` will still show "unknown" in any combobox suggestions for that field until backlog #00002 lands (ADR-017/ADR-019). Then: Scope Lock Challenge (4 scenario paths, none yet asked), the run-mode question (interactive vs continuous — `plan/.run-mode` not yet written), Skill Map, and `design.md` (read `design.template.md` first) for human confirmation.
+
 ---
 
 <!-- Copy and fill in this block at each phase boundary:
