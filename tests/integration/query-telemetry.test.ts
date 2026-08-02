@@ -83,6 +83,30 @@ beforeAll(async () => {
     ...BASE, session_id: 'hint-test-session', initiative_id: 'init-gamma',
     event: 'phase_start', phase: 'orchestrator', data: { phase_name: 'orchestrator' },
   });
+
+  // Seed: req-003 sortField tests (0000017) — 3 events whose timestamp order
+  // and agent order deliberately disagree, so a test can distinguish
+  // "sorted by timestamp" from "sorted by agent". Ordered by phase for
+  // readable assertions: timestamp ASC -> review, spec, codegen;
+  // agent ASC -> spec, codegen, review.
+  // Uses phase 'review' (not 'validate') so this doesn't perturb the
+  // existing "reflects failure in success_rate_pct" bottlenecks assertion,
+  // which expects group_key 'validate' to be 100% failures.
+  await repo.write({
+    ...BASE, session_id: 'sort-field-test-session', agent: 'zulu-agent',
+    event: 'phase_end', phase: 'review', timestamp: '2026-04-13T14:00:00Z',
+    data: { phase_name: 'review', status: 'pass', duration_ms: 50 },
+  });
+  await repo.write({
+    ...BASE, session_id: 'sort-field-test-session', agent: 'alpha-agent',
+    event: 'phase_end', phase: 'spec', timestamp: '2026-04-13T15:00:00Z',
+    data: { phase_name: 'spec', status: 'pass', duration_ms: 60 },
+  });
+  await repo.write({
+    ...BASE, session_id: 'sort-field-test-session', agent: 'mike-agent',
+    event: 'phase_end', phase: 'codegen', timestamp: '2026-04-13T16:00:00Z',
+    data: { phase_name: 'codegen', status: 'pass', duration_ms: 70 },
+  });
 });
 
 afterAll(() => {
@@ -345,6 +369,36 @@ describe('req-004-event-log-query: DuckDbQueryService.eventLog', () => {
     expect(event['model']).toBe('claude-sonnet-4-6');
     expect(event['mcp_mode']).toBeDefined();
     expect(event['inserted_at']).toBeDefined();
+  });
+});
+
+// req-003-sortable-headers-three-way-sync (0000017) — backend sortField
+describe('req-003-sortable-headers-three-way-sync: queryEventLog sortField', () => {
+  it('sortField omitted still sorts by timestamp (back-compat)', async () => {
+    const response = await qs.eventLog({ mode: 'event_log', session_id: 'sort-field-test-session' });
+    const result = response.json as { events: Array<{ phase: string }> };
+    // timestamp ASC: review (14:00), spec (15:00), codegen (16:00)
+    expect(result.events.map((e) => e.phase)).toEqual(['review', 'spec', 'codegen']);
+  });
+
+  it('sortField: "agent" sorts by agent, not timestamp', async () => {
+    const response = await qs.eventLog({
+      mode: 'event_log',
+      session_id: 'sort-field-test-session',
+      sortField: 'agent',
+      sort: 'asc',
+    });
+    const result = response.json as { events: Array<{ phase: string }> };
+    // agent ASC: alpha-agent (spec), mike-agent (codegen), zulu-agent (review)
+    expect(result.events.map((e) => e.phase)).toEqual(['spec', 'codegen', 'review']);
+  });
+
+  it('rejects an unrecognized sortField, naming the valid values, before any SQL executes', async () => {
+    await expect(
+      qs.eventLog({ mode: 'event_log', session_id: 'sort-field-test-session', sortField: 'data' as never }),
+    ).rejects.toThrow(
+      'Invalid sortField: "data". Valid values: timestamp, event, session_id, phase, agent, product_id',
+    );
   });
 });
 

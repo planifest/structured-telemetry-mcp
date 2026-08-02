@@ -8,7 +8,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { validateEvent } from './validation/validate-event.js';
 import type { IEventRepository } from './db/repository.js';
-import type { IQueryService, BottleneckQuery, FailureQuery, TokenEfficiencyQuery, EventLogQuery, QueryResponse } from './query/query-service.js';
+import type { IQueryService, BottleneckQuery, FailureQuery, TokenEfficiencyQuery, EventLogQuery, DistinctValuesQuery, QueryResponse } from './query/query-service.js';
 import { BOTTLENECK_GROUP_BY_VALUES } from './query/bottlenecks.js';
 import type { TelemetryEvent } from './types/events.js';
 
@@ -80,6 +80,13 @@ export async function dispatchQuery(qs: IQueryService, q: Record<string, unknown
   // request by limit/offset alone and rejects pathological limit values itself.
   if (q['mode'] === 'event_log') {
     return qs.eventLog(q as unknown as EventLogQuery);
+  }
+
+  // distinct_values (req-002, 0000017): field-name validation against the
+  // shared SUGGESTIBLE_FIELDS allow-list happens inside queryDistinctValues
+  // itself (ADR-024), before any SQL is built — dispatchQuery only routes.
+  if (q['mode'] === 'distinct_values') {
+    return qs.distinctValues(q as unknown as DistinctValuesQuery);
   }
 
   if (
