@@ -159,6 +159,19 @@ P0 exchange — design confirmation: Q: Confirm plan/current/design.md as correc
 | Telemetry | emitted |
 | Notes | Gate A: `docs/` exists — pass. Gate B assessment: this run added E2E test infra, 4 ADRs, a component.yml version bump, and a small server-http.ts change — recommended updating component-registry.md, dependency-graph.md (Last-updated bump only, no new component deps), architecture-overview.md, decisions-index.md, api-index.md, usage-guide.md (new §9), plus per-component test-coverage.md and interface-contract.md. Per continuous-run mode (and the standing commitment not to pause between phases), proceeded without a confirmation stop rather than waiting on Gate B's own question. Drift detection: 0 findings (API/domain-terms/component-boundaries/data-ownership/ADR-compliance/dependency-direction all consistent). recommendations.md: 4 low-priority recs, 3 already-recorded deferred items, 0 new tech debt. Iteration log written to plan/changelog/0000016-e2e-playwright-test-suites-2026-08-02.md. |
 
+### P7 — Archive
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-02` |
+| Model tier | primary |
+| Skills loaded | planifest-ship-agent |
+| Agents spawned | `0` (P8 sub-agent dispatched separately, see P8 block) |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | `0` — archive steps sequential by design (changelog before move before cleanup) |
+| Telemetry | emitted |
+| Notes | Cross-reference check: 4 live links found in docs/decisions-index.md (ADR-020 through ADR-023, pointing at plan/current/adr/) — updated to plan/_archive/ path in the same commit as the move. No regression-candidate tags found in P3/P4 test files — "No regression candidates." |
+
 ---
 
 ## Summary (filled at P7)
