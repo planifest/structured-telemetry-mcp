@@ -2,7 +2,7 @@
 
 **Feature:** Telemetry Log Viewer UI
 **Pipeline run:** Feature Pipeline (P0–P9, continuous run mode). All phases completed; none skipped.
-**PR:** pending — updated after PR is raised
+**PR:** https://github.com/planifest/structured-telemetry-mcp/pull/10
 
 ## What Was Built
 
