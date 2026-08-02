@@ -109,6 +109,9 @@ scope:
     - "product_id optional field on the event envelope + DB column, via approved migration proposal, no backfill (0000015)"
     - "event_log: offset pagination, total_count, sort (default asc, back-compat), phase/agent/product_id/from/to filters, mandatory-scope-filter requirement removed (0000015)"
     - "GET /ui static browser log-viewer: paginated newest-first table, all confirmed filters, row-click JSON detail view, URL-query-string state persistence, empty-state and backend-unreachable handling (0000015)"
+    - "Backend E2E suite (tests/e2e/backend/, @playwright/test): black-box HTTP coverage for /emit, /query (event_log filtering/pagination/sort), /health against a real server + ephemeral DuckDB per run (0000016)"
+    - "UI E2E suite (tests/e2e/ui/, @playwright/test, Chromium-only): browser-driven coverage for GET /ui — filters, URL-state, pagination, zero-result state, row-click detail view (0000016)"
+    - "Interactive use of the Playwright MCP server during P3 codegen for E2E test authoring/verification — not part of the CI-executed runtime (0000016)"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
@@ -119,6 +122,10 @@ scope:
     - "System-level (root) launchd daemon or root systemd unit"
     - "Distro-specific packaging (.deb/.rpm)"
     - "ratchet_blocked event type (not yet emitted by any framework skill — speculative)"
+    - "The MCP stdio tool interface (emit_event/query_telemetry as called by an agentic tool) is not covered by the E2E suites — only the HTTP surface (0000016)"
+    - "Visual/screenshot regression testing (0000016)"
+    - "Multi-browser E2E coverage — Chromium only (0000016)"
+    - "Playwright MCP server is not part of the CI-executed test runtime — authoring/dev-time aid only (0000016)"
   deferred:
     - "npm publish — blocked on: decision to make package public"
     - "Plugin marketplace manifests — blocked on: marketplace listing decision"
@@ -129,6 +136,8 @@ scope:
     - "Editing/deleting events from the UI — blocked on: a specific, deliberate need (0000015)"
     - "Live auto-refresh / tail mode — blocked on: manual refresh proving too slow in practice (0000015)"
     - "planifest-framework's emitters populating product_id — blocked on: that product's own pipeline picking up plan/backlog/00002-framework-product-id-emission (0000015)"
+    - "Multi-browser (Firefox/WebKit) E2E coverage — blocked on: a concrete cross-browser bug being found, or a deliberate decision to broaden coverage (0000016)"
+    - "Single shared long-lived E2E test server instead of per-file ephemeral processes — blocked on: the 5-min CI budget (NFR-001) actually being threatened by per-file startup overhead (0000016)"
 
 risk:
   level: "low"
@@ -145,6 +154,9 @@ risk:
     - "ADR-010 scope-filter removal is enforced in two places (src/query/event-log.ts and src/server-factory.ts dispatchQuery) that must change together (0000015 R-001)"
     - "Three existing tests assert the old scope-required error and will fail until updated: tests/unit/server-factory.test.ts:125, tests/integration/query-telemetry.test.ts:256, tests/regression/query-routing.test.ts:132 (0000015 R-002)"
     - "product_id migration requires human approval before req-002/003/004 can build against the new column — sequence product_id first (0000015 R-004)"
+    - "E2E per-file ephemeral server startup could push combined CI runtime past the 5-min budget as suites grow — measure at P4, fall back to a shared-server pattern if threatened (0000016 R-001)"
+    - "E2E harness must bind ephemeral ports via OS-assigned port 0, never hardcoded, to avoid collisions across parallel test workers (0000016 R-002)"
+    - "E2E harness must explicitly bind 127.0.0.1, never 0.0.0.0, to avoid introducing new network exposure during test runs (0000016 R-005)"
 
 quality:
   testCoverage:

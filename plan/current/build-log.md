@@ -30,7 +30,7 @@ summary: "Working telemetry file maintained by the orchestrator throughout the p
 | Agents spawned | `0` |
 | MCP calls | `{{tbd}}` |
 | Parallel task batches | `0` |
-| Telemetry | `{{tbd}}` |
+| Telemetry | emitted |
 | Notes | Feature-id proposed: 0000016-e2e-playwright-test-suites. Prior session already confirmed `main` up to date and clean before this pipeline run began (checkout + pull performed earlier in the same session). |
 
 P0 exchange — pre-flight bundle: Q: Confirm feature-id, branch, adoption mode (Standard Iterative), version bump (0.11.0 -> 0.12.0 minor), route (Feature Pipeline, 2 features/1 wave), backlog pickup (leave 00002) / A: Yes, confirmed as recommended.
@@ -80,6 +80,19 @@ P0 exchange — design confirmation: Q: Confirm plan/current/design.md as correc
 | Notes | `{{free text or "none"}}` |
 
 -->
+
+### P1 — Requirements
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-02` |
+| Model tier | primary |
+| Skills loaded | planifest-spec-agent |
+| Agents spawned | `0` |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | `1` (scope, risk register, domain glossary, operational model, SLOs, cost model drafted together; req-001/req-002 independent) |
+| Telemetry | emitted |
+| Notes | No OpenAPI spec produced — feature tests an existing API surface, does not build/modify one (per spec-agent's critical condition). No new data contract — data ownership (events table) is unchanged; ephemeral per-test DuckDB is test infra, not a production data contract concern. Artifacts: execution-plan.md, scope.md, risk-register.md (6 risks, low overall), domain-glossary.md (7 terms), operational-model.md, slo-definitions.md, cost-model.md ($0 marginal), req-001/req-002, component.yml updated (scope/exceptions/risk only, stack untouched). |
 
 ---
 
