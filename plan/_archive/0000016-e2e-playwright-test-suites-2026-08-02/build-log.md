@@ -212,3 +212,18 @@ No durable failure marker (`plan/.telemetry-failures/`) exists for this, because
 | Self-corrections | `0` at formal P4 validation (first-attempt pass); 2 test-authoring fixes made during P3 iteration, before P4 began — see quirks.md and the iteration log |
 | Phases skipped | `none` |
 | Phases with a recorded telemetry gap | `9` (P0–P8, all — see Telemetry Correction above) |
+
+---
+
+### P9 — Ship
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-02` |
+| Model tier | primary |
+| Skills loaded | planifest-ship-agent |
+| Agents spawned | `0` |
+| MCP calls | `0` |
+| Parallel task batches | `0` |
+| Telemetry | gap — see Telemetry Correction above; unaffected by P9 itself |
+| Notes | product.yml/package.json/package-lock.json bumped to 0.12.0; version validated via product-version.mjs (exit 0, "0.12.0"); tag v0.12.0 created locally. Also fixed a missed cleanup item from P7: plan/.orchestrator-active and plan/.run-mode deletions were never committed in the archive commit — committed separately just before tagging. Awaiting human decision on push/PR (Step 10). |
