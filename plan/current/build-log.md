@@ -102,6 +102,19 @@ P1 exchange — spec_gap (sort field): Q: design assumed a pre-existing "sort-fi
 | Telemetry | confirmed-disabled |
 | Notes | 4 ADRs written: ADR-024 (shared column allow-list, resolves the req-002/req-003 divergence), ADR-025 (event_log real per-column sortField), ADR-026 (distinct_values as a POST /query mode, not a new route), ADR-027 (polling-based auto-refresh, not push/WebSocket). continuous_run active — no phase-gate stop; proceeding to P3. |
 
+### P3 — Codegen
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-03T00:05:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-codegen-agent |
+| Agents spawned | TBD |
+| MCP calls | 0 |
+| Parallel task batches | TBD |
+| Telemetry | confirmed-disabled |
+| Notes | continuous_run active — no phase-gate stop |
+
 ---
 
 <!-- Copy and fill in this block at each phase boundary:
