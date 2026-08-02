@@ -87,6 +87,8 @@ P0 exchange — design confirmation: Q: confirm design.md correct and complete? 
 | Telemetry | confirmed-disabled |
 | Notes | continuous_run active — no phase-gate stop; human requested subagent parallelism for remaining pipeline where safe |
 
+P1 exchange — spec_gap (sort field): Q: design assumed a pre-existing "sort-field dropdown" to sync with; actual code (index-html.ts:75-80, event-log.ts:41,54) only has a direction toggle hardcoded to `ORDER BY timestamp` — no field selector exists. Confirm building real per-column sort (new backend allow-listed sort-field param) rather than direction-only headers? / A: confirmed — backend change needed for allow-listed multi-field sort (timestamp, event, session_id, phase, agent, product_id).
+
 ---
 
 <!-- Copy and fill in this block at each phase boundary:
