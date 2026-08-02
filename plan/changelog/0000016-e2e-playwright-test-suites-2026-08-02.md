@@ -2,7 +2,7 @@
 
 **Feature:** E2E Playwright Test Suites
 **Pipeline run:** P0–P9 complete, no phases skipped
-**PR:** {pending — updated after PR is raised}
+**PR:** https://github.com/planifest/structured-telemetry-mcp/pull/11
 
 ## What Was Built
 
