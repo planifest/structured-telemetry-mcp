@@ -239,7 +239,22 @@ All acceptance criteria covered. No failures.
 | MCP calls | `{{tbd}}` |
 | Parallel task batches | 0 |
 | Telemetry | emitted |
-| Notes | Sub-agent spawned to read this build-log.md and produce build-report.md in the same archive directory. |
+| Notes | Sub-agent spawned to read this build-log.md and produce build-report.md in the same archive directory. Result: "Feature 0000015 executed efficiently with optimal model tier allocation, zero self-corrections, justified parallelism, and all acceptance criteria met." |
+
+---
+
+### P9 — Ship
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-01T18:22:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-ship-agent (continued) |
+| Agents spawned | 0 |
+| MCP calls | `{{tbd}}` |
+| Parallel task batches | 0 |
+| Telemetry | emitted |
+| Notes | Version derivation: product.yml exists, versionPolicy max-component-version. product.yml and package.json were stale at 0.10.4 — updated both to 0.11.0 (component.yml was already 0.11.0 from P1) before deriving. `node planifest-framework/scripts/product-version.mjs` → 0.11.0, exit 0. Validated against last release tag (v0.10.2-test-harness-and-sdk-audit — 0000013/0000014 were Change Pipeline runs, never tagged) — 0.11.0 > 0.10.2, valid. Historical tags use `v{version}-{feature-slug}`; current skill instructions specify the simpler `v{version}` — followed the current skill instructions. Created tag `v0.11.0`. |
 
 ---
 
