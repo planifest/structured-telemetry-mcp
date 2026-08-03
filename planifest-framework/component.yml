@@ -1,7 +1,7 @@
 id: "planifest-framework"
 name: "Planifest Framework"
-feature: "0000023-framework-pipeline-fixes"
-version: "0.23.0"
+feature: "0000024-declared-product-id-for-telemetry"
+version: "0.24.0"
 status: "active"
 type: "component-pack"
 domain: "developer-tooling"
@@ -47,6 +47,9 @@ responsibilities:
   - "Maintain a populated tests/regression/ pack as the safety net for cross-cutting skill/standards/template changes, gated by human review of the promoted test list before any baseline run"
   - "Bound skill-content growth via a recorded audit-findings-report + dual-guardrail trim process (no enforcement-content loss, no ambiguity regression), never applied without a pre-recorded regression-pack baseline to compare against"
   - "Restate every orchestrator rule in exactly one canonical file (phase skill, workflow, standard, or template) with a pointer from the orchestrator, verified by a P4 diff review as the second detector alongside content-pinning regression tests"
+  - "Source telemetry product_id from a durable declared identifier (product.yml id field) rather than a filesystem path, with unresolvable product_id routed to the existing failure-marker mechanism rather than a fallback value"
+  - "Prompt the human on the loop for a declared product id at P0 when product.yml/id is absent, hard-stopping rather than proceeding silently"
+  - "Document the emit_event MCP tool's envelope argument name correctly across telemetry-standards.md and all phase skills' Telemetry sections"
 
 exceptions:
   - "Does not write to planifest-overrides/ — that directory is user-owned"
@@ -115,6 +118,8 @@ scope:
     - "Loop/reversal telemetry event types and planifest-overrides/loop-toggles.yml (all default off)"
     - "tests/regression/ population and baseline-vs-post-trim comparison for skill/standards/template content edits"
     - "standards/agent-dispatch-standards.md as the canonical home for model-tier decisions and parallelism/dispatch mechanics, referenced (not restated) by the orchestrator, ship-agent, and codegen-agent"
+    - "product.yml id field as the canonical declared product_id for telemetry, for single- and multi-component projects alike"
+    - "Correct emit_event MCP tool argument documentation (envelope, not event) in telemetry-standards.md and all phase skills"
   outOfScope:
     - "Application-level code generation (handled by planifest-codegen-agent)"
     - "CI pipeline configuration for consumer projects"
@@ -142,6 +147,7 @@ quality:
     - "ratchet-check treats a reworded criterion as remove+add and blocks it (conservative); the .ratchet-approve marker is the intended path for legitimate rewording"
     - "ratchet-check cannot verify who wrote .ratchet-approve (ADR-004 same-changeset detection not implemented in 0.16.0); marker forgery is audit-detected via ratchet-log.md and P8, not prevented"
     - "product-version.mjs parses only the constrained product.template.yml shape, not arbitrary YAML"
+    - "readProductId() (telemetry hooks) extracts product.yml's top-level id field via a constrained regex, not a full YAML parser — consistent with the existing minimal-dependency style of these hook files; will not handle a non-trivial YAML structure around the id key"
 
 pipeline:
   templateVersion: "1.0.0"
@@ -150,7 +156,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-05-02"
-  updatedAt: "2026-08-02"
+  updatedAt: "2026-08-03"
   # Updated by 0000021 (spec-agent) P1: seeded requirements-derived
   # responsibilities/scope/risk entries for the regression-pack and
   # audit-findings-report/guardrailed-trim process ahead of P3 codegen.
@@ -162,6 +168,11 @@ metadata:
   # for P1-P3, fixed session-marker commit lifecycle, fixed copilot.sh/.ps1
   # self-copy crash + setup.ps1 dispatcher guard, added product_id telemetry
   # emission.
+  # Updated by 0000024 (codegen-agent) P3: replaced git-path product_id
+  # derivation with a declared product.yml id field (no fallback, routes
+  # to existing failure-marker mechanism), added orchestrator P0 hard-stop
+  # prompt, fixed stale emit_event envelope-argument documentation, closed
+  # 0000017's unexecuted RCA live-verification follow-up.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"

@@ -238,6 +238,13 @@ echo "=== req-002: a different root cause (HTTP 500) produces a distinct marker 
 
 SCRATCH_D=$(mktemp -d -t planifest_req002_d_XXXXXX)
 SCRATCH_D="$(to_native_path "$SCRATCH_D")"
+# req-001: product_id now resolves from product.yml's `id` field — a
+# declared id is required here so both invocations below reach their
+# intended (connection-refused / http_500) failure path instead of both
+# collapsing into an identical "product.yml missing" root cause.
+cat > "$SCRATCH_D/product.yml" << 'EOF'
+id: "test-req002-distinct-root-cause"
+EOF
 MARKER_DIR_D="$(marker_dir_for "$SCRATCH_D")"
 INPUT_D_UNREACHABLE="{\"session_id\":\"sess-d-$RUN_ID\",\"cwd\":\"$SCRATCH_D\",\"hook_event_name\":\"PreToolUse\"}"
 
