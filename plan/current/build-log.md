@@ -74,6 +74,72 @@ P0 exchange — NFR restore verification: Q: How often is a backup actually rest
               A: On every backup, immediately — restore to scratch, assert row count, discard.
 ```
 
+### Scope Lock Challenge
+
+All four drafted by fresh-context `planifest-scope-lock-agent` subagents on explicit human request
+("draft all 4 as subagents"). Each subagent received the artifacts only — feature brief, discovery,
+the four picked-up backlog entries, relevant source — never the coaching conversation. The agents
+raised 24 flags; four were scope decisions escalated to the human (A–D below) and the rest were routed
+to P1/P2. Every path was amended by those decisions, so all four are recorded as `agent-draft-edited`
+rather than accepted verbatim.
+
+```
+Scope Lock — happy path: Deploy compares build identity (not just version) and a live PID; SIGTERM
+  checkpoints before exit; nightly backup checkpoints, exports, restores to scratch, asserts row count,
+  prunes; doctor reports verified-backup age; event log pages reconcile against total_count. Success is
+  four readable positive signals, not the absence of an error. [source: agent-draft-edited]
+Scope Lock — first-run: New machine creates schema and starts checkpointing. Already-poisoned machine
+  refuses to start, names the WAL, points at the restore procedure, and leaves the WAL untouched. First
+  backup creates its directory, has nothing to prune, asserts schema presence plus export-time row count
+  including zero; doctor reports "no verified backup" until one exists. Empty log returns zero rows.
+  [source: agent-draft-edited]
+Scope Lock — error/sad path: Most likely failure is an unusable store (lock held, or unreplayable WAL) —
+  routine, not exotic. Daemon refuses to start and stays stopped via both exit behaviour and supervision
+  config. Everything short of that degrades and keeps serving: failed checkpoint warns and retries;
+  failed backup or verification warns and never blocks ingestion; low disk skips the backup rather than
+  the database. Deploy exits non-zero naming the orphan PID without killing it. kill -9 is deliberately
+  not an error path. [source: agent-draft-edited]
+Scope Lock — cross-session continuity: At risk are events since the last checkpoint plus backup-set
+  integrity. Backups are written to a temp name, verified, then promoted by rename; pruning runs strictly
+  after promotion and only over verified artifacts, so a failed run can never remove the last good backup
+  and the set may momentarily hold N+1. Recovery is always re-running the same command — no manual file
+  surgery. [source: agent-draft-edited]
+```
+
+**Scope decisions escalated from the flags** (each explicitly confirmed by the human):
+
+```
+Scope Lock — decision A (00019 build identity): Version equality misses same-version redeploys, which
+  are most deploys during iterative work. NFR strengthened to build-artifact identity (hash/mtime).
+  A: Add build identity. [source: human]
+Scope Lock — decision B (00019 platform coverage): The false "Service is healthy" originates in
+  verify_service() in scripts/service-macos.sh, not service-manager.mjs; three sibling paths exist.
+  A: Enforce across all three platforms, preferably lifted into service-manager.mjs. [source: human]
+Scope Lock — decision C (00008 supervision): "Refuse to start" is unachievable from the daemon's exit
+  code alone — KeepAlive restarts regardless. A: launchd plist and systemd unit changes are in scope;
+  ADR-014 amendment required at P2. [source: human]
+Scope Lock — decision D (00008 poisoned DB): A: Stop, preserve the WAL untouched, print recovery steps.
+  Auto-remediation and defensive auto-copy-aside were both offered and not chosen. [source: human]
+Scope Lock — accepted residual risk (from D): the operator can still delete the WAL by hand, which is
+  the obvious remedy and is irreversible. Mitigation is wording of the startup message and restore docs.
+  Carried into the P1 risk register. [source: human]
+```
+
+**Flags routed onward rather than decided at P0:**
+
+```
+To P2 (ADR): who runs the backup given DuckDB's single-writer lock (in-daemon vs external scheduler) —
+  independently flagged as the load-bearing unknown by three of the four subagents; ADR-005 exit-zero
+  scope (hooks only, or extended to a supervised daemon).
+To P1: restore-verification row-count semantics against a live growing table (must pin the count at
+  export time); backup artifact location (00024 recommends outside ~/.planifest/); doctor staleness
+  threshold value; first-backup timing on install; whether doctor can read the DB at all while the
+  daemon holds the lock (may already be broken pre-existing); disposition of a failed verification;
+  scratch-restore cleanup after interruption.
+```
+
+Scope Lock complete. All four scenario paths captured.
+
 ---
 
 ## Summary (filled at P7)
