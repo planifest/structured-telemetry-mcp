@@ -34,3 +34,15 @@ Component-scoped view of the most recent feature's risk register (currently `pla
 - R-007 (security review finding) — removing `event_log`'s mandatory scope filter lowers the effort to page through the whole table from "guess one of 25 known event types" to "one request." The actual trust boundary (no-auth, local-only) is unchanged; this is not a new access-control break, just less friction. Revisit if this server is ever exposed beyond localhost.
 
 See `plan/_archive/0000015-telemetry-log-viewer-ui-2026-08-01/security-report.md` for the full STRIDE threat model — overall risk rating Low, one Medium finding (R-007 above), no Critical/High findings.
+
+## Mitigated this feature (0000017)
+
+- R-001 — `sortField` (`event_log`) and `field` (`distinct_values`) are client-controlled values interpolated as SQL column identifiers, not bound values, and DuckDB has no parameterized-identifier binding — a SQL-injection-via-identifier vector. Mitigated by one shared, exported allow-list module (`src/query/column-allow-list.ts`, ADR-024) validated before any interpolation in both `event-log.ts` and the new `distinct-values.ts`; regression tests assert rejection of non-allow-listed/injection-shaped input on both.
+- R-002 — all three requirements (auto-refresh, filter combobox, sortable headers) modify the same shared state-management functions in `src/ui/index-html.ts` (`readStateFromUrl`, `writeStateToUrl`, `applyStateToForm`, `readFormIntoFilters`, `FILTER_KEYS`); resolved by building the frontend as one integrated pass instead of parallel subagent edits (only the backend allow-list work was parallelized).
+
+## Accepted (by design, 0000017)
+
+- R-003 — filter-combobox suggestions for `product_id` show "unknown"/no suggestions for historical rows and any emitter not yet updated, until backlog #00002 lands; carried forward unchanged from 0000015's R-006. Combobox falls back to plain free-text entry when suggestions are empty.
+- R-004 — poll-failure behavior during an active auto-refresh session was extended by inference from the pre-existing "degrade gracefully, never block" principle rather than being pre-confirmed scope; accepted by the human without a from-scratch confirmation. Implemented: last successful results stay visible (table never blanks), a small non-blocking failure indicator shows, and polling keeps retrying on the next interval.
+
+Security review (P5) noted one Medium finding: `distinct_values` marginally eases enumeration of distinct field values, layered on 0000015's already-accepted no-auth/local-only Medium finding (R-007 above) — not a new exposure. Zero Critical/High findings overall.

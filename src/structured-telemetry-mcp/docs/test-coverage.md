@@ -1,23 +1,31 @@
 # Test Coverage Summary — structured-telemetry-mcp
 
-Snapshot at 0.12.0 (`0000016-e2e-playwright-test-suites`).
+Snapshot at 0.13.0 (`0000017-log-viewer-enhancements`).
 
 ## Totals
 
 | Category | Count |
 |----------|-------|
-| Unit (`tests/unit/`) | 146 |
-| Integration (`tests/integration/`) | 78 |
+| Unit (`tests/unit/`) | 179 |
+| Integration (`tests/integration/`) | 88 |
 | Regression (`tests/regression/`) | 137 |
 | Performance (`tests/performance.test.ts`) | 1 |
-| E2E (`tests/e2e/`, `@playwright/test`, Chromium-only) | 17 |
-| **Total** | **379** |
+| E2E (`tests/e2e/`, `@playwright/test`, Chromium-only) | 22 |
+| **Total** | **427** |
 
-Baseline before this feature: 362 (as of 0.11.0 / `0000015`). Growth this feature: +17 — 9 backend E2E tests (`tests/e2e/backend/emit-query-health.spec.ts`) and 8 UI E2E tests (`tests/e2e/ui/log-viewer.spec.ts`), all against a real running server + ephemeral DuckDB per run. No existing test was modified.
+405 of the total are Vitest tests (179 + 88 + 137 + 1); the remaining 22 are Playwright E2E — 9 backend (`tests/e2e/backend/emit-query-health.spec.ts`, unchanged this feature) + 13 UI (`tests/e2e/ui/log-viewer.spec.ts`).
 
-Performance gate: p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95) — unaffected by this feature. E2E suite runtime (NFR-001, p95 < 5 min for both suites combined): measured at ~2.8s combined during P4, far under budget.
+Baseline before this feature: 379 (as of 0.12.0 / `0000016`). Growth this feature: +48 — new unit/integration coverage for the shared allow-list (`tests/unit/column-allow-list.test.ts`, ADR-024), `event_log`'s `sortField` (`tests/integration/query-telemetry.test.ts`, ADR-025), and the new `distinct_values` mode (`tests/integration/distinct-values.test.ts`, ADR-026), plus 5 new Playwright UI E2E tests covering auto-refresh, filter suggestions, and sortable headers — including a post-implementation-review fix (`pollForUpdates()` not revealing the table on a zero-to-nonzero transition). No pre-existing test was modified.
 
-## What's covered by automated tests (this feature)
+Performance gate: p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95) — unaffected by 0000016/0000017. `event_log`'s new `sortField` and the new `distinct_values` mode (NFR-001, p95 < 300ms per poll/query) measured well within budget at P4 against local DuckDB. E2E suite runtime (NFR-001 of 0000016, p95 < 5 min for both suites combined): measured at ~2.8s combined during P4, far under budget.
+
+## What's covered by automated tests (0000017)
+
+- `event_log`'s `sortField` param — allow-listed values sort correctly per column, default (`timestamp`) preserved when omitted, non-allow-listed/injection-shaped input rejected — `tests/unit/column-allow-list.test.ts`, `tests/integration/query-telemetry.test.ts`
+- `distinct_values` query mode — allow-listed field lookup, prefix-match `q` param, rejection of non-allow-listed fields — `tests/integration/distinct-values.test.ts`
+- Log Viewer UI auto-refresh (start/stop, URL-persisted toggle, no table blank/scroll loss, poll-failure degradation), filter-combobox suggestions, and clickable sortable headers (three-way sync with dropdown + URL) — `tests/unit/ui.test.ts`, `tests/e2e/ui/log-viewer.spec.ts`
+
+## What's covered by automated tests (0000016)
 
 - `POST /emit` — valid envelope accepted and retrievable via `POST /query`; schema-invalid envelope rejected (400) and not persisted — `tests/e2e/backend/emit-query-health.spec.ts`
 - `POST /query` (`event_log` mode) — filtering by phase/agent/product_id/from-to, pagination (limit/offset/total_count), sort asc/desc — `tests/e2e/backend/emit-query-health.spec.ts`

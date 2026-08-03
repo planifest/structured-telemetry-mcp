@@ -17,9 +17,17 @@ See `docs/api-index.md` at the repo root for the full endpoint/tool table. This 
 
 ## `query_telemetry` (MCP tool)
 
-**Argument:** `query` (object). See `docs/usage-guide.md` §7 for the full query shape reference (bottleneck / failure / token-efficiency / event_log query families). As of 0000015 (ADR-016), the `event_log` family no longer requires a scope filter — every request is bounded solely by `limit`/`offset` — and gained `phase`/`agent`/`product_id`/`from`/`to`/`sort` parameters plus a `total_count` field in the response.
+**Argument:** `query` (object). See `docs/usage-guide.md` §7 for the full query shape reference (bottleneck / failure / token-efficiency / event_log / distinct_values query families). As of 0000015 (ADR-016), the `event_log` family no longer requires a scope filter — every request is bounded solely by `limit`/`offset` — and gained `phase`/`agent`/`product_id`/`from`/`to`/`sort` parameters plus a `total_count` field in the response. As of 0000017 (ADR-025), `event_log` also accepts an optional `sortField` param — allow-listed to `timestamp`, `event`, `session_id`, `phase`, `agent`, `product_id` (`SORTABLE_FIELDS`, ADR-024) — defaulting to `timestamp` when omitted, so existing callers are unaffected.
 
 **Response:** formatted text with three sections — `## Results` (Markdown table), `## JSON` (aggregation), `## Raw Sample` (up to 5 raw events).
+
+### `distinct_values` mode (0000017, ADR-026)
+
+A fifth query family reached through the same `mode`-keyed dispatch as `event_log`/bottleneck/failure/token-efficiency — no new HTTP route.
+
+**Request:** `{ mode: 'distinct_values', field: <allow-listed field name>, q?: <prefix string> }` — `field` must be one of `SUGGESTIBLE_FIELDS` (`session_id`, `initiative_id`, `event`, `phase`, `agent`, `product_id` — ADR-024); an unrecognized field throws a clear error before any SQL executes, never silently ignored.
+
+**Response:** up to 20 distinct values for the requested field, optionally prefix-filtered by `q` — used to populate the Log Viewer's filter-combobox suggestions.
 
 ## REST equivalents
 

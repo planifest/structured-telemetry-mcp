@@ -24,4 +24,6 @@ Single-component repo — no dependencies on other components in this codebase.
 
 No new npm dependencies were added by 0000015 — the Log Viewer UI is plain HTML/CSS/vanilla JS with zero new packages (ADR-018).
 
+No new npm dependencies were added by 0000017 either — the new `sortField` param, `distinct_values` query mode, and UI auto-refresh/suggestions/sortable-headers work are all built from the existing DuckDB query layer and vanilla JS, zero new packages (ADR-024–027).
+
 No other component in this repo, and no other repo with a code-level import, depends on `structured-telemetry-mcp`.
