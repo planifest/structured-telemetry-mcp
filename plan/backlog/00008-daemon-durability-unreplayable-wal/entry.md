@@ -74,7 +74,8 @@ Treat as several related fixes; the first two are the minimum viable repair.
 4. **Do not exit on recoverable errors.** `uncaughtException -> process.exit(1)` converts a
    recoverable condition into a crash loop. Distinguish startup failure from runtime error, and fail
    loudly without a restart storm.
-5. **Backups.** Add a scheduled `EXPORT DATABASE` (or file copy of a checkpointed DB) with retention.
+5. **Backups.** Tracked separately as [[00024-scheduled-database-backups]] — do not drop it if this
+   entry's scope narrows. The checkpoint work in item 1 is a prerequisite for it.
 6. **Startup self-check.** On WAL-replay failure, emit a clear operator message naming the WAL file and
    the recovery procedure, instead of a raw DuckDB assertion and an exit.
 
@@ -91,3 +92,6 @@ this batch.
 
 Recovery of the ~4,100 stranded events is tracked separately — see
 [[00023-recover-stranded-wal-events]].
+
+The absence of any backup mechanism — which is why this incident had no restore point — is tracked as
+[[00024-scheduled-database-backups]].
