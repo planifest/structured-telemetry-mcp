@@ -14,6 +14,18 @@
  *   node-fallback logic as the sole implementation. No jq dependency,
  *   no Unix-shell (Git Bash/WSL) requirement. Identical behaviour on
  *   every platform where Node.js is present.
+ * ADR (0000026, backlog 0000042): the bare `https?://` substring match
+ *   flagged local-only arguments (e.g. `--backend-url http://localhost:3741`)
+ *   with no actual outbound fetch involved. Loopback targets (exact host
+ *   `localhost` / `127.0.0.1` / `[::1]`) are now exempted from that path —
+ *   hostnames are extracted via the WHATWG `URL` parser, not string
+ *   matching, specifically because a naive prefix check is bypassable via
+ *   `http://localhost.evil.com/` (subdomain) or `http://localhost@evil.com/`
+ *   (userinfo) — both contain the literal string `localhost` right after
+ *   the scheme but resolve to `evil.com`. `curl`/`wget` invocations are
+ *   never exempted by this loopback check — those are still redirected to
+ *   ctx_fetch_and_index regardless of target, since a local fetch can still
+ *   flood context same as a remote one.
  * Upstream: to be contributed to https://github.com/mksglu/context-mode
  *
  * Input  (stdin): Claude Code PreToolUse JSON payload
@@ -57,9 +69,29 @@ function isAllowlisted(command) {
 // e.g. `cargo` does not match `rg`; `--arg` does not match `rg`.
 // ---------------------------------------------------------------------------
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+// Extracts URL-shaped tokens (scheme://... up to the next whitespace or
+// shell-meaningful character) and reports whether every one of them
+// resolves — via the platform URL parser, not substring matching — to an
+// exact loopback host. An unparseable token is treated as non-loopback
+// (fail-safe: keep flagging when unsure).
+function isLoopbackOnly(command) {
+  const urls = command.match(/https?:\/\/[^\s'"`|;&<>]+/g);
+  if (!urls || urls.length === 0) return false;
+  return urls.every((raw) => {
+    try {
+      return LOOPBACK_HOSTS.has(new URL(raw).hostname);
+    } catch {
+      return false;
+    }
+  });
+}
+
 function redirectType(command) {
   if (/\b(grep|rg)\b/.test(command)) return "search";
-  if (/\b(curl|wget)\b/.test(command) || /https?:\/\//.test(command)) return "network";
+  if (/\b(curl|wget)\b/.test(command)) return "network";
+  if (/https?:\/\//.test(command) && !isLoopbackOnly(command)) return "network";
   return null;
 }
 

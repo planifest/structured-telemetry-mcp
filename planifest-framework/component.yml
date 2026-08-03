@@ -56,6 +56,7 @@ responsibilities:
   - "Route docs-agent's recommendations.md Deferred Items/Tech Debt rows into plan/backlog/ entries tagged by source, going forward"
   - "Check continuous_run/plan/.run-mode before docs-agent's Gate B stops for confirmation"
   - "Default the Scope Lock Challenge to always-drafted, batch-presented answers via parallel planifest-scope-lock-agent dispatch, scoped narrowly against 0000014-ADR-008's one-question-at-a-time convention"
+  - "Backstop the orchestrator's ADR-002 telemetry-failure-marker phase-start check with a deterministic check-telemetry-failures UserPromptSubmit hook (read-only; injects a reminder, never deletes markers or decides block-or-proceed)"
 
 exceptions:
   - "Does not write to planifest-overrides/ — that directory is user-owned"
@@ -126,6 +127,7 @@ scope:
     - "standards/agent-dispatch-standards.md as the canonical home for model-tier decisions and parallelism/dispatch mechanics, referenced (not restated) by the orchestrator, ship-agent, and codegen-agent"
     - "product.yml id field as the canonical declared product_id for telemetry, for single- and multi-component projects alike"
     - "Correct emit_event MCP tool argument documentation (envelope, not event) in telemetry-standards.md and all phase skills"
+    - "check-telemetry-failures.mjs enforcement hook: always installed alongside gate-write/check-design (not gated behind --context-mode-mcp or --structured-telemetry-mcp) because it is UserPromptSubmit-shaped like those hooks, not PostToolUse like context-pressure.mjs, and only reads plan/.telemetry-failures/ rather than depending on the telemetry hooks being active"
   outOfScope:
     - "Application-level code generation (handled by planifest-codegen-agent)"
     - "CI pipeline configuration for consumer projects"
@@ -144,7 +146,7 @@ risk:
 quality:
   testCoverage:
     unit: 0
-    integration: 540
+    integration: 561
     e2e: 0
   techDebt: []
   quirks:
@@ -190,6 +192,15 @@ metadata:
   # for validate-agent/docs-agent/agent-dispatch-standards.md. Updated 2
   # pre-existing tests (0000017-req-005, 0000023-req-002) whose assertions
   # encoded the exact behavior these fixes intentionally changed.
+  # Updated by 0000026 (change-agent, backlog 0000044 folded in): added
+  # check-telemetry-failures.mjs, a read-only UserPromptSubmit hook that
+  # deterministically backstops the orchestrator's ADR-002 phase-start
+  # telemetry-failure-marker check by injecting an additionalContext
+  # reminder when plan/.telemetry-failures/ has unacknowledged markers.
+  # Wired into setup.sh/.ps1 alongside gate-write/check-design (always
+  # installed, not gated behind --context-mode-mcp or
+  # --structured-telemetry-mcp). Updated the orchestrator SKILL.md's
+  # Telemetry section to note the new backstop.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"

@@ -526,8 +526,13 @@ install_before_submit_hook_registration() {
 
 install_enforcement_hooks() {
   # Copy enforcement hooks and wire PreToolUse/UserPromptSubmit (REQ-002, REQ-006, REQ-008).
-  # Includes auto-trigger-orchestrator.mjs (REQ-002), gate-write.mjs, check-design.mjs.
-  # Always installed, regardless of MCP flags.
+  # Includes auto-trigger-orchestrator.mjs (REQ-002), gate-write.mjs, check-design.mjs,
+  # check-telemetry-failures.mjs (0000026, backlog 0000044 — deterministic backstop for
+  # the orchestrator's ADR-002 phase-start telemetry-failure-marker check).
+  # Always installed, regardless of MCP flags — it is UserPromptSubmit-shaped like the
+  # other enforcement hooks, not PostToolUse like context-pressure.mjs, and reads
+  # plan/.telemetry-failures/ rather than requiring the telemetry hooks themselves to be
+  # active, so it does not belong behind --structured-telemetry-mcp or --context-mode-mcp.
   local hooks_src_rel="$1"   # e.g. hooks/enforcement
   local hooks_dir_rel="$2"   # e.g. .claude/hooks/enforcement
   local settings_rel="$3"    # e.g. .claude/settings.json
@@ -559,15 +564,17 @@ install_enforcement_hooks() {
   local trigger_cmd="$hooks_dir_rel/auto-trigger-orchestrator.mjs"
   local presence_cmd="$hooks_dir_rel/check-orchestrator-presence.mjs"
   local design_cmd="$hooks_dir_rel/check-design.mjs"
+  local telemetry_failures_cmd="$hooks_dir_rel/check-telemetry-failures.mjs"
 
   if command -v node >/dev/null 2>&1; then
-    PLANIFEST_GATE="$gate_cmd" PLANIFEST_RATCHET="$ratchet_cmd" PLANIFEST_TRIGGER="$trigger_cmd" PLANIFEST_PRESENCE="$presence_cmd" PLANIFEST_DESIGN="$design_cmd" PLANIFEST_SETTINGS="$settings" node -e '
+    PLANIFEST_GATE="$gate_cmd" PLANIFEST_RATCHET="$ratchet_cmd" PLANIFEST_TRIGGER="$trigger_cmd" PLANIFEST_PRESENCE="$presence_cmd" PLANIFEST_DESIGN="$design_cmd" PLANIFEST_TELEMETRY_FAILURES="$telemetry_failures_cmd" PLANIFEST_SETTINGS="$settings" node -e '
       const fs = require("fs"), path = require("path");
       const gate     = process.env.PLANIFEST_GATE;
       const ratchet  = process.env.PLANIFEST_RATCHET;
       const trigger  = process.env.PLANIFEST_TRIGGER;
       const presence = process.env.PLANIFEST_PRESENCE;
       const design   = process.env.PLANIFEST_DESIGN;
+      const telemetryFailures = process.env.PLANIFEST_TELEMETRY_FAILURES;
       const sf       = process.env.PLANIFEST_SETTINGS;
       let s = {};
       if (fs.existsSync(sf)) s = JSON.parse(fs.readFileSync(sf,"utf8").replace(/^\uFEFF/,""));
@@ -583,16 +590,19 @@ install_enforcement_hooks() {
         {matcher:"Write", hooks:[{type:"command",command:ratchet}]},
         {matcher:"Edit",  hooks:[{type:"command",command:ratchet}]}
       );
-      // UserPromptSubmit: auto-trigger first, then presence check, then check-design (REQ-002, REQ-008, idempotent)
+      // UserPromptSubmit: auto-trigger first, then presence check, then check-design,
+      // then check-telemetry-failures (REQ-002, REQ-008, 0000026, idempotent)
       s.hooks.UserPromptSubmit = (s.hooks.UserPromptSubmit || [])
         .filter(h => !(h.hooks||[]).some(e =>
           (e.command||"").includes("auto-trigger-orchestrator") ||
           (e.command||"").includes("check-orchestrator-presence") ||
-          (e.command||"").includes("check-design")));
+          (e.command||"").includes("check-design") ||
+          (e.command||"").includes("check-telemetry-failures")));
       s.hooks.UserPromptSubmit.push(
         {matcher:".*", hooks:[{type:"command",command:trigger}]},
         {matcher:".*", hooks:[{type:"command",command:presence}]},
-        {matcher:".*", hooks:[{type:"command",command:design}]}
+        {matcher:".*", hooks:[{type:"command",command:design}]},
+        {matcher:".*", hooks:[{type:"command",command:telemetryFailures}]}
       );
       fs.mkdirSync(path.dirname(sf),{recursive:true});
       fs.writeFileSync(sf, JSON.stringify(s,null,2)+"\n");
@@ -600,7 +610,7 @@ install_enforcement_hooks() {
     echo "  ~ $settings_rel (enforcement hooks wired)"
   else
     echo "  ! Warning: node not found — skipping settings.json enforcement hook wiring"
-    echo "  ! Manually add gate-write (Write/Edit PreToolUse), auto-trigger-orchestrator, check-orchestrator-presence and check-design (UserPromptSubmit) to $settings_rel"
+    echo "  ! Manually add gate-write (Write/Edit PreToolUse), auto-trigger-orchestrator, check-orchestrator-presence, check-design and check-telemetry-failures (UserPromptSubmit) to $settings_rel"
   fi
 }
 

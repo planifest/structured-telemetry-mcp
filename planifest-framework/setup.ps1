@@ -425,7 +425,10 @@ function Install-TelemetryHooks {
 
 function Merge-EnforcementHookSettings {
     # Merge gate-write (PreToolUse), auto-trigger-orchestrator, check-orchestrator-presence,
-    # and check-design (UserPromptSubmit) into settings.json. Idempotent.
+    # check-design, and check-telemetry-failures (UserPromptSubmit) into settings.json.
+    # check-telemetry-failures (0000026, backlog 0000044) is UserPromptSubmit-shaped like
+    # the other enforcement hooks here, not PostToolUse like context-pressure.mjs, and is
+    # always installed regardless of MCP flags. Idempotent.
     param(
         [string]$SettingsPath,
         [string]$HooksDir
@@ -446,6 +449,10 @@ function Merge-EnforcementHookSettings {
     $userPromptEntry = @{
         matcher = '.*'
         hooks   = @(@{ type = 'command'; command = "node $HooksDir/check-design.mjs" })
+    }
+    $telemetryFailuresEntry = @{
+        matcher = '.*'
+        hooks   = @(@{ type = 'command'; command = "node $HooksDir/check-telemetry-failures.mjs" })
     }
 
     if (Test-Path $SettingsPath) {
@@ -472,10 +479,11 @@ function Merge-EnforcementHookSettings {
             -not ($_.hooks | Where-Object {
                 $_.command -match 'auto-trigger-orchestrator' -or
                 $_.command -match 'check-orchestrator-presence' -or
-                $_.command -match 'check-design'
+                $_.command -match 'check-design' -or
+                $_.command -match 'check-telemetry-failures'
             })
         })
-        $existing.hooks.UserPromptSubmit = $filtered + $autoTriggerEntry + $presenceEntry + $userPromptEntry
+        $existing.hooks.UserPromptSubmit = $filtered + $autoTriggerEntry + $presenceEntry + $userPromptEntry + $telemetryFailuresEntry
 
         $existing | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Encoding UTF8
         Write-Host "  ~ .claude/settings.json (enforcement hook entries merged)"
@@ -487,7 +495,7 @@ function Merge-EnforcementHookSettings {
         $settings = [PSCustomObject]@{
             hooks = [PSCustomObject]@{
                 PreToolUse       = @($preToolEntry)
-                UserPromptSubmit = @($autoTriggerEntry, $presenceEntry, $userPromptEntry)
+                UserPromptSubmit = @($autoTriggerEntry, $presenceEntry, $userPromptEntry, $telemetryFailuresEntry)
             }
         }
         $settings | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Encoding UTF8
@@ -523,7 +531,8 @@ function Merge-AllowedTools {
 }
 
 function Install-EnforcementHooks {
-    # Copy gate-write.mjs + check-design.mjs and wire settings.json. Always runs — no flag required.
+    # Copy gate-write.mjs + check-design.mjs + check-telemetry-failures.mjs (0000026) and
+    # wire settings.json. Always runs — no flag required.
     param(
         [string]$HooksSrcRel,
         [string]$HooksDirRel,
