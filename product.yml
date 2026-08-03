@@ -7,8 +7,8 @@
 
 id: "planifest-telemetry-mcp"
 name: "Planifest Structured Telemetry MCP"
-version: "0.12.0"                   # current shipped version
-feature: "0000016-e2e-playwright-test-suites"  # feature that last set this version
+version: "0.13.0"                   # current shipped version
+feature: "0000017-log-viewer-enhancements"  # feature that last set this version
 
 # How `version` is derived at P9:
 #   max-component-version — version = the highest version among components[] (default)
@@ -19,4 +19,4 @@ versionPolicy: "max-component-version"
 
 components:
   - id: "structured-telemetry-mcp"
-    version: "0.12.0"
+    version: "0.13.0"
