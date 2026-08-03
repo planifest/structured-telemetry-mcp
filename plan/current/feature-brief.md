@@ -121,15 +121,14 @@ Established project — stack is inherited, not chosen here.
 
 ## Non-Functional Requirements
 
-> **Open — these targets are the main gap at P0 and are being coached.** They are load-bearing:
-> the checkpoint interval and backup frequency directly determine the design of 00008 and 00024.
+> Confirmed by the human on 2026-08-03 during P0 coaching.
 
 | NFR | Target | Measurement |
 |-----|--------|-------------|
-| Data-at-risk window | {{TBC — max events/seconds lost on an unclean kill}} | Kill -9 under sustained write; count events present after reopen |
-| Backup frequency | {{TBC}} | Scheduler config |
-| Backup retention | {{TBC — N daily / M weekly}} | Retention prune test |
-| Restore verification | {{TBC — frequency and assertion}} | Automated restore into scratch + row-count assertion |
+| Data-at-risk window | Checkpoint every **60 seconds or 100 events, whichever comes first**, plus a checkpoint on graceful shutdown. Max loss on an unclean kill: ~60s of events. | `kill -9` under sustained write; count events present after reopen; assert loss ≤ the window |
+| Backup frequency | **Daily** | Scheduler config |
+| Backup retention | **7 daily + 4 weekly** (~1 month, ~15–20 MB at current DB size) | Retention prune test asserts old backups are removed and the policy count holds |
+| Restore verification | **On every backup**, immediately: restore into a scratch location, open it, assert expected row count, discard | Automated as part of the backup routine; a failed verification is surfaced, not swallowed |
 | Pagination completeness | 0 dropped and 0 duplicated rows across a full pagination of the result set, for every sortable field and both directions | Seed rows with duplicate sort keys; page through; assert union equals source set exactly |
 | Deploy correctness | 100% detection of a version mismatch between running daemon and built artifact | Deploy against a deliberately stale daemon; assert non-zero exit |
 

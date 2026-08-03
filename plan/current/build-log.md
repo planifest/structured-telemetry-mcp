@@ -63,6 +63,15 @@ P0 exchange — scope: Q: Fold 00024 (scheduled DB backups) into 0000018 as well
               A: Yes, include it.
 P0 exchange — context reset: Q: Clear context before coaching, or proceed and note the deviation?
               A: Finish P0 first, clear afterwards.
+P0 exchange — routing: Q: Feature Pipeline or Change Pipeline for four backlog entries?
+              A: Feature Pipeline — 00024 is new infrastructure and 4 stories exceeds the >=3
+                 threshold. Stated as a determination, not contested by the human.
+P0 exchange — NFR data-at-risk: Q: How much telemetry may be lost on an unclean kill?
+              A: Checkpoint every 60s or 100 events, whichever first, plus on graceful shutdown.
+P0 exchange — NFR backup policy: Q: Backup cadence and retention?
+              A: Daily; keep 7 daily + 4 weekly.
+P0 exchange — NFR restore verification: Q: How often is a backup actually restored and verified?
+              A: On every backup, immediately — restore to scratch, assert row count, discard.
 ```
 
 ---
