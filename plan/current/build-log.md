@@ -154,6 +154,8 @@ P1 exchange — spec_gap (sort field): Q: design assumed a pre-existing "sort-fi
 | Telemetry | confirmed-disabled |
 | Notes | continuous_run active |
 
+P6 exchange — Gate B: docs-agent's own Gate B hardcodes a confirmation stop independent of continuous_run (distinct from the orchestrator's own P6 phase-completion gate, which does honor it). Q: confirm docs update plan (about.md, api-index.md, architecture-overview.md, usage-guide.md, decisions-index.md, per-component docs)? / A: yes, but flagged as unnecessary friction given continuous_run — filed backlog #00007. Proceeding without further gate-style questions this phase.
+
 ---
 
 <!-- Copy and fill in this block at each phase boundary:
