@@ -1,7 +1,7 @@
 id: "planifest-framework"
 name: "Planifest Framework"
-feature: "0000024-declared-product-id-for-telemetry"
-version: "0.24.0"
+feature: "0000025-pipeline-gate-and-config-fixes-and-ship-agent-fixes"
+version: "0.25.0"
 status: "active"
 type: "component-pack"
 domain: "developer-tooling"
@@ -50,6 +50,12 @@ responsibilities:
   - "Source telemetry product_id from a durable declared identifier (product.yml id field) rather than a filesystem path, with unresolvable product_id routed to the existing failure-marker mechanism rather than a fallback value"
   - "Prompt the human on the loop for a declared product id at P0 when product.yml/id is absent, hard-stopping rather than proceeding silently"
   - "Document the emit_event MCP tool's envelope argument name correctly across telemetry-standards.md and all phase skills' Telemetry sections"
+  - "Omit AI-attribution footer from ship-agent PR output by default, restorable only via a planifest-overrides/instructions/ opt-in"
+  - "Stage plan/current/ explicitly in the P7 archive commit's git add, not reliant on git's rename-detection heuristic"
+  - "Track active setup flags/backend-url in a versioned planifest-overrides/setup-config/{tool}.md file, additive to the existing gitignored marker"
+  - "Route docs-agent's recommendations.md Deferred Items/Tech Debt rows into plan/backlog/ entries tagged by source, going forward"
+  - "Check continuous_run/plan/.run-mode before docs-agent's Gate B stops for confirmation"
+  - "Default the Scope Lock Challenge to always-drafted, batch-presented answers via parallel planifest-scope-lock-agent dispatch, scoped narrowly against 0000014-ADR-008's one-question-at-a-time convention"
 
 exceptions:
   - "Does not write to planifest-overrides/ — that directory is user-owned"
@@ -138,7 +144,7 @@ risk:
 quality:
   testCoverage:
     unit: 0
-    integration: 414
+    integration: 540
     e2e: 0
   techDebt: []
   quirks:
@@ -173,6 +179,17 @@ metadata:
   # to existing failure-marker mechanism), added orchestrator P0 hard-stop
   # prompt, fixed stale emit_event envelope-argument documentation, closed
   # 0000017's unexecuted RCA live-verification follow-up.
+  # Updated by 0000025 (codegen-agent) P3: 7-story bundle — ship-agent PR
+  # footer default-off with opt-in toggle, ship-agent P7 git add stages
+  # plan/current/ explicitly, setup-config tracked in
+  # planifest-overrides/setup-config/ (additive to existing marker),
+  # docs-agent routes recommendations.md deferred items to plan/backlog/,
+  # docs-agent Gate B and other phase-skill gates respect continuous_run,
+  # Scope Lock Challenge defaults to always-drafted/batch-presented answers
+  # (supersedes 0000017-ADR-003), subagent parallelism directives expanded
+  # for validate-agent/docs-agent/agent-dispatch-standards.md. Updated 2
+  # pre-existing tests (0000017-req-005, 0000023-req-002) whose assertions
+  # encoded the exact behavior these fixes intentionally changed.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"

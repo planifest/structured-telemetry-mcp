@@ -121,7 +121,7 @@ Generate the test report artifact before archiving.
 Commit the archive, changelog, and `docs/about.md` to the branch:
 
 ```
-git add plan/_archive/ plan/changelog/ docs/about.md plan/.orchestrator-active plan/.orchestrator-ack plan/.run-mode
+git add plan/current/ plan/_archive/ plan/changelog/ docs/about.md plan/.orchestrator-active plan/.orchestrator-ack plan/.run-mode
 git commit -m "plan(p7): archive {feature-id}"
 ```
 
@@ -179,6 +179,8 @@ If the output is empty, the markers were correctly removed and committed in Step
 
 Check `planifest-overrides/instructions/` for any file containing "local-git-only" or "no remote" or "no push". If found, skip the prompt and proceed directly to option [2].
 
+Also check `planifest-overrides/instructions/` for any file whose contents contain "restore-pr-attribution" (case-insensitive substring match, same scan style as the check above). This controls the attribution footer in the PR description template below (Option [1] and Option [2] share the same body): if matched, the footer line `🤖 Generated with [Planifest](https://github.com/planifest/framework) + Claude` is appended as the final line of the PR description; if not matched (the default), the footer is omitted entirely.
+
 Otherwise, ask the human:
 
 ```
@@ -223,8 +225,7 @@ Output the following as a fenced markdown code block for copy-paste:
 
 ## Test Plan
 {Bulleted checklist of manual verification steps}
-
-🤖 Generated with [Planifest](https://github.com/planifest/framework) + Claude
+{Attribution footer — append "🤖 Generated with [Planifest](https://github.com/planifest/framework) + Claude" as the final line only if the restore-pr-attribution override matched above. Default: omit this line entirely.}
 ```
 
 Also output the suggested PR title: `{feature-id}: {one-line feature summary}`

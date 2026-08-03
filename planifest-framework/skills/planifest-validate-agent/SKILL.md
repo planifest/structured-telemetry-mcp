@@ -105,6 +105,7 @@ Do NOT proceed to the next pipeline phase if any check is failing. The pipeline 
 | Lint + typecheck (no shared state) | Test before typecheck passes (type errors cause spurious test failures) |
 | Library audit + semantic correctness check | Build before tests pass |
 | Independent component test suites | Self-correct cycle N+1 before N's fix is verified |
+| 2+ independent new test files closing a coverage gap | — |
 
 **Dispatch order:** Batch 1 (parallel): lint + typecheck. Batch 2 (after Batch 1 passes): test suite. Batch 3 (after Batch 2 passes): build. Never run lint → wait → typecheck → wait as a serial chain without a stated dependency reason.
 

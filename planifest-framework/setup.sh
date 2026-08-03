@@ -1200,6 +1200,68 @@ TOML
   echo "  Done."
 }
 
+# Write planifest-overrides/setup-config/{tool}.md — the tracked, git-versioned source
+# of truth for active setup flags/backendUrl (0000025 req-004, ADR-002 decision 1). This
+# is additive: it does not replace write_setup_flags_marker, and it is called BEFORE it so
+# the gitignored marker is always (re)written to match this file's values for the current
+# run, satisfying ADR-002 decision 3's reconciliation rule. If the write fails (e.g.
+# permissions), warns and returns non-zero so the caller falls back to existing
+# marker-only behavior instead of aborting setup (req-004 acceptance criteria, sad path).
+write_setup_config_override() {
+  local tool="$1"
+
+  local config_dir="$PROJECT_ROOT/planifest-overrides/setup-config"
+  local config_file="$config_dir/${tool}.md"
+
+  local flags=()
+  [ "$CONTEXT_MODE_MCP" = true ] && flags+=("--context-mode-mcp")
+  [ "$STRUCTURED_TELEMETRY_MCP" = true ] && flags+=("--structured-telemetry-mcp")
+  [ "$INCLUDE_FULL_SKILL_LIBRARY" = true ] && flags+=("--include-full-skill-library")
+  [ "$STRICT_ORCHESTRATOR" = true ] && flags+=("--strict-orchestrator")
+
+  local flags_json="[]"
+  if [ ${#flags[@]} -gt 0 ]; then
+    flags_json=$(printf '"%s",' "${flags[@]}")
+    flags_json="[${flags_json%,}]"
+  fi
+
+  local backend_url_json="null"
+  [ "$STRUCTURED_TELEMETRY_MCP" = true ] && backend_url_json="\"$BACKEND_URL\""
+
+  local written_at
+  written_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  if ! mkdir -p "$config_dir" 2>/dev/null; then
+    echo "  ! Warning: could not create planifest-overrides/setup-config/ — continuing with .planifest-setup-flags-only behavior" >&2
+    return 1
+  fi
+
+  if ! cat > "$config_file" << CONFIG_EOF
+# Setup config: $tool
+
+> Tracked source of truth for active setup flags/backend-url for **$tool**
+> (0000025 req-004, ADR-002). The gitignored \`.planifest-setup-flags\` marker in
+> this tool's config directory is a local completion-status cache, reconciled to
+> match this file on every \`setup.sh\`/\`setup.ps1\` run.
+
+\`\`\`json
+{
+  "tool": "$tool",
+  "flags": $flags_json,
+  "backendUrl": $backend_url_json,
+  "writtenAt": "$written_at"
+}
+\`\`\`
+CONFIG_EOF
+  then
+    echo "  ! Warning: failed to write planifest-overrides/setup-config/${tool}.md — continuing with .planifest-setup-flags-only behavior" >&2
+    return 1
+  fi
+
+  echo "  + planifest-overrides/setup-config/${tool}.md"
+  return 0
+}
+
 # Write the flags-used marker recording what was applied at install time (REQ-008, ADR-002).
 # Called only after a tool's setup completes successfully. set -euo pipefail means a failed
 # setup_tool/opencode.sh call aborts the script before this function is ever reached, satisfying
@@ -1323,9 +1385,11 @@ run_tool_setup() {
   # opencode has its own bespoke setup script (Tier 2: Bun plugin)
   if [ "$t" = "opencode" ]; then
     bash "$SETUP_DIR/opencode.sh"
+    write_setup_config_override "$t" || true
     write_setup_flags_marker "$t" ".opencode"
   else
     setup_tool "$t"
+    write_setup_config_override "$t" || true
     # TOOL_SKILLS_DIR is set globally by the tool config sourced inside setup_tool
     # (e.g. ".claude/skills"); its parent is the tool's own config directory (REQ-008).
     write_setup_flags_marker "$t" "$(dirname "$TOOL_SKILLS_DIR")"

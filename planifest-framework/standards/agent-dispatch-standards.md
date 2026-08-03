@@ -57,6 +57,8 @@ Canonical home for model tier selection and parallelism/dispatch mechanics, shar
 | Background test runner while writing docs | Run `run-tests.sh` in background while docs-agent produces output |
 | Multi-component security reviews (no shared state) | Reviewing component A and component B in parallel |
 | Independent requirement files (no cross-references) | Writing req-001 through req-008 in a single parallel batch |
+| Independent new test files closing a coverage gap | 2+ new test files, each testing independent, non-cross-referencing sections, dispatched in a single parallel batch instead of written one after another |
+| Independent living-doc edits (no shared content) | 2+ living docs (e.g. component-registry.md, decisions-index.md) that don't read each other's new content, edited in a single parallel batch instead of serially |
 
 ### Cannot parallelise
 

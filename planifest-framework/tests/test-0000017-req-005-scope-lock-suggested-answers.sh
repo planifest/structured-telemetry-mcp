@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Tests for feature 0000017, req-005: scope-lock-suggested-answers
-# Covers ADR-003 — the orchestrator always offers a suggested-answer option
-# at each Scope Lock Challenge question, but only dispatches the drafting
-# subagent (planifest-scope-lock-agent) on explicit human request.
+# Section (a) updated by feature 0000025, req-007: 0000017-ADR-003's
+# opt-in-per-question default (offer, draft only on explicit request) is
+# superseded by 0000025-ADR-003 (always draft all four in parallel by
+# default, batch-present, per-item accept/edit/reject) — section (a)'s
+# assertions now check the new default. Sections (b)/(c)/(d) are unchanged:
+# the drafting rigor rules and build-log recording still hold under the
+# new default.
 
 set -uo pipefail
 
@@ -18,28 +22,31 @@ grep_has()    { grep -q "$1" "$2" 2>/dev/null && echo "yes" || echo "no"; }
 grep_str()    { grep "$1" "$2" 2>/dev/null || true; }
 grep_count()  { grep -c "$1" "$2" 2>/dev/null || echo 0; }
 
-# ── (a) orchestrator offers a suggested-answer option at each question ──────
+# ── (a) orchestrator always drafts all four answers, batch-presented ────────
 
 echo ""
-echo "=== req-005(a): orchestrator offers suggested-answer option at every Scope Lock question ==="
+echo "=== req-005(a) [updated by 0000025-req-007]: default parallel dispatch, batch presentation ==="
 
-assert_equals "yes" "$(grep_has "Suggested-answer option" "$ORCHESTRATOR")" \
-  "req-005a: orchestrator has a Suggested-answer option subsection under Scope Lock Challenge"
+assert_equals "yes" "$(grep_has "Default parallel dispatch, no opt-in" "$ORCHESTRATOR")" \
+  "req-005a: orchestrator has a 'Default parallel dispatch, no opt-in' subsection under Scope Lock Challenge"
 
-assert_equals "yes" "$(grep_has "Want me to suggest an answer" "$ORCHESTRATOR")" \
-  "req-005a: orchestrator's scenario-path questions carry the suggest-an-answer offer"
+assert_equals "yes" "$(grep_has "dispatch \`planifest-scope-lock-agent\` for all four scenario-path questions" "$ORCHESTRATOR")" \
+  "req-005a: orchestrator dispatches all four scenario-path questions by default"
 
-# All four numbered scenario-path questions must each carry the offer text -
-# not just one of them.
-OFFER_COUNT="$(grep_count "Want me to suggest an answer" "$ORCHESTRATOR")"
-assert_equals "4" "$OFFER_COUNT" \
-  "req-005a: the offer appears at all 4 scenario-path questions (happy/first-run/error/cross-session)"
+assert_equals "yes" "$(grep_has "Drafting is always produced; it is never gated on a human opt-in request" "$ORCHESTRATOR")" \
+  "req-005a: orchestrator states drafting is never gated on a human opt-in request"
 
-assert_equals "yes" "$(grep_has "never silently skipped" "$ORCHESTRATOR")" \
-  "req-005a: orchestrator states the offer is never silently skipped"
+assert_equals "yes" "$(grep_has "Batch presentation" "$ORCHESTRATOR")" \
+  "req-005a: orchestrator has a Batch presentation subsection"
 
-assert_equals "yes" "$(grep_has "only.*explicit.*request\|explicit human request" "$ORCHESTRATOR")" \
-  "req-005a: orchestrator states drafting is only triggered on explicit human request"
+assert_equals "yes" "$(grep_has "separate, explicit accept / edit / reject for each of the four items individually" "$ORCHESTRATOR")" \
+  "req-005a: orchestrator still requires a separate accept/edit/reject per item, not a blanket batch approval"
+
+assert_equals "yes" "$(grep_has "Partial-failure fallback" "$ORCHESTRATOR")" \
+  "req-005a: orchestrator has a Partial-failure fallback subsection for a failed dispatch"
+
+assert_equals "yes" "$(grep_has "0000014-ADR-008" "$ORCHESTRATOR")" \
+  "req-005a: orchestrator scopes this default against 0000014-ADR-008's one-question-at-a-time convention"
 
 assert_equals "yes" "$(grep_has "planifest-scope-lock-agent" "$ORCHESTRATOR")" \
   "req-005a: orchestrator references the planifest-scope-lock-agent skill"
