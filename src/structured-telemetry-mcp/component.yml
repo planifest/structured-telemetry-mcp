@@ -174,9 +174,9 @@ risk:
 
 quality:
   testCoverage:
-    unit: 144   # 360 Vitest tests across 14 files as of 0000015 (144 unit + 78 integration + 137 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
-    integration: 78
-    e2e: 17   # @playwright/test, Chromium-only: 9 backend (tests/e2e/backend/) + 8 UI (tests/e2e/ui/) as of 0000016
+    unit: 179   # 405 Vitest tests across 16 files as of 0000017 (179 unit + 88 integration + 137 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
+    integration: 88
+    e2e: 22   # @playwright/test, Chromium-only: 9 backend (tests/e2e/backend/) + 13 UI (tests/e2e/ui/) as of 0000017 (+5: sortable-header click/dropdown/URL-preload, suggestion combobox, auto-refresh toggle+live-pickup)
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
@@ -193,6 +193,9 @@ quality:
     - "TypeScript 6 no longer implicitly includes Node.js types — requires explicit types: [node] in tsconfig.json."
     - "sampleEvents helpers in failures.ts and token-efficiency.ts accept a WHERE clause string — callers must always use named params ($param) rather than string interpolation for any user-supplied values."
     - "See src/structured-telemetry-mcp/docs/quirks.md — macOS/Linux service scripts have a bats harness (tests/bats/, 23 tests as of 0000012) covering pure-logic paths only; real install/uninstall against a live launchctl/systemd service remains manual verification. service-linux.sh is still untested against real systemd hardware (risk-register R-002, backlog 00001, blocked on a host-level Multipass networking issue as of 0000012)."
+    - "distinct_values' field param uses real column names (event, not event_type) per ADR-024, diverging from event_log's filter-param naming; the frontend bridges this with a small SUGGEST_FIELD_COLUMN map (0000017, docs/quirks.md)"
+    - "index-html.ts hand-mirrors SORTABLE_FIELDS/SUGGESTIBLE_FIELDS from src/query/column-allow-list.ts as client-side constants — no import mechanism at runtime (ADR-018), so a future backend allow-list change must be manually synced into the frontend copy (0000017, docs/quirks.md)"
+    - "pollForUpdates() required a post-implementation fix to toggle table/pager visibility on a genuine zero-result poll response, so auto-refresh actually reveals new rows when starting from an empty state — covered by a new E2E test (0000017, docs/quirks.md)"
 
 pipeline:
   templateVersion: "1.0.0"
@@ -201,14 +204,16 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-08-02T23:40:00Z"
-  # Updated by 0000017 (spec-agent) P1: draft manifest updates for
-  # auto-refresh/tail mode, filter-suggestion comboboxes, and three-way-synced
-  # sortable headers (real per-column sort — event_log's ORDER BY was
-  # previously hardcoded to timestamp). Purpose/scope/risk sections seeded
-  # from requirements; stack section untouched per spec-agent rules.
+  updatedAt: "2026-08-03T00:00:00Z"
+  # Updated by 0000017 (codegen-agent) P3: implemented event_log sortField
+  # (allow-listed, defaults to timestamp), the distinct_values query mode
+  # (allow-listed suggestion lookups), and the GET /ui frontend for all three
+  # (auto-refresh/tail mode, filter-suggestion comboboxes, three-way-synced
+  # sortable headers). New shared src/query/column-allow-list.ts (ADR-024).
+  # Test coverage: 405 Vitest (unit/integration/regression) + 22 Playwright
+  # E2E, all green; typecheck clean.
   createdBy: "agent"
   lastModifiedBy: "agent"
-  skill: "planifest-spec-agent"
+  skill: "planifest-codegen-agent"
   tool: "claude-code"
   model: "claude-sonnet-5"
