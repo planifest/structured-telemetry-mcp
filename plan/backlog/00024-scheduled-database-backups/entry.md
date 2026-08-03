@@ -11,6 +11,11 @@ severity: "high"
 
 **Date filed:** 2026-08-03
 
+**Scoped into:** 0000018-telemetry-data-integrity — **position 3 of 4**. Depends on the checkpoint work
+in [[00008-daemon-durability-unreplayable-wal]]: a backup taken without a prior checkpoint would copy a
+database whose recent data lives in a WAL that may not replay, which is the exact failure this guards
+against.
+
 ---
 
 ## Problem

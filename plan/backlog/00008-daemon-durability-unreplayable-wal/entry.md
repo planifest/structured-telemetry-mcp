@@ -11,6 +11,10 @@ severity: "critical"
 
 **Date filed:** 2026-08-03
 
+**Scoped into:** 0000018-telemetry-data-integrity — **position 2 of 4**, after
+[[00019-deploy-false-success-stale-code]]. Its checkpoint work is a prerequisite for
+[[00024-scheduled-database-backups]], which follows immediately.
+
 ---
 
 ## Problem

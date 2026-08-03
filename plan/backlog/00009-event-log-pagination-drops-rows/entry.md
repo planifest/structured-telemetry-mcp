@@ -11,6 +11,9 @@ severity: "critical"
 
 **Date filed:** 2026-08-03
 
+**Scoped into:** 0000018-telemetry-data-integrity — **position 4 of 4**. Independent of the other three
+(query correctness rather than daemon lifecycle), so it can proceed in parallel if convenient.
+
 ---
 
 ## Problem

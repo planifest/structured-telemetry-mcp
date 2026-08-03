@@ -11,6 +11,9 @@ severity: "high"
 
 **Date filed:** 2026-08-03
 
+**Scoped into:** 0000018-telemetry-data-integrity — **position 1 of 4**. Must land first: while deploy
+can silently no-op, no other fix in this wave can be verified as actually running.
+
 ---
 
 ## Problem
