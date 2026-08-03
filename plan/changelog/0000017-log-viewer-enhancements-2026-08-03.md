@@ -2,7 +2,7 @@
 
 **Feature:** Log Viewer Enhancements
 **Pipeline run:** P0–P9 complete, no phases skipped
-**PR:** pending — updated after PR is raised in Step 10
+**PR:** https://github.com/planifest/structured-telemetry-mcp/pull/12
 
 ## What Was Built
 

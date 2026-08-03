@@ -218,3 +218,18 @@ P6 exchange — Gate B: docs-agent's own Gate B hardcodes a confirmation stop in
 | Parallel task batches | 0 |
 | Telemetry | confirmed-disabled |
 | Notes | Sub-agent dispatched against this archive path to produce build-report.md |
+
+---
+
+### P9 — Ship
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-03T00:40:00Z` |
+| Model tier | primary |
+| Skills loaded | (continuing planifest-ship-agent) |
+| Agents spawned | 0 |
+| MCP calls | 0 |
+| Parallel task batches | 0 |
+| Telemetry | confirmed-disabled |
+| Notes | product.yml/package.json/package-lock.json bumped to 0.13.0; git tag v0.13.0 created; marker tracking pre-flight clean; human chose Option [1] (agent pushes + creates PR); branch pushed with upstream set, tags pushed, PR created at https://github.com/planifest/structured-telemetry-mcp/pull/12; changelog PR field updated. |
