@@ -156,6 +156,19 @@ P1 exchange — spec_gap (sort field): Q: design assumed a pre-existing "sort-fi
 
 P6 exchange — Gate B: docs-agent's own Gate B hardcodes a confirmation stop independent of continuous_run (distinct from the orchestrator's own P6 phase-completion gate, which does honor it). Q: confirm docs update plan (about.md, api-index.md, architecture-overview.md, usage-guide.md, decisions-index.md, per-component docs)? / A: yes, but flagged as unnecessary friction given continuous_run — filed backlog #00007. Proceeding without further gate-style questions this phase.
 
+### P7 — Archive
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-03T00:25:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-ship-agent |
+| Agents spawned | TBD |
+| MCP calls | 0 |
+| Parallel task batches | 0 |
+| Telemetry | confirmed-disabled |
+| Notes | continuous_run active for P0-P6, but P7's own archive-confirmation gate always requires human confirmation regardless |
+
 ---
 
 <!-- Copy and fill in this block at each phase boundary:
