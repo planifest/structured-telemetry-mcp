@@ -109,11 +109,11 @@ P1 exchange — spec_gap (sort field): Q: design assumed a pre-existing "sort-fi
 | Start | `2026-08-03T00:05:00Z` |
 | Model tier | primary |
 | Skills loaded | planifest-codegen-agent |
-| Agents spawned | TBD |
+| Agents spawned | 3 (2 parallel backend TDD tracks: req-003 sortField, req-002 distinct_values; 1 sequential frontend integration covering req-001/002/003 together per R-002) |
 | MCP calls | 0 |
-| Parallel task batches | TBD |
+| Parallel task batches | 1 (the 2 backend agents) |
 | Telemetry | confirmed-disabled |
-| Notes | continuous_run active — no phase-gate stop |
+| Notes | Shared allow-list module (ADR-024) written directly first (foundation for both backend tracks). Frontend done as one pass, not parallelised, per risk-register.md R-002. Post-implementation review caught and fixed a real gap: pollForUpdates() didn't reveal the table on a genuine zero-to-nonzero transition — fixed, covered by a new E2E test. Added E2E coverage (5 new Playwright tests) beyond the TDD unit/integration layer, matching 0000016's established pattern for critical user flows. Final state: 405 Vitest tests + 22 Playwright E2E, all green; typecheck clean. component.yml and docs/quirks.md updated post-build. continuous_run active — no phase-gate stop, proceeding to P4. |
 
 ---
 
