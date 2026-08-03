@@ -59,6 +59,21 @@ Preserved artefacts (not deleted): `~/.planifest/preserved-2026-08-03-unreplayab
 describing the failure and merge path) and a checksum-verified second copy at
 `~/.planifest/backup-2026-08-03-0210/`.
 
+### Downstream consequence: telemetry is lost while the daemon is down
+
+`evidence/context-pressure--TypeError--fetch-failed.json` (moved here from `plan/.telemetry-failures/`)
+records **13 failed emissions** between `01:12:03Z` and `01:20:11Z` — exactly the window between the
+crash-looping daemon being stopped and a healthy one being restored.
+
+Those 13 events were not queued or retried; they are simply gone. So a daemon outage does not merely
+pause observability, it silently punches a hole in the telemetry record — and the hole is widest
+precisely when something is going wrong and the data matters most.
+
+Worth noting the marker itself is the framework's hook-failure-marker mechanism working as designed: it
+recorded the failure rather than swallowing it. The gap is on the product side — there is no client-side
+buffering or retry for events that cannot be delivered. Consider whether that belongs in this entry's
+scope or its own.
+
 ## Suggested Action
 
 Treat as several related fixes; the first two are the minimum viable repair.

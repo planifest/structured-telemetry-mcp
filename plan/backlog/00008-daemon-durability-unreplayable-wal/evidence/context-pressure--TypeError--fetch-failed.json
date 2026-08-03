@@ -1,0 +1,11 @@
+{
+  "hook": "context-pressure",
+  "root_cause_key": "context-pressure::TypeError::fetch-failed",
+  "error_type": "TypeError",
+  "error_message": "fetch failed",
+  "phase": "monitoring",
+  "session_id": "20654da2-5bf5-435f-90d1-a129a3291735",
+  "first_seen": "2026-08-03T01:12:03.887Z",
+  "last_seen": "2026-08-03T01:20:11.389Z",
+  "occurrences": 13
+}
