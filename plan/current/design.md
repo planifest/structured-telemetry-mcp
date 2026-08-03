@@ -103,4 +103,7 @@ From `planifest-overrides/instructions/`:
 **`git-up-to-date-shorthand.md`** — "GUTD" means: `git status` first, checkout `main`, pull latest, and report any untracked files rather than silently ignoring them. Do not force-reconcile a diverged local `main`; investigate first and prefer a reversible step.
 
 ## Confirmation
-Human confirmed this design before proceeding: {pending} // Date and Time confirmed: {pending}
+Human confirmed this design before proceeding: yes // Date and Time confirmed: 03 Aug 2026 @ 03:21 AM BST
+
+Also confirmed at this gate: version 0.13.0 → 0.14.0 (minor); adoption mode `standard-iterative`;
+run mode `interactive` (confirm at every phase gate P1–P6).

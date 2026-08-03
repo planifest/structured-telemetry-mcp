@@ -140,6 +140,23 @@ To P1: restore-verification row-count semantics against a live growing table (mu
 
 Scope Lock complete. All four scenario paths captured.
 
+### P0 Gate
+
+```
+Adoption mode: standard-iterative — confirmed by human on 2026-08-03
+Version confirmed: 0.14.0 (from 0.13.0, minor, Feature Pipeline track)
+Run mode: interactive — confirm at every phase gate P1–P6
+Gate accepted: P0 — 2026-08-03T02:21:00Z
+```
+
+P0→P1 gate checklist: all 15 items pass. Scope grew during P0 relative to the picked-up backlog
+entries — decisions B and C added the Linux and Windows service scripts and the launchd/systemd
+service definitions, neither of which appeared in the source entries. Surfaced to the human before
+confirmation rather than discovered at P3.
+
+Carried into P1 as the highest-risk open item: backup ownership versus DuckDB's single-writer lock,
+routed to a P2 ADR. Independently identified as load-bearing by three of the four scope-lock subagents.
+
 ---
 
 ## Summary (filled at P7)
