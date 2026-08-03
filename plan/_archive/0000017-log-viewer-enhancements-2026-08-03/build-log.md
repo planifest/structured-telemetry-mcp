@@ -194,12 +194,27 @@ P6 exchange — Gate B: docs-agent's own Gate B hardcodes a confirmation stop in
 
 | Metric | Value |
 |--------|-------|
-| Total phases completed | `{{count}}` |
-| Total agents spawned | `{{count}}` |
-| Total MCP calls | `{{count}}` |
-| Phases using parallelism | `{{count}}` |
-| Primary tier agent calls | `{{count}}` |
-| Cheaper tier agent calls | `{{count}}` |
-| Self-corrections | `{{count}}` |
-| Phases skipped | `{{list or "none"}}` |
-| Phases with a recorded telemetry gap | `{{count — phases where Telemetry was failed-with-recorded-choice, or "0"}}` |
+| Total phases completed | 8 (P0–P7; P8/P9 append below as the ship-agent completes them) |
+| Total agents spawned | 13 (P0: 4 parallel scope-lock-agent drafts; P1: 4 parallel spec-artifact drafts; P3: 2 parallel backend TDD tracks + 1 frontend integration pass; P6: 2 parallel doc-update tracks) |
+| Total MCP calls | 0 |
+| Phases using parallelism | 4 (P0, P1, P3, P6) |
+| Primary tier agent calls | 13 |
+| Cheaper tier agent calls | 0 |
+| Self-corrections | 0 formal P4 self-correct cycles (all checks passed first attempt); 1 informal fix during P3 (pollForUpdates() visibility gap, caught on review before P4) |
+| Phases skipped | none |
+| Phases with a recorded telemetry gap | 0 |
+
+---
+
+### P8 — Build Assessment
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-03T00:35:00Z` |
+| Model tier | cheaper (haiku, per ship-agent's own P8 dispatch template) |
+| Skills loaded | planifest-build-assessment-agent |
+| Agents spawned | 1 |
+| MCP calls | 0 |
+| Parallel task batches | 0 |
+| Telemetry | confirmed-disabled |
+| Notes | Sub-agent dispatched against this archive path to produce build-report.md |
