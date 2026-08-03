@@ -3,13 +3,13 @@
 > Living document. Reflects current system state. Updated after every pipeline run.
 > Do not archive this file — update it in place.
 
-Last updated: 0000016-e2e-playwright-test-suites
+Last updated: 0000017-log-viewer-enhancements
 
 ---
 
 ## System Summary
 
-`structured-telemetry-mcp` is a local MCP server that ingests structured telemetry events (phase timings, failures, context pressure, loop iterations, phase reversals) from Planifest pipeline agents and answers structured queries over them. It runs continuously as a background service — on Windows via `nssm`, and as of 0000010 also on macOS (`launchd`) and Linux (`systemd --user`) — so any Planifest project's telemetry hooks work without a foreground terminal. As of 0000015, the same backend also serves a read-only browser UI (`GET /ui`) for browsing, filtering, and paging events — the first human-facing (non-MCP, non-CLI) surface this component exposes. As of 0000016, the HTTP/browser surface (`/emit`, `/query`, `/health`, `/ui`) has true black-box E2E coverage (`@playwright/test`, real server process + ephemeral DuckDB per run) — the first automated test layer in this project that exercises the live `node:http` server rather than its exported handlers.
+`structured-telemetry-mcp` is a local MCP server that ingests structured telemetry events (phase timings, failures, context pressure, loop iterations, phase reversals) from Planifest pipeline agents and answers structured queries over them. It runs continuously as a background service — on Windows via `nssm`, and as of 0000010 also on macOS (`launchd`) and Linux (`systemd --user`) — so any Planifest project's telemetry hooks work without a foreground terminal. As of 0000015, the same backend also serves a read-only browser UI (`GET /ui`) for browsing, filtering, and paging events — the first human-facing (non-MCP, non-CLI) surface this component exposes. As of 0000016, the HTTP/browser surface (`/emit`, `/query`, `/health`, `/ui`) has true black-box E2E coverage (`@playwright/test`, real server process + ephemeral DuckDB per run) — the first automated test layer in this project that exercises the live `node:http` server rather than its exported handlers. As of 0000017, the Log Viewer gained three interaction-quality improvements over 0000015's static browse-only view: live auto-refresh/tail mode (interval polling, no push mechanism), per-field filter-value suggestions (a new `distinct_values` query mode), and sortable table headers backed by a genuine per-column backend sort (previously hardcoded to `timestamp` only) — all three kept in sync via URL query params.
 
 ---
 
@@ -27,7 +27,7 @@ Last updated: 0000016-e2e-playwright-test-suites
 flowchart LR
     Agent[Agent tool<br/>Claude Code / Cursor / etc.] -->|MCP stdio| Proxy[stdio proxy<br/>server.bundle.mjs]
     Proxy -->|HTTP :3741| Backend[server-http.bundle.mjs<br/>persistent daemon]
-    Browser[Browser<br/>Log Viewer UI] -->|GET /ui, POST /query| Backend
+    Browser[Browser<br/>Log Viewer UI] -->|GET /ui, POST /query<br/>incl. 5s auto-refresh poll| Backend
     Backend -->|read/write| DuckDB[(DuckDB<br/>telemetry.db)]
 ```
 
@@ -74,6 +74,10 @@ Reference `docs/decisions-index.md` for the full list.
 - **ADR-021:** The Playwright MCP server is an interactive test-authoring/verification aid used during codegen only — `@playwright/test` remains the sole CI-executed engine for the shipped suites.
 - **ADR-022:** Both E2E suites use an ephemeral real-server-process + temp-DuckDB harness per run (never handler-level mocking, never a shared dev instance) — genuine black-box coverage, isolated by construction.
 - **ADR-023:** The UI E2E suite is Chromium-only — the vanilla-JS, framework-free `/ui` page (ADR-018) carries low cross-browser risk, and the narrower scope keeps CI runtime well within budget.
+- **ADR-024:** One shared, exported column allow-list (`src/query/column-allow-list.ts`) is the single SQL-injection-via-identifier defense for both `event_log`'s `sortField` and `distinct_values`' `field` — DuckDB has no parameterized-identifier binding, so this allow-list is the only defense for either.
+- **ADR-025:** `event_log` gains a real per-column `sortField` (allow-listed, defaults to `timestamp`), replacing the previously hardcoded `ORDER BY timestamp` — additive, non-breaking.
+- **ADR-026:** `distinct_values` is a new `mode` on the existing `POST /query` dispatch, not a new REST route — consistent with how every other query family (bottlenecks, failures, token-efficiency, event_log) is reached.
+- **ADR-027:** Auto-refresh is client-side interval polling (5s) against the existing `/query` endpoint — no WebSocket/SSE/push mechanism; the server has no awareness a request is a "poll."
 
 ---
 

@@ -3,7 +3,7 @@
 > Living document. Index of all ADRs across all features. Updated after every pipeline run.
 > Do not archive this file — update it in place.
 
-Last updated: 0000016-e2e-playwright-test-suites
+Last updated: 0000017-log-viewer-enhancements
 
 ---
 
@@ -34,6 +34,10 @@ Last updated: 0000016-e2e-playwright-test-suites
 | [ADR-021](../plan/_archive/0000016-e2e-playwright-test-suites-2026-08-02/adr/ADR-021-playwright-mcp-authoring-only.md) | Playwright MCP for Authoring Only — @playwright/test Remains the Sole CI Runtime | 0000016-e2e-playwright-test-suites | active | The Playwright MCP server is used interactively during codegen for test authoring/verification only; it has no CI role. `@playwright/test` alone executes the suites in CI, since MCP has no assertion/exit-code/reporter model to gate a PR with. |
 | [ADR-022](../plan/_archive/0000016-e2e-playwright-test-suites-2026-08-02/adr/ADR-022-ephemeral-server-test-harness.md) | Ephemeral Real-Server-Process + Temp-DuckDB Test Harness | 0000016-e2e-playwright-test-suites | active | Both E2E suites spin up a real `server-http.ts` child process against a fresh temp-file DuckDB on an OS-assigned ephemeral port per run — genuine black-box coverage, perfectly isolated between runs, rather than testing exported handler functions or sharing a long-lived instance. |
 | [ADR-023](../plan/_archive/0000016-e2e-playwright-test-suites-2026-08-02/adr/ADR-023-chromium-only-browser-coverage.md) | Chromium-Only Browser Coverage | 0000016-e2e-playwright-test-suites | active | The UI E2E suite runs Chromium only, not a Firefox/WebKit matrix — the framework-free vanilla-JS `/ui` page (ADR-018) carries low cross-browser risk, and the narrower scope keeps CI runtime within the 5-min (p95) budget. |
+| [ADR-024](../plan/_archive/0000017-log-viewer-enhancements-2026-08-03/adr/ADR-024-shared-column-allow-list-sql-safety.md) | Shared Column Allow-List for Dynamic SQL Identifiers | 0000017-log-viewer-enhancements | active | One shared, exported `src/query/column-allow-list.ts` module is the single SQL-injection-via-identifier defense for both `event_log`'s new `sortField` and `distinct_values`' `field` — resolves a divergence between two independently-drafted requirement docs before codegen began. |
+| [ADR-025](../plan/_archive/0000017-log-viewer-enhancements-2026-08-03/adr/ADR-025-event-log-per-column-sort.md) | event_log Gains a Real Per-Column sortField | 0000017-log-viewer-enhancements | active | Adds an optional, allow-listed `sortField` param to `EventLogQuery`, defaulting to `timestamp` (fully backward-compatible) — replaces the previously hardcoded `ORDER BY timestamp`, discovered as a P1 spec gap against the assumed "sort-field dropdown." |
+| [ADR-026](../plan/_archive/0000017-log-viewer-enhancements-2026-08-03/adr/ADR-026-distinct-values-as-query-mode.md) | distinct_values as a Query Mode, Not a New Route | 0000017-log-viewer-enhancements | active | Filter-suggestion lookups reach the server via a new `mode: 'distinct_values'` branch on the existing `POST /query` dispatch, not a dedicated `GET /distinct-values` route — consistent with every other query family. |
+| [ADR-027](../plan/_archive/0000017-log-viewer-enhancements-2026-08-03/adr/ADR-027-polling-based-auto-refresh.md) | Polling-Based Auto-Refresh | 0000017-log-viewer-enhancements | active | Live auto-refresh re-issues the existing `POST /query` every 5 seconds from the browser — no WebSocket/SSE/server-push mechanism, avoiding new connection-tracking complexity for a local single-developer tool. |
 
 ---
 

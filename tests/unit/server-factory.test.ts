@@ -37,6 +37,7 @@ function mockQueryService(overrides: Partial<IQueryService> = {}): IQueryService
     failures: vi.fn().mockResolvedValue(MOCK_RESPONSE),
     tokenEfficiency: vi.fn().mockResolvedValue(MOCK_RESPONSE),
     eventLog: vi.fn().mockResolvedValue(MOCK_RESPONSE),
+    distinctValues: vi.fn().mockResolvedValue(MOCK_RESPONSE),
     ...overrides,
   };
 }
@@ -132,6 +133,23 @@ describe('dispatchQuery', () => {
     const qs = mockQueryService();
     await dispatchQuery(qs, { mode: 'event_log', initiative_id: 'init-alpha' });
     expect(qs.eventLog).toHaveBeenCalledWith({ mode: 'event_log', initiative_id: 'init-alpha' });
+  });
+
+  // req-002-filter-combobox-suggestions (0000017)
+  it('routes mode: distinct_values to distinctValues', async () => {
+    const qs = mockQueryService();
+    await dispatchQuery(qs, { mode: 'distinct_values', field: 'agent' });
+    expect(qs.distinctValues).toHaveBeenCalledWith({ mode: 'distinct_values', field: 'agent' });
+    expect(qs.eventLog).not.toHaveBeenCalled();
+    expect(qs.failures).not.toHaveBeenCalled();
+    expect(qs.tokenEfficiency).not.toHaveBeenCalled();
+    expect(qs.bottlenecks).not.toHaveBeenCalled();
+  });
+
+  it('routes mode: distinct_values with a q param through to distinctValues', async () => {
+    const qs = mockQueryService();
+    await dispatchQuery(qs, { mode: 'distinct_values', field: 'session_id', q: 'abc' });
+    expect(qs.distinctValues).toHaveBeenCalledWith({ mode: 'distinct_values', field: 'session_id', q: 'abc' });
   });
 
   // req-003-bug-session-id-validation (BUG-002 + BUG-003)

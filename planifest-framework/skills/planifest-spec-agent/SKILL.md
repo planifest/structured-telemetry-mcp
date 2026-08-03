@@ -41,7 +41,7 @@ Write each spec artifact to `plan/` as you complete it. Write the component mani
 
 **One question at a time.**
 
-**Retrofit mode:** if `adoption_mode: retrofit`, follow the orchestrator's Adoption Modes → Retrofit scan; the execution plan must describe the system as it exists and what is changing — not just the change in isolation.
+**Retrofit mode:** if `adoption_mode: retrofit`, follow the structured scan in `planifest-framework/workflows/retrofit.md`; the execution plan must describe the system as it exists and what is changing — not just the change in isolation.
 
 **Functional requirements:**
 - Derive directly from user stories in the brief. Do not invent requirements not stated or implied.

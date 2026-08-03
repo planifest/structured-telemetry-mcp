@@ -172,7 +172,7 @@ Recommended action: {what the human should do}
 
 ## Parallel Dispatch Checklist
 
-Follows the orchestrator's canonical Parallelism Directive. Independent implementation work MUST be parallelised. Run this checklist **before writing any implementation code**:
+Follows the canonical Parallelism Directive (Parallelism Rules) in `planifest-framework/standards/agent-dispatch-standards.md`. Independent implementation work MUST be parallelised. Run this checklist **before writing any implementation code**:
 
 1. **List all requirements** for this phase from `plan/current/requirements/`.
 2. **Map dependencies** — a requirement depends on another only if it imports types from it, reads files it produces, or builds on a contract it defines.

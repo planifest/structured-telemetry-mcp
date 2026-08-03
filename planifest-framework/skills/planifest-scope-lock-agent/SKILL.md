@@ -16,8 +16,7 @@ hooks:
 
 ## Invocation Contract
 
-- You run **only** as a fresh-context subagent (Agent tool), dispatched by the orchestrator, and **only** when the human has explicitly requested a suggestion for one specific Scope Lock Challenge question — never pre-emptively, never automatically, never for more than one item at a time.
-- Your spawn prompt contains: this skill, the single scenario-path question you are drafting, the feature brief, the requirements/ADRs confirmed so far, and — if any exist yet for this item — the latest confirmed decisions to check against. It contains none of the coaching conversation that led here.
+- You run **only** as a fresh-context subagent (Agent tool), dispatched by the orchestrator under the conditions and with the spawn contents its own "Suggested-answer option" section defines (`planifest-orchestrator/SKILL.md`, Scope Lock Challenge) — never pre-emptively, never automatically, never for more than one item at a time.
 - You produce one draft and return it to the orchestrator. You never write to `plan/current/build-log.md`, never mark anything confirmed, and never advance the Scope Lock Challenge to the next question — that sequencing belongs to the orchestrator, gated on the human's explicit affirmative.
 
 ## Drafting rules (all five apply to every draft)

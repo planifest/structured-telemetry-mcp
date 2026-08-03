@@ -667,6 +667,7 @@ Raw event log — returns individual events, not an aggregate. As of 0000015 (AD
 | `limit` | number | `100` | Capped at `1000` — a higher value is rejected with an error _(0000015)_ |
 | `offset` | number | `0` | For pagination, paired with `total_count` in the response _(0000015)_ |
 | `sort` | `"asc"` \| `"desc"` | `"asc"` | `"desc"` = newest first. Default stays `"asc"` for backward compatibility with pre-0000015 callers _(0000015)_ |
+| `sortField` | string | `"timestamp"` | Column to sort by. Allow-listed: `timestamp`, `event`, `session_id`, `phase`, `agent`, `product_id` — an unlisted value is rejected with an error before any SQL runs. Omitting it is byte-identical to pre-0000017 behavior _(0000017, ADR-025)_ |
 
 All filters combine with AND semantics. The `## JSON` section of the response includes `total_count` (all rows matching the filters, independent of the current page) alongside `event_count` (rows in this page) and `events` (full row objects — every envelope field, not a summary).
 
@@ -678,13 +679,37 @@ All filters combine with AND semantics. The `## JSON` section of the response in
 { "mode": "event_log", "session_id": "my-session-001", "event_type": "phase_start" }
 { "mode": "event_log", "limit": 50, "offset": 0, "sort": "desc" }
 { "mode": "event_log", "phase": "validate", "agent": "planifest-validate-agent", "from": "2026-08-01T00:00:00Z" }
+{ "mode": "event_log", "sortField": "agent", "sort": "asc" }
+```
+
+---
+
+### Distinct values query — `mode: "distinct_values"`
+
+Added in 0000017 (ADR-026). Returns up to 20 distinct non-null values for an allow-listed field — used to populate the [Log Viewer UI](#8-log-viewer-ui)'s filter-suggestion comboboxes. Not paginated; there is no `offset`, and it is reached through the same `mode`-keyed `POST /query` dispatch as every other query family here, not a dedicated route.
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `mode` | string | — | `"distinct_values"` |
+| `field` | string | — | Required. Allow-listed: `session_id`, `initiative_id`, `event`, `phase`, `agent`, `product_id` — an unlisted value is rejected with an error before any SQL runs |
+| `q` | string | — | Optional prefix match (case-insensitive), evaluated server-side and always passed as a bound SQL parameter, never string-concatenated |
+| `limit` | number | `20` | Capped at `20` |
+
+The `## JSON` section of the response is `{ "mode": "distinct_values", "field": "<field>", "values": [...] }` — a flat array of matching values, not row objects.
+
+Note: the field allow-list uses real column names, so the event-type field is `event`, not `event_type` — the latter is only the `event_log` filter param name and the Log Viewer UI's form field id; the UI translates `event_type` → `event` before calling `distinct_values`.
+
+**Examples:**
+```json
+{ "mode": "distinct_values", "field": "agent" }
+{ "mode": "distinct_values", "field": "phase", "q": "val" }
 ```
 
 ---
 
 ## 8. Log Viewer UI
 
-Added in 0000015. A read-only browser page for browsing telemetry without hand-writing a query — served at `GET /ui` on the same daemon that handles `/emit` and `/query`:
+Added in 0000015; extended in 0000017 with auto-refresh, filter-value suggestions, and sortable column headers (see below). A read-only browser page for browsing telemetry without hand-writing a query — served at `GET /ui` on the same daemon that handles `/emit` and `/query`:
 
 ```
 http://127.0.0.1:3741/ui
@@ -695,8 +720,11 @@ No installation, build step, or new dependency — plain HTML/CSS/vanilla JS, em
 ### What it does
 
 - Paginated, newest-first table of events with a filter for every `event_log` parameter from Section 7 (`session_id`, `initiative_id`, `event_type`, `phase`, `agent`, `product_id`, `from`, `to`), plus page size and sort controls
+- Filter inputs suggest values as you type: each of the 6 filterable fields is backed by a `<datalist>`, populated from the `distinct_values` query mode (Section 7) on focus (empty prefix, up to 20 values) and again on debounced input as you narrow it down _(0000017)_
+- Column headers (`Timestamp`, `Event`, `Session ID`, `Phase`, `Agent`, `Product`) are clickable to sort: first click on a new column sorts by it using that column's default direction, a second click toggles direction; the clicked header, the `Sort` dropdown, and the `sortField`/`sort` URL params all stay three-way synced _(0000017)_
+- Optional auto-refresh: a checkbox that polls `/query` every 5 seconds while checked, persisted as `autoRefresh=1` in the URL; a poll tick only updates row data and pager labels — it never blanks the table, disturbs scroll position, or clobbers in-progress (unsubmitted) filter typing, and a failed poll shows a quiet "Auto-refresh failed — retrying…" message rather than the backend-unreachable banner _(0000017)_
 - Click any row to expand its full envelope + `data` payload as pretty-printed JSON — reuses the already-fetched row, no extra request
-- Filters, page number, page size, and sort all live in the URL query string — reload, bookmark, or share the exact same view
+- Filters, page number, page size, sort, and sort field all live in the URL query string — reload, bookmark, or share the exact same view
 - `product_id` displays as a truncated basename with the full path as a hover tooltip; the filter itself matches the full path (same exact-match semantics as the underlying query)
 - A backend-unreachable banner and distinct "no events yet" / "no matching events" states replace blank or broken pages when there's nothing to show
 

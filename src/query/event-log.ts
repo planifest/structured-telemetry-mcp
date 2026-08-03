@@ -9,9 +9,11 @@
 
 import type { DuckDBInstance, DuckDBConnection } from '@duckdb/node-api';
 import { buildQueryResponse, buildScopeHint, type QueryResponse } from './format-results.js';
+import { ALLOWED_EVENT_COLUMNS, SORTABLE_FIELDS } from './column-allow-list.js';
 
 export type EventLogMode = 'event_log';
 export type EventLogSort = 'asc' | 'desc';
+export type SortField = (typeof SORTABLE_FIELDS)[number];
 
 const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 1000;
@@ -29,6 +31,7 @@ export interface EventLogQuery {
   readonly limit?: number;
   readonly offset?: number;
   readonly sort?: EventLogSort;
+  readonly sortField?: SortField;
 }
 
 /** Returns a paginated raw event log, bounded by limit/offset, with optional filters. */
@@ -39,6 +42,11 @@ export async function queryEventLog(db: DuckDBInstance, query: EventLogQuery): P
   }
   const offset = Number(query.offset ?? 0);
   const sortDirection = query.sort === 'desc' ? 'DESC' : 'ASC';
+  const sortField = query.sortField ?? 'timestamp';
+  if (!SORTABLE_FIELDS.includes(sortField)) {
+    throw new Error(`Invalid sortField: "${sortField}". Valid values: ${SORTABLE_FIELDS.join(', ')}`);
+  }
+  const sortColumn = ALLOWED_EVENT_COLUMNS[sortField];
 
   const conn = await db.connect();
   try {
@@ -51,7 +59,7 @@ export async function queryEventLog(db: DuckDBInstance, query: EventLogQuery): P
       FROM events
       WHERE 1=1
         ${whereClause}
-      ORDER BY timestamp ${sortDirection}
+      ORDER BY ${sortColumn} ${sortDirection}
       LIMIT ${limit}
       OFFSET ${offset}
     `;

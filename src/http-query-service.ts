@@ -9,6 +9,7 @@ import type {
   FailureQuery,
   TokenEfficiencyQuery,
   EventLogQuery,
+  DistinctValuesQuery,
   QueryResponse,
 } from './query/query-service.js';
 
@@ -28,6 +29,10 @@ export class HttpQueryService implements IQueryService {
   }
 
   eventLog(query: EventLogQuery): Promise<QueryResponse> {
+    return this.post(query);
+  }
+
+  distinctValues(query: DistinctValuesQuery): Promise<QueryResponse> {
     return this.post(query);
   }
 

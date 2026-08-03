@@ -47,6 +47,7 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 
 const THRESHOLD_PCT = 70;
 // Rough estimate: ~900 KB of JSONL transcript ≈ full 200K token context window.
@@ -72,6 +73,18 @@ function getSessionId(input) {
   }
   if (input.session_id) return input.session_id;
   return `pid-${process.ppid}`;
+}
+
+function getProductId(cwd) {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return cwd;
+  }
 }
 
 // Best-effort durable failure marker (req-002, ADR-002) — see file header for
@@ -162,6 +175,7 @@ try {
   const event = {
     schema_version: "1.0",
     event: "context_pressure",
+    product_id: getProductId(cwd),
     session_id: sessionId,
     // "monitoring" is not a valid envelope `phase` value (see telemetry-standards.md's
     // enum) — context-pressure is a session-wide check the orchestrator owns

@@ -16,7 +16,7 @@ TOOL_BOOT_TEMPLATE="planifest-framework/templates/standard-boot.md"
 # Enforcement tier — native hooks (Tier 1, REQ-015)
 PLANIFEST_TIER=1
 TOOL_HOOK_ADAPTER_SRC="hooks/adapters/copilot.mjs"
-TOOL_HOOK_ADAPTER_DEST="planifest-framework/hooks/adapters/copilot.mjs"
+TOOL_HOOK_ADAPTER_DEST=".github/hooks/adapters/copilot.mjs"
 TOOL_HOOKS_INSTALL_DIR=".github/hooks"
 
 # Write .github/hooks/planifest.json (Copilot hook registration)
@@ -29,13 +29,13 @@ cat > "$_copilot_hooks_dir/planifest.json" << 'EOF'
     "preToolUse": [
       {
         "type": "command",
-        "command": "node planifest-framework/hooks/adapters/copilot.mjs"
+        "command": "node .github/hooks/adapters/copilot.mjs"
       }
     ],
     "userPromptSubmitted": [
       {
         "type": "command",
-        "command": "node planifest-framework/hooks/adapters/copilot.mjs"
+        "command": "node .github/hooks/adapters/copilot.mjs"
       }
     ]
   }

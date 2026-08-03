@@ -9,15 +9,17 @@ import { queryBottlenecks, type BottleneckQuery } from './bottlenecks.js';
 import { queryFailures, type FailureQuery } from './failures.js';
 import { queryTokenEfficiency, type TokenEfficiencyQuery } from './token-efficiency.js';
 import { queryEventLog, type EventLogQuery } from './event-log.js';
+import { queryDistinctValues, type DistinctValuesQuery } from './distinct-values.js';
 import type { QueryResponse } from './format-results.js';
 
-export type { BottleneckQuery, FailureQuery, TokenEfficiencyQuery, EventLogQuery, QueryResponse };
+export type { BottleneckQuery, FailureQuery, TokenEfficiencyQuery, EventLogQuery, DistinctValuesQuery, QueryResponse };
 
 export interface IQueryService {
   bottlenecks(query: BottleneckQuery): Promise<QueryResponse>;
   failures(query: FailureQuery): Promise<QueryResponse>;
   tokenEfficiency(query: TokenEfficiencyQuery): Promise<QueryResponse>;
   eventLog(query: EventLogQuery): Promise<QueryResponse>;
+  distinctValues(query: DistinctValuesQuery): Promise<QueryResponse>;
 }
 
 export class DuckDbQueryService implements IQueryService {
@@ -37,5 +39,9 @@ export class DuckDbQueryService implements IQueryService {
 
   eventLog(query: EventLogQuery): Promise<QueryResponse> {
     return queryEventLog(this.db, query);
+  }
+
+  distinctValues(query: DistinctValuesQuery): Promise<QueryResponse> {
+    return queryDistinctValues(this.db, query);
   }
 }

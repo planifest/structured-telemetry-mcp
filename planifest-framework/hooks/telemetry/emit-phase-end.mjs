@@ -44,6 +44,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { execFileSync } from "node:child_process";
 
 const BACKEND_URL = process.env.PLANIFEST_TELEMETRY_URL;
 const PHASE = process.argv[2];
@@ -74,6 +75,18 @@ function getSessionId(input, cwd) {
 
 function getFlagPath(sessionId) {
   return join(tmpdir(), "planifest-telemetry", `phase-start-${sessionId}-${PHASE}`);
+}
+
+function getProductId(cwd) {
+  try {
+    return execFileSync("git", ["rev-parse", "--show-toplevel"], {
+      cwd,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+  } catch {
+    return cwd;
+  }
 }
 
 // Best-effort durable failure marker (req-002, ADR-002) — see file header for
@@ -159,6 +172,7 @@ try {
   const event = {
     schema_version: "1.0",
     event: "phase_end",
+    product_id: getProductId(cwd),
     session_id: sessionId,
     phase: PHASE,
     agent: `planifest-${PHASE}-agent`,

@@ -121,7 +121,7 @@ Generate the test report artifact before archiving.
 Commit the archive, changelog, and `docs/about.md` to the branch:
 
 ```
-git add plan/_archive/ plan/changelog/ docs/about.md
+git add plan/_archive/ plan/changelog/ docs/about.md plan/.orchestrator-active plan/.orchestrator-ack plan/.run-mode
 git commit -m "plan(p7): archive {feature-id}"
 ```
 
@@ -164,6 +164,16 @@ Validate the final value: must match `[0-9]+\.[0-9]+(\.[0-9]+)?` and be ≤20 ch
 ```bash
 git tag v{version} -m "{feature-id}"
 ```
+
+### Step 9b — Marker tracking pre-flight check
+
+Durable backstop for the Step 7 atomic marker fix. Run:
+
+```bash
+git ls-files plan/.orchestrator-active plan/.orchestrator-ack plan/.run-mode
+```
+
+If the output is empty, the markers were correctly removed and committed in Step 7 — proceed to Step 10. If the output is non-empty, one or more markers are still tracked: surface a clear warning to the human before proceeding, naming the tracked path(s) and stating that Step 7's archive commit did not fully stage the marker deletions.
 
 ### Step 10 — Push/PR decision
 

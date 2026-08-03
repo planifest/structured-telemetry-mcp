@@ -70,27 +70,31 @@ assert_contains "build-report.md"            "$SHIP" "req-003: ship agent confir
 
 echo ""
 echo "=== req-004: model routing rules ==="
+echo "(0000022: Model Tier Decision Table relocated to standards/agent-dispatch-standards.md, ADR-001 - orchestrator now points to it)"
 
-assert_contains "Model Tier"                 "$ORCH" "req-004: orchestrator has Model Tier section"
-assert_contains "Primary"                    "$ORCH" "req-004: Primary tier defined"
-assert_contains "Cheaper"                    "$ORCH" "req-004: Cheaper tier defined"
-assert_contains "Code generation"            "$ORCH" "req-004: code generation classified"
-assert_contains "Security review"            "$ORCH" "req-004: security review classified"
-assert_contains "Codebase discovery"         "$ORCH" "req-004: codebase discovery classified"
-assert_contains "Formatting"                 "$ORCH" "req-004: formatting classified"
-assert_contains "Tier-to-model"              "$ORCH" "req-004: tier-to-model mapping table present"
-assert_contains "claude-haiku"               "$ORCH" "req-004: Haiku listed as cheaper tier for Claude Code"
+DISPATCH_STD=$(cat "$FRAMEWORK/standards/agent-dispatch-standards.md")
+assert_contains "agent-dispatch-standards.md" "$ORCH" "req-004: orchestrator points to agent-dispatch-standards.md"
+assert_contains "Model Tier"                 "$DISPATCH_STD" "req-004: standards file has Model Tier section"
+assert_contains "Primary"                    "$DISPATCH_STD" "req-004: Primary tier defined"
+assert_contains "Cheaper"                    "$DISPATCH_STD" "req-004: Cheaper tier defined"
+assert_contains "Code generation"            "$DISPATCH_STD" "req-004: code generation classified"
+assert_contains "Security review"            "$DISPATCH_STD" "req-004: security review classified"
+assert_contains "Codebase discovery"         "$DISPATCH_STD" "req-004: codebase discovery classified"
+assert_contains "Formatting"                 "$DISPATCH_STD" "req-004: formatting classified"
+assert_contains "Tier-to-model"              "$DISPATCH_STD" "req-004: tier-to-model mapping table present"
+assert_contains "claude-haiku"               "$DISPATCH_STD" "req-004: Haiku listed as cheaper tier for Claude Code"
 
 # -----------------------------------------------------------------------
 
 echo ""
 echo "=== req-005: parallelism directives in orchestrator ==="
+echo "(0000022: Parallelism Rules relocated to standards/agent-dispatch-standards.md, ADR-001 - orchestrator now points to it)"
 
-assert_contains "Parallelism Rules"          "$ORCH" "req-005: Parallelism Rules section present"
-assert_contains "Default posture: parallel"  "$ORCH" "req-005: default posture is parallel stated"
-assert_contains "Dependency test"            "$ORCH" "req-005: dependency test present"
-assert_contains "MUST parallelise"           "$ORCH" "req-005: MUST parallelise table present"
-assert_contains "Cannot parallelise"         "$ORCH" "req-005: Cannot parallelise table present"
+assert_contains "Parallelism Rules"          "$DISPATCH_STD" "req-005: Parallelism Rules section present"
+assert_contains "Default posture: parallel"  "$DISPATCH_STD" "req-005: default posture is parallel stated"
+assert_contains "Dependency test"            "$DISPATCH_STD" "req-005: dependency test present"
+assert_contains "MUST parallelise"           "$DISPATCH_STD" "req-005: MUST parallelise table present"
+assert_contains "Cannot parallelise"         "$DISPATCH_STD" "req-005: Cannot parallelise table present"
 
 # -----------------------------------------------------------------------
 
