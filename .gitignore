@@ -19,6 +19,11 @@ test-results/
 playwright-report/
 blob-report/
 
+# Local-only working files — the *.local-only.* naming convention is now
+# enforced, not just implied (0000019 req-012). Matches an infix on both
+# sides (foo.local-only.sh), never a bare "local-only.txt" or a directory.
+*.local-only.*
+
 # OS cruft
 .DS_Store
 
