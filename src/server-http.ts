@@ -18,6 +18,7 @@ import { createServer } from 'node:http';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { DuckDBInstance } from '@duckdb/node-api';
 
@@ -43,6 +44,22 @@ const VERSION: string = (() => {
     }
   }
   return 'unknown';
+})();
+
+// req-004b (req-008): a build-identity fingerprint distinct from VERSION — two
+// builds can share the same semver but differ in content (deploy.mjs uses this
+// to detect a stale running process). SHA-256 of the built bundle; when running
+// unbundled (tsx in dev) the bundle file may not be found — degrade gracefully
+// (null), never throw or block startup/health.
+const BUILD_ID: string | null = (() => {
+  for (const rel of ['../server-http.bundle.mjs', './server-http.bundle.mjs']) {
+    const p = resolve(__dirname, rel);
+    if (existsSync(p)) {
+      try { return createHash('sha256').update(readFileSync(p)).digest('hex'); }
+      catch { /* continue */ }
+    }
+  }
+  return null;
 })();
 
 // ── Error handling ────────────────────────────────────────────────────────────
@@ -137,7 +154,7 @@ const server = createServer(async (req, res) => {
 
   // GET /health
   if (req.method === 'GET' && url.pathname === '/health') {
-    json(res, 200, { ok: true, version: VERSION });
+    json(res, 200, { ok: true, version: VERSION, buildId: BUILD_ID });
     return;
   }
 
