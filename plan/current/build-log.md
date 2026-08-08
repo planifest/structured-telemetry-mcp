@@ -281,6 +281,59 @@ stop, escalation resolved above per Hard Limit on blocked-loop escalation)
 | Telemetry | confirmed-disabled |
 | Notes | Continuous run — no human gate stop. `design_critic` on (blocking) runs over the combined P1+P2 set before P3, running consistency-check.mjs first per the orchestrator's Design-critic note. |
 
+One ADR produced: ADR-032-caller-provenance-without-shared-secret. It is the
+only decision in this feature that clears the adr-agent's ADR bar — it is a
+security trade-off, it reverses a documented prior position, and
+`component.yml`'s `breakingChangePolicy: requires-adr` mandates it. The P2
+critic independently scanned all twelve requirements for a second uncaptured
+architectural call and found none (req-005's distinct_values clamp→reject was
+the nearest candidate; judged an extension of the ADR-016 precedent, fully
+reasoned in-line, zero verified caller impact — not ADR-worthy on its own).
+
+Decision recorded by ADR-032: Host allow-list + Origin rejection +
+Content-Type-required, no shared secret. On acceptance, `component.yml`'s
+exceptions block, req-001/req-002 Dependencies, and risk-register R-013 all
+revised from "ADR-032 pending" to "accepted, code lands at P3" — stating the
+manifest's own currency rather than letting a reader infer it.
+
+#### design_critic loop (P2 gate, cap 3)
+
+Iteration 1: REJECT, 1 blocking + 2 advisory. Blocking: `component.yml`'s
+P2-revision comment said "no code in this tree actually checks Host or Origin"
+and then, four sentences later in the same block, "provenance is now checked"
+— a present-tense slip inside the very comment written to prevent that slip.
+Reworded to "will be checked, once P3 lands" throughout. Advisory: exceptions
+bullet's trailing qualifier tightened; ADR-032's Affected Components citation
+extended to include `src/ui/index-html.ts:258`, the citation req-002/req-003
+already use to back the log-viewer-needs-no-change claim the ADR itself makes.
+
+Iteration 2: ACCEPT. Verified the tense fix end-to-end (confirmed against the
+live `server-http.ts:187-237` — no Host/Origin check exists yet, so "no code
+checks" is literally true today), citation accuracy (`index-html.ts:258` is
+the `Content-Type: application/json` header, consistent across ADR-032/
+req-002/req-003), and no drift in R-013/req-001/req-002. One further advisory
+raised and then closed inline: the CORS-headers exceptions bullet carried the
+same unlanded-code framing without the "once P3 lands" qualifier — matched to
+the rest of the block.
+
+Gate accepted: P2 — 2026-08-08T16:31:21Z (continuous run; design_critic ACCEPT
+on iteration 2, no human gate stop required)
+
+---
+
+### P3 — Code Generation
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T16:31:21Z` |
+| Model tier | primary + cheaper (TDD inner loop dispatched to cheaper where suitable) |
+| Skills loaded | planifest-orchestrator, planifest-codegen-agent (+ test-writer / implementer / refactor sub-agents per requirement) |
+| Agents spawned | `{{count}}` |
+| MCP calls | `{{count}}` |
+| Parallel task batches | `{{count}}` |
+| Telemetry | confirmed-disabled |
+| Notes | Continuous run. Subagent Decomposition Directive applies. R-002: req-001..req-004 all edit src/server-http.ts and MUST land as one integrated pass, not parallel edits. |
+
 | Metric | Value |
 |--------|-------|
 | Total phases completed | `{{count}}` |

@@ -79,7 +79,7 @@ exceptions:
   # 00020) are now delivered, so the exception no longer holds and is replaced
   # by the narrower residual exclusions below.
   - "Does not drain in-flight requests on SIGTERM — server.close() keeps its existing semantics and the interaction between an in-flight request and the shutdown checkpoint is unspecified. Surfaced at 0000019 P0 and deliberately excluded as 0000018 shutdown-path surface, not request-boundary surface"
-  - "Does not emit CORS response headers — cross-origin access is refused, not negotiated; adding Access-Control-Allow-Origin would defeat the Origin check (0000019, req-002)"
+  - "Does not emit CORS response headers — cross-origin access will be refused, not negotiated, once req-002 lands at P3; adding Access-Control-Allow-Origin would defeat the Origin check. Not yet true of the running code as of this P2 manifest revision (0000019, req-002)"
   - "Does not change the uncaughtException -> process.exit(1) policy — 0000019 stops the request path from reaching it, but the handler itself is unchanged and other crash paths still exit (0000019, 00013 action 5 not adopted)"
   - "Does not guarantee that a refused /emit is surfaced to the caller as a telemetry failure — the daemon returns a structured 400, but whether the emission hooks write a failure marker for it is framework-side, tracked at plan/backlog/00028 (0000019)"
   - "Does not migrate event-log pagination away from limit/offset to keyset pagination — the id tiebreaker works within the existing ADR-016 bounding strategy, not instead of it (0000018)"
