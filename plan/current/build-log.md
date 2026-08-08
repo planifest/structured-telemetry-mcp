@@ -93,6 +93,86 @@ Flagged to the human at pickup, not actioned:
 - 00023 — ~4,100 events stranded in a 2.4 MB DuckDB WAL that 1.5.1 cannot replay.
   Not time-critical, but unrecoverable if the file is cleaned up.
 
+#### Scope Lock Challenge
+
+Dispatched per ADR-003 default: four `planifest-scope-lock-agent` instances in
+parallel, one per scenario path, fresh context, no coaching history passed.
+Human explicitly authorised the dispatch (this session is otherwise configured
+not to spawn subagents). All four returned; none failed, so the partial-failure
+fallback was not used. Batch-presented; human gave a separate explicit decision
+per item.
+
+Scope Lock — happy path: Three canonical first actions, not two — a Planifest
+hook POST /emit (write), a developer opening /ui which calls /query (read), and
+the stdio proxy POST /query (ADR-009, non-browser, no Origin header). Success is
+that all three behave exactly as they did pre-hardening; the hardening is
+invisible unless a request violates a check. [source: agent-draft-edited]
+
+Scope Lock — first-run path: No bootstrap or provisioning step exists — the
+checks are stateless per request, so first run behaves identically to every later
+run. On upgrade, `npm run deploy` restarts and verifies via buildId that the new
+code answers; on fresh install the daemon is already hardened. No relaxed or
+learning period. telemetry.db untouched — no schema change. The deploy/restart
+transition is deliberately NOT new test surface: 0000018's buildId fingerprint
+(req-008) and orphan-port detection (req-009) already cover it. Recorded as an
+intentional decision rather than an oversight. [source: agent-draft-edited]
+
+Scope Lock — error / sad path: The likeliest failure is a false positive, not an
+attack. Origin/Host checks only fire on a mismatched Origin or unrecognised Host,
+so callers sending neither pass untouched. A wrong or missing Content-Type
+returns 400 naming the field plus a correlation id, never engine text, with full
+detail to stderr. A refused /emit is a real telemetry gap, so the daemon returns
+a clean unambiguous 400 the hook's failure-marker logic can act on, distinct from
+a 500. Oversized or malformed bodies return 413/400 and the daemon stays up.
+[source: agent-draft-accepted]
+
+Scope Lock — cross-session continuity: Daemon at-risk state is unchanged —
+events since the last WAL checkpoint (60s or 100 events). This feature adds no
+persisted state but shrinks how often that window is entered, since a bad request
+no longer exits the process. Recovery runs 0000018's existing path unchanged. No
+token means nothing to resynchronise across a restart. An interrupted in-flight
+request writes nothing partial — validation completes before any write. Pipeline
+session state in plan/current/ survives interruption. [source:
+agent-draft-accepted]
+
+Scope Lock complete. All four scenario paths captured.
+
+##### Gaps surfaced by the Scope Lock agents, and their resolution
+
+- Content-Type assumption (error-path agent, flag a): the agent flagged as
+  unverified that the stdio proxy and Planifest hooks already send
+  `Content-Type: application/json`. **Closed by inspection at P0**, not carried
+  forward as a risk — all three framework telemetry hooks
+  (`emit-phase-start.mjs:219`, `emit-phase-end.mjs:208`,
+  `context-pressure.mjs:235`), the stdio proxy's HTTP client
+  (`src/http-query-service.ts:42`, `src/http-repo.ts:16`) and the log viewer
+  (`src/ui/index-html.ts:258`) all send it today. Requiring it breaks no
+  legitimate caller.
+- Hook-side handling of an /emit 400 (error-path agent, flag b): nothing wires a
+  structured 400 from /emit into `plan/.telemetry-failures/`. That protocol lives
+  hook-side in `planifest-framework/`, which routes out of this pipeline per the
+  Framework Update Policy. Human decision: file as backlog 00028 rather than drop.
+- In-flight request vs SIGTERM checkpoint (cross-session agent): drain-to-
+  completion versus drop-mid-handling is unspecified by any ADR. Human decision:
+  explicitly OUT OF SCOPE for this feature — it is 0000018 shutdown-path surface,
+  not request-boundary surface. Recorded as a decision in scope, not left as an
+  open gap.
+
+#### Open decision resolved
+
+P0 exchange — auth model (ADR-032): Q: Local shared secret token, or
+Origin/Host/Content-Type checks alone? / A: Checks only, no shared secret. A
+token in ~/.planifest/ readable by the owning user gives no protection against a
+same-user local process that can already read telemetry.db directly; it defends
+only against browser pages, which the checks close completely, while adding
+friction to the stdio proxy and forcing the daemon to inject the secret into a
+static page with no secret store.
+
+P0 exchange — Scope Lock drafting method: Q: Framework wants four parallel
+scope-lock subagents, but this session is configured not to spawn agents unless
+asked — draft inline or dispatch? / A: Dispatch the four subagents. Framework
+default protocol followed exactly; no deviation to record.
+
 ---
 
 ## Summary (filled at P7)

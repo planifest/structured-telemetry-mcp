@@ -127,6 +127,8 @@ Existing stack, unchanged — no new stack decision required.
 - Remote/network exposure — the daemon stays bound to `127.0.0.1`
 - Any schema or migration change
 - Revisiting `uncaughtException -> process.exit(1)` as a general policy (00013 suggested action 5); this feature stops the *request path* from reaching it, but the handler itself stays as-is
+- Graceful-shutdown request draining — whether an in-flight request is drained to completion or dropped when SIGTERM arrives, and how that races with the WAL checkpoint. Surfaced by the cross-session Scope Lock agent as unspecified by any ADR; excluded by human decision at P0 because it is 0000018 shutdown-path surface, not request-boundary surface. Recorded as a decision, not an omission
+- Hook-side handling of a structured `400` from `/emit` — whether the emission hooks treat it as failure-marker-worthy under `plan/.telemetry-failures/`. Lives in `planifest-framework/`, which routes out of this pipeline per the Framework Update Policy; filed as backlog 00028
 
 ### Deferred
 
@@ -159,39 +161,73 @@ Existing stack, unchanged — no new stack decision required.
 
 - The daemon's only legitimate clients are same-origin (`/ui`), the stdio proxy, and Planifest hooks — all local, none cross-origin
 - Browsers reliably send `Origin` on cross-origin requests including CORS-simple ones (the basis for F2 story 1)
+- ~~Legitimate callers already send `Content-Type: application/json`~~ — **no longer an assumption; verified at P0.** All three framework telemetry hooks (`emit-phase-start.mjs:219`, `emit-phase-end.mjs:208`, `context-pressure.mjs:235`), the stdio proxy's HTTP client (`src/http-query-service.ts:42`, `src/http-repo.ts:16`) and the log viewer (`src/ui/index-html.ts:258`) all send it today
 - A few MB is a generous body cap for this API; no legitimate caller approaches it
 - 00020's file/line references are 0.13.0-era and predate 0000018's test growth (405/16 files -> 491/28 files); they need re-verification at P3, not verbatim trust
 
 ## Scenario Paths
 
-To be completed by the Scope Lock Challenge at P0.
+Captured by the Scope Lock Challenge at P0. Four `planifest-scope-lock-agent` instances
+dispatched in parallel per ADR-003; each answer below carries a separate explicit human
+accept/edit decision, recorded in `build-log.md`.
 
 **Happy path:**
 
-> {{happy-path}}
+> Three canonical first actions, all legitimate local clients during normal use: a
+> Planifest hook `POST /emit`-ing a phase event (write); a developer opening `/ui`, which
+> calls `/query` (read); and the stdio proxy calling `/query` (ADR-009, non-browser, sends
+> no `Origin` header). All three already carry what the new checks require — no `Origin`
+> or the daemon's own, a `Host` of `127.0.0.1:<PORT>` or `localhost:<PORT>`,
+> `Content-Type: application/json`, body under cap. Success is that nothing changes: the
+> event stores and appears in the viewer, `/query` returns its normal bounded result, `/ui`
+> loads as before. The hardening is invisible unless a request violates a check.
 
 **First-run path:**
 
-> {{first-run-path}}
+> No bootstrap or provisioning step exists — the checks are stateless per request, so first
+> run behaves identically to every later run. Upgrading a machine with an old daemon
+> running: `npm run deploy` builds, confirms the port is not held by an orphan, restarts,
+> and verifies via `buildId` that the new code is the one answering; the first request the
+> hardened daemon receives is already validated. Fresh install: the installed daemon is
+> already hardened, with no relaxed or learning period before enforcement. `telemetry.db`
+> and its rows are untouched either way — no schema change, no migration. The
+> deploy/restart transition is deliberately not new test surface; 0000018's `buildId`
+> fingerprint (req-008) and orphan-port detection (req-009) already cover it.
 
 **Error / sad path:**
 
-> {{error-sad-path}}
+> The most likely failure is a false positive, not an attack — a legitimate local caller
+> refused by a check it never had to satisfy before. `Origin`/`Host` only fire on a
+> mismatched `Origin` or an unrecognised `Host`, so callers sending neither pass untouched.
+> A wrong or missing `Content-Type` returns `400` naming the field plus a correlation id —
+> no engine text, no stack, no stored data — with full detail to stderr. A refused `/emit`
+> is a real telemetry gap rather than a mere HTTP error, so the daemon's obligation is a
+> clean, unambiguous `400` that the hook's failure-marker logic can act on, distinct from a
+> `500` engine failure. For oversized or malformed bodies the connection closes with
+> `413`/`400` and the daemon process stays alive to serve the next request.
 
 **Cross-session continuity:**
 
-> {{cross-session-continuity}}
+> Daemon: at-risk state is unchanged from 0000018 — events since the last WAL checkpoint
+> (every 60s or 100 events, whichever first). This feature adds no persisted state, but it
+> shrinks how often that window is entered, because a malformed request no longer exits the
+> process. Recovery still runs 0000018's path unchanged: refuse-to-start on a locked or
+> unreplayable WAL, checkpoint-on-restart, daily `EXPORT DATABASE` as fallback. With no
+> shared secret there is no credential to resynchronise across a restart. An interrupted
+> in-flight request writes nothing partial — validation completes fully before any write —
+> so the store is left exactly as it was. Pipeline: `plan/current/` survives interruption
+> and the next session resumes at the exact pause point.
 
-## Open Decision (blocks P1)
+## Resolved Decision (was blocking P1)
 
-**Shared secret, or Origin/Host/Content-Type checks alone?** 00012 suggested action 4
-proposes a token written to `~/.planifest/` at install time, required as a header.
-Orchestrator recommendation: **items 1-3 only, no shared secret.** A token in
-`~/.planifest/` readable by the owning user gives no protection against a same-user local
-process, because that process can read `telemetry.db` directly. It defends only against
-browser pages — which items 1-3 already close completely — while adding friction to the
-stdio proxy and forcing the daemon to inject the secret into a static page that has no
-secret store, weakening it in the process. Recorded here as the ADR question for P2.
+**Origin/Host/Content-Type checks alone — no shared secret.** Confirmed by the human at
+P0. 00012 suggested action 4 proposed a token written to `~/.planifest/` at install time
+and required as a header; it is not adopted. A token readable by the owning user gives no
+protection against a same-user local process, because that process can read
+`telemetry.db` directly. It defends only against browser pages — which items 1-3 close
+completely — while adding friction to the stdio proxy and forcing the daemon to inject the
+secret into a static page that has no secret store, weakening it in the process. This
+becomes ADR-032, superseding `component.yml`'s "no auth model required" position.
 
 ## Acceptance Criteria
 
