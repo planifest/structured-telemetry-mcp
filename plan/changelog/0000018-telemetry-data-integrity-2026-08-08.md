@@ -2,7 +2,7 @@
 
 **Feature:** Telemetry Data Integrity
 **Pipeline run:** Phases P0–P9 completed. None skipped.
-**PR:** {pending — updated after PR is raised in Step 10}
+**PR:** https://github.com/planifest/structured-telemetry-mcp/pull/13
 
 ## What Was Built
 

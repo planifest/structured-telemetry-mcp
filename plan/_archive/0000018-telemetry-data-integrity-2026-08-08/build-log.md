@@ -346,11 +346,12 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 | Start | `2026-08-08T11:41:00Z` |
 | Model tier | primary |
 | Skills loaded | planifest-ship-agent (continued) |
-| Agents spawned | `TBD` |
-| MCP calls | `TBD` |
-| Parallel task batches | `0` |
-| Telemetry | TBD |
-| Notes | Deriving release version from product.yml. Gate is a mandatory human confirmation stop — proceeding to Step 9 (tag) and Step 10 (push/PR question), then stopping. |
+| End | `2026-08-08T12:10:00Z` |
+| Agents spawned | 0 |
+| MCP calls | 2 (`phase_start`/`phase_end`) |
+| Parallel task batches | 0 |
+| Telemetry | emitted |
+| Notes | Version derived from product.yml via product-version.mjs: 0.14.0 (product.yml's `version`, `feature`, and `components[]` updated 0.13.0->0.14.0 before tagging, per Step 9). Tag `v0.14.0` created and pushed. Step 9b marker pre-flight: clean, no sentinels tracked. No local-git-only or restore-pr-attribution override found — human asked and chose [1] (agent pushes + creates PR). Branch and tag pushed to origin; PR #13 raised. **Anomaly handled before push:** `planifest-framework/component.yml` and `hooks/telemetry/context-pressure.mjs` were found reverted in the working tree (both mtime 12:01:56, coinciding with the P8 subagent run) — HEAD (`fb849d9`) was verified to still hold the correct content, and the working tree was restored from HEAD rather than committing the regression. The installed `.claude/` copy had never lost the fix. Verified post-restore: retry logic present, version 0.25.1 intact, installed copy identical again. |
 
 ---
 
