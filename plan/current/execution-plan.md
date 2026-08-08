@@ -92,9 +92,9 @@ Each is a risk item with likelihood: medium — see `risk-register.md`'s "Assump
 
 ## Open Questions
 
-Reported to the orchestrator — not filled in by assumption. Both were already identified and routed to a P2 ADR during P0 coaching (design.md Risks; build-log.md P0 Gate section) — restated here for requirements traceability, not raised as new gaps.
+Both resolved at P2 — retained here for traceability, not currently blocking.
 
-| ID | Question | Blocking |
+| ID | Question | Resolution |
 |----|----------|----------|
-| Q-001 | Who triggers the scheduled backup — in-process (daemon's own timer) or an external scheduler — given DuckDB's single-writer lock is exactly what produced the 2026-08-03 crash loop? | req-006's triggering mechanism (the verify→promote→prune routine itself is independent and unblocked) |
-| Q-002 | Does the daemon's refuse-to-start exit code follow ADR-005's exit-zero-for-hooks precedent, or exit non-zero and rely on supervision throttling (req-005)? | req-004's exit code, req-005's specific throttle/circuit-breaker thresholds |
+| Q-001 | Who triggers the scheduled backup — in-process (daemon's own timer) or an external scheduler — given DuckDB's single-writer lock is exactly what produced the 2026-08-03 crash loop? | **ADR-029**: in-process, on the daemon's own connection. No external scheduler. |
+| Q-002 | Does the daemon's refuse-to-start exit code follow ADR-005's exit-zero-for-hooks precedent, or exit non-zero and rely on supervision throttling (req-005)? | **ADR-030**: exit-zero, matching the framework's ADR-005 (0000003) precedent — and mechanically correct against both platforms' existing `SuccessfulExit`/`Restart=on-failure` configs. req-005's throttle config becomes defense-in-depth (**ADR-031**). |

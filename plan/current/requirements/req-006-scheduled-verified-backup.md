@@ -17,11 +17,11 @@ As an operator, I want verified, retained backups taken automatically, so that a
 
 ## Functional Requirements
 
-- **Blocked on P2 ADR (risk-register.md R-001):** who runs the backup — in-process (daemon triggers it on its own schedule) or an external scheduler (cron/launchd-timer/systemd-timer) — is unresolved pending the single-writer-lock ADR. This requirement specifies the backup *routine's* behaviour once triggered; the triggering mechanism itself is set by that ADR.
+- **Resolved by ADR-029 (P2):** the backup is triggered by an in-process timer inside the daemon, using the daemon's own already-open DuckDB connection — not an external scheduler. This eliminates the single-writer-lock conflict by construction rather than by scheduling around it.
 - Implement the backup routine as: (1) run `EXPORT DATABASE` to a timestamped directory under a temporary name (e.g. a `.tmp-` prefix or a staging subdirectory); (2) restore that export into a scratch location distinct from the live database; (3) open the scratch restore and assert its row count matches the row count pinned at the moment export began; (4) on success, rename (promote) the temporary export directory into the retained backup set using its final name; (5) discard the scratch restore; (6) only after promotion, prune the retained set down to 7 daily + 4 weekly, deleting only artifacts that are themselves already-verified (never the artifact just promoted, never a partial).
 - If step (3)'s row-count assertion fails, or any step throws, the routine logs a warning, leaves the temporary export in place (or discards it — either is acceptable as long as it is never promoted), and does **not** proceed to promote or prune. The daemon's ingestion path is unaffected either way (backup failures never block writes).
 - Pin the row count at the moment export *begins*, not after export completes, since the live table may continue growing during export — the scratch-restore assertion compares against that pinned count, not against the (possibly larger) live table's current count at verification time.
-- Backup artifact location: outside `~/.planifest/` by default (per backlog 00024's recommendation, so a mistaken wipe of that directory does not take the backups with it) — confirm the exact default path with the human at P2 alongside the ownership ADR, since it interacts with the same discussion.
+- **Backup artifact location, resolved by ADR-029:** a new `PLANIFEST_TELEMETRY_BACKUP_DIR` environment variable, defaulting to `~/.planifest-backups` — a sibling of, not nested inside, `~/.planifest/` (per backlog 00024's recommendation), and independent of `PLANIFEST_TELEMETRY_DB` overrides.
 - Write a sidecar JSON metadata file recording the outcome of the most recent verified backup (timestamp, row count, artifact path) — this is what req-007's `doctor` command reads, so it never needs to open the live database itself. See data-contract.md's new Backup Artifacts section for the exact shape.
 
 ## Acceptance Criteria
@@ -36,7 +36,6 @@ As an operator, I want verified, retained backups taken automatically, so that a
 
 ## Dependencies
 
-- Blocked on the P2 ADR (backup ownership vs. single-writer lock, risk-register.md R-001) for the triggering mechanism.
+- Depends on ADR-029 (backup trigger mechanism, artifact location) and ADR-028 (`EXPORT DATABASE` format) — both resolved at P2.
 - Depends on req-002's checkpoint discipline — per design.md's Waves rationale, a backup taken without a prior checkpoint could copy a database whose recent data lives in a WAL that may not replay, reproducing the exact failure this feature exists to prevent. Sequence: req-002 must be functioning before req-006 is exercised in production.
 - Feeds req-007 via the sidecar metadata file — req-007 cannot be implemented until this requirement's metadata-file shape is finalized.
-- `EXPORT DATABASE`'s version-durability property is assumption A-002 (risk-register.md) — to be confirmed at P2.
