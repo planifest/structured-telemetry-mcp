@@ -283,8 +283,9 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 | Agents spawned | `TBD` |
 | MCP calls | `TBD` |
 | Parallel task batches | `TBD` |
-| Telemetry | TBD |
-| Notes | Continuous mode. New surface this feature: a second on-disk data location (backup artifacts, ~/.planifest-backups by default), a new env var (PLANIFEST_TELEMETRY_BACKUP_DIR), an additive unauthenticated /health field (buildId), and deploy tooling that now inspects process/port state (getManagedPid, getPortListenerPid). |
+| End | `2026-08-08T10:07:00Z` |
+| Telemetry | emitted (3 `security_finding` events: 2 medium, 1 low) |
+| Notes | Reviewed actual source (not just design docs): src/backup/backup-service.ts, backup-metadata.ts, src/db/refuse-to-start.ts, scripts/service-manager.mjs (all new/rewritten process/port inspection code confirmed to use argument-array spawnSync throughout, no shell:true, no command-injection surface). Overall risk: **Medium** — 2 medium findings (unescaped single-quote in EXPORT/IMPORT DATABASE path literals; no reentrancy guard on the backup timer), 1 low (backup export duration unmeasured at production scale, the exact residual R-001 flagged for P4 that wasn't empirically measured). Neither medium finding is remotely exploitable or crosses the existing no-auth/local-only trust boundary — both are local data-integrity robustness gaps, notably in a feature whose purpose is data integrity. **P5's gate exception (proceed without confirmation only if risk is Low with zero critical/high/medium findings) does not apply — 2 medium findings exist. STOPPING for human confirmation regardless of continuous mode, per the Phase Invocation Table's P5-specific (not continuous_run-based) exception clause.** Full report: plan/current/security-report.md. |
 
 ---
 
