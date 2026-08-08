@@ -202,13 +202,14 @@ Revalidated: `2026-08-08T07:40:18Z`
 | Field | Value |
 |-------|-------|
 | Start | `2026-08-08T08:10:00Z` |
+| End | `2026-08-08T08:35:00Z` |
 | Model tier | primary |
 | Skills loaded | planifest-adr-agent |
-| Agents spawned | `TBD` |
-| MCP calls | `TBD` |
-| Parallel task batches | `TBD` |
-| Telemetry | TBD |
-| Notes | Human confirmed proceeding from P1 gate. Two items already flagged for this phase: backup-trigger ownership vs. DuckDB single-writer lock (risk-register.md R-001), and refuse-to-start exit-code posture (R-005). `design_critic` toggle confirmed off (no `plan/current/loop-toggles.yml` present) — no critic subagent this gate. |
+| Agents spawned | `0 — performed inline, no subagents dispatched` |
+| MCP calls | `~10 (context-mode source reads + 4 emit_event adr_decision calls)` |
+| Parallel task batches | `0 — sequential; ADR-029 depends on ADR-028, ADR-031 depends on ADR-030` |
+| Telemetry | emitted (`adr_decision` for each of ADR-028..031, session_id `0000018-p2-20260808`) |
+| Notes | 4 ADRs written: ADR-028 (EXPORT DATABASE format), ADR-029 (backup runs in-process, resolves R-001), ADR-030 (refuse-to-start exits zero, resolves R-005 — corrected the P0-time assumption that supervision config alone could stop a restart loop, by reading actual `launchd.plist(5)`/`systemd.service(5)` semantics: both `SuccessfulExit: false` and `Restart=on-failure` already restart only on non-zero exit), ADR-031 (supervision circuit-breaker re-scoped to defense-in-depth, amends ADR-014). Also distinguished this product's own ADR-005 (schema validation) from `planifest-framework`'s separate ADR-005/0000003 (hook exit-zero precedent) — design.md's P0-time reference was to the latter. R-001/R-005/R-008 moved from open to mitigated; req-005/req-006/execution-plan.md updated to match. `design_critic` toggle confirmed off (no `plan/current/loop-toggles.yml`) — no critic subagent this gate. |
 
 ---
 
