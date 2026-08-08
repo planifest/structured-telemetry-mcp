@@ -3,7 +3,7 @@
 > Living document. Index of all public API endpoints across all components.
 > Updated after every pipeline run — do not archive.
 
-Last updated: 0000017-log-viewer-enhancements
+Last updated: 0000018-telemetry-data-integrity
 
 ---
 
@@ -22,7 +22,7 @@ The primary interface. Registered by `src/server-factory.ts`'s `createServer()`.
 |--------|------|-----------|-------------|------|
 | POST | `/emit` | structured-telemetry-mcp | HTTP equivalent of `emit_event`, used by the stdio proxy (ADR-009) and directly by scripts/CI | none |
 | POST | `/query` | structured-telemetry-mcp | HTTP equivalent of `query_telemetry` | none |
-| GET | `/health` | structured-telemetry-mcp | Liveness check — used by the macOS/Linux/Windows service scripts (0000010) to verify a successful install/restart | none |
+| GET | `/health` | structured-telemetry-mcp | Liveness check — used by the macOS/Linux/Windows service scripts (0000010) to verify a successful install/restart. As of 0000018, gains an additive `buildId` field (SHA-256 of `server-http.bundle.mjs`, `null` if the bundle can't be found) — `scripts/service-manager.mjs`'s `deploy` action compares this against a freshly-computed hash to catch a stale running daemon even at an unchanged `version` string (req-008, ADR-030 context). Existing `{ ok, version }` shape unchanged for callers not reading the new field. | none |
 | GET | `/ui` | structured-telemetry-mcp | Serves the static Log Viewer browser page (0000015, ADR-018) — calls `POST /query` (`event_log` and, as of 0000017, `distinct_values` modes) via same-origin `fetch()`. As of 0000017: live auto-refresh/tail mode (5s polling), per-field filter-value suggestion comboboxes, and sortable table column headers (three-way synced with the sort control and URL query params) | none |
 
 **Auth is intentionally `none`** — the backend is bound to `127.0.0.1` only, never exposed to the network. This is the trust boundary established in `0000008-mcp-server-foundation`, re-confirmed unchanged in `0000010-macos-launchd-service`'s security report (`plan/_archive/0000010-macos-launchd-service-2026-07-19/security-report.md`), and re-confirmed again in `0000015-telemetry-log-viewer-ui`'s security report (`plan/_archive/0000015-telemetry-log-viewer-ui-2026-08-01/security-report.md`) when the new `GET /ui` route and the `event_log` scope-filter relaxation were reviewed.
