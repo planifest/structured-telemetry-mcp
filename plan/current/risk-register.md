@@ -29,7 +29,15 @@ Recorded per the spec-agent rule that documented assumptions for minor gaps are 
 |---|---|---|
 | The daemon's only legitimate clients are `/ui`, the stdio proxy, and Planifest hooks | An unknown client is refused and its traffic silently stops | R-001 |
 | Browsers reliably send `Origin` on cross-origin requests including CORS-simple ones | req-002's CSRF defence does not hold; req-003's `Content-Type` requirement becomes the sole barrier | R-001 |
-| 4 MB is a generous body cap that no legitimate caller approaches | A large legitimate `/emit` is refused with `413` | R-004 |
-| A 100,000-character MCP text budget is generous for normal results | Normal-sized results start truncating, degrading the agent experience | R-004 |
+| 4 MB is a generous body cap that no legitimate caller approaches | A large legitimate `/emit` is refused with `413` | R-015 |
+| A 100,000-character MCP text budget is generous for normal results | Normal-sized results start truncating, degrading the agent experience | R-016 |
+
+Both threshold assumptions previously pointed at R-004, which concerns callers relying on loose numeric coercion — a different failure entirely. They now have risks that actually cover them.
+
+| ID | Category | Risk | Likelihood | Impact | Mitigation |
+|---|---|---|---|---|---|
+| R-015 | operational | The 4 MB body cap is lower than some legitimate payload, so a real `/emit` is refused with `413` | low | medium | Overridable via `PLANIFEST_MAX_BODY_BYTES`. The runbook directs an operator to investigate what the client is sending before raising it, so a genuine defect is not masked by widening the cap |
+| R-016 | operational | The 100,000-character MCP text budget truncates results a user considers normal, degrading the agent experience without an obvious cause | low | low | req-008 requires a truncated result to say so and to report `total_count`, so the cause is self-evident rather than silent. Overridable via `PLANIFEST_MCP_TEXT_BUDGET` |
+| R-017 | technical | The shared gate applies one global ceiling to `limit`, admitting `distinct_values` values up to 1000 that are then silently reduced to 20, or applying a 1000-row ceiling to `trend`'s day count | medium | medium | req-005 states the ceiling is per-mode and that `trend`'s `limit` is days, with corpus cases for both. `MAX_LIMIT` is two unexported module-local constants (`event-log.ts:19` = 1000, `distinct-values.ts:20` = 20), which is what makes this easy to get wrong |
 
 **No longer an assumption:** that legitimate callers send `Content-Type: application/json` was verified at P0 across all six in-repo callers and is now a fact, not a risk.

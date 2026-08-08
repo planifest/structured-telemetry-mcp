@@ -17,7 +17,7 @@ As a security reviewer, I want XSS escaping verified in the rendered UI, so that
 
 ## Current state
 
-`src/ui/index-html.ts` defines `escapeHtml` at `:243` and applies it when building rows via `innerHTML` at `:302-309`. The escaping exists. What does not exist is any test that renders hostile content in a real browser and asserts nothing executes.
+`src/ui/index-html.ts` defines `escapeHtml` at `:243` and applies it when building rows via the `innerHTML` assignment at `:304-310` (the `productLabel` ternary that feeds it is at `:302`). The escaping exists. What does not exist is any test that renders hostile content in a real browser and asserts nothing executes.
 
 Line `:302` is the case that most warrants a test:
 
@@ -44,13 +44,9 @@ The same value is interpolated into **two different contexts** — an HTML attri
 
 ## Acceptance Criteria
 
-- [ ] An event whose `event` field is `<img src=x onerror=alert(1)>` renders the text literally and fires no dialog
-- [ ] The same payload in each of the other five rendered fields behaves identically
-- [ ] A payload crafted for attribute breakout via `product_id` does not escape the `title` attribute
-- [ ] No `alert`/`confirm`/`prompt` dialog fires during any case — asserted by a registered dialog handler, not by DOM inspection alone
-- [ ] The JSON detail view renders hostile content literally
-- [ ] Temporarily replacing `escapeHtml` with an identity function makes these tests fail — verified by a real RED-before-GREEN cycle
-- [ ] The suite runs Chromium-only and stays inside the existing CI time budget
+- [ ] Every payload in the corpus, placed in each of the six rendered fields in turn, renders as literal text and fires no `alert`/`confirm`/`prompt` — asserted by a registered page dialog handler and a console-error listener, not by DOM inspection
+- [ ] The attribute-breakout payload delivered via `product_id` does not escape the `title` attribute at `:302`, and the JSON detail view at `:317` renders hostile content literally
+- [ ] Temporarily replacing `escapeHtml` with an identity function makes these tests fail — a real RED-before-GREEN cycle — and the suite runs Chromium-only inside the existing CI time budget
 
 ## Dependencies
 

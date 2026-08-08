@@ -40,26 +40,34 @@ Note the last row's consequence: because `offset` is undeclared, the offset defe
 
 - The HTTP `/query` path validates through the same shared gate as the MCP path before `dispatchQuery` is reached. One gate, one definition, two callers — not two schemas kept in step by hand.
 - The shared gate is tightened beyond the current `QueryShape`:
-  - `limit`: integer, `>= 1`, clamped to the existing `MAX_LIMIT`; a non-integer or negative value is rejected, not rounded or clamped silently
+  - `limit`: integer, `>= 1`. A non-integer, negative, or non-numeric value is **rejected**, never rounded.
   - `offset`: newly declared — integer, `>= 0`, with an explicit ceiling
   - `loop_threshold`: integer, `>= 1`
-  - `trend.limit` (days): integer, `>= 1`
+  - `limit` when `mode: trend` — see the note below
+
+### The ceiling is per-mode, and over-ceiling is a rejection
+
+Two facts about the existing code constrain how the gate handles the upper bound. Both were verified against the tree at P1, and getting either wrong breaks a passing test or a documented contract.
+
+**Over-ceiling rejects; it does not clamp.** `src/query/event-log.ts:40-41` throws `event_log limit must not exceed 1000 (received N)`. `tests/integration/query-telemetry.test.ts:299` asserts `.rejects.toThrow('must not exceed 1000')`. `docs/usage-guide.md:667` documents *"Capped at 1000 — a higher value is rejected with an error"*. The gate must preserve rejection. Clamping would break that test and contradict the published contract.
+
+**`MAX_LIMIT` is not one number.** It is two module-local constants, neither exported: `event-log.ts:19` is 1000, `distinct-values.ts:20` is 20. A single global ceiling in the shared gate would let `{"mode":"distinct_values","limit":500}` through, to be silently reduced to 20 downstream. The gate must therefore either resolve the ceiling per mode, or validate only type and lower bound and leave the upper bound to the owning module. Either is acceptable; a single global ceiling is not.
+
+**`trend.limit` does not exist.** `src/query/token-efficiency.ts:25` reads `queryTrend(db, query.limit ?? 30, initiativeId)` — it is the **top-level `limit`**, reinterpreted as a day count. There is no nested `trend` object. The gate must not apply a row ceiling to it: 1000 rows and 1000 days are different quantities. Constrain it as a positive integer with its own documented ceiling.
 - Rejection is explicit rather than comparison-derived. `NaN > MAX_LIMIT` evaluating to `false` is how the current cap at `event-log.ts:40` is bypassed; the gate must reject on a positive type/range test, never on a failed comparison.
 - Loosening `QueryShape` for the MCP path is not acceptable. If tightening it breaks an existing MCP caller, report it — do not widen the schema to accommodate.
 - The gate returns a structured `{ok:false, errors:[{field, message}]}` naming the offending field, per req-006. It never surfaces a DuckDB message.
 
+## Test corpus
+
+**Rejected, each naming its field:** `limit: "abc"`, `limit: -5`, `limit: 1.5`, `limit: 0`, `limit: 1001` on `event_log`, `limit: 21` on `distinct_values`, `offset: -1`, `offset: 1e21`, `offset: 1.5`, `loop_threshold: 0`, `loop_threshold: -1`, and `limit: 0` with `mode: trend`.
+**Accepted:** `limit: 1000` on `event_log`, `limit: 20` on `distinct_values`, `limit: 30` with `mode: trend`, `offset: 0`, omitted values falling back to their existing defaults.
+
 ## Acceptance Criteria
 
-- [ ] `POST /query {"mode":"event_log","limit":"abc"}` returns a structured field-level error naming `limit`, and no DuckDB text appears in the body
-- [ ] `limit: -5` is rejected naming `limit`
-- [ ] `limit: 1.5` is rejected naming `limit` — it is not silently rounded
-- [ ] `offset: 1e21` is rejected naming `offset`
-- [ ] `offset: -1` is rejected naming `offset`
-- [ ] `loop_threshold: 0` and `trend.limit: 0` are each rejected naming their field
-- [ ] Each of the six cases above behaves **identically over the MCP path and the HTTP path** — the same input yields the same rejection on both
-- [ ] `limit` above `MAX_LIMIT` is clamped, matching current documented behaviour, rather than rejected
-- [ ] The log viewer's own `/query` payloads all still succeed (design R-004)
-- [ ] A valid query returns an unchanged successful response shape
+- [ ] Every rejected-corpus value returns a structured field-level error naming the offending field, with no DuckDB text in the body; every accepted-corpus value succeeds with an unchanged response shape
+- [ ] The whole corpus behaves **identically over the HTTP and MCP paths** — same input, same outcome on both. This is the requirement's central property: today the two paths disagree
+- [ ] The existing rejection contract is preserved — `event_log` with `limit: 1001` still throws `must not exceed 1000`, keeping `tests/integration/query-telemetry.test.ts:299` green — and the log viewer's own `/query` payloads all still succeed (design R-004)
 
 ## Dependencies
 

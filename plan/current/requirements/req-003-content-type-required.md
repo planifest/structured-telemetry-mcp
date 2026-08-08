@@ -26,17 +26,16 @@ As a developer, I want `Content-Type: application/json` required on writes, so t
 
 **Why this closes the loophole:** the three CORS-simple content types are the only ones a cross-origin `fetch` can send without triggering a preflight. Requiring `application/json` forces a preflight the daemon then declines, so a forged write cannot reach the handler even if `Origin` were somehow absent.
 
+## Test corpus
+
+**Refused (`415`):** `text/plain`, `application/x-www-form-urlencoded`, `multipart/form-data`, header absent, `application/jsonx`, `text/json`.
+**Accepted:** `application/json`, `application/json; charset=utf-8`, `APPLICATION/JSON`, `  application/json  ` (surrounding whitespace).
+
 ## Acceptance Criteria
 
-- [ ] `POST /emit` with `Content-Type: text/plain` is refused with `415` and no event is written
-- [ ] `POST /emit` with `Content-Type: application/x-www-form-urlencoded` is refused with `415`
-- [ ] `POST /emit` with no `Content-Type` is refused with `415`
-- [ ] `POST /emit` with `application/json` succeeds
-- [ ] `POST /emit` with `application/json; charset=utf-8` succeeds
-- [ ] `POST /emit` with `APPLICATION/JSON` succeeds (case-insensitive media type)
-- [ ] `POST /query` behaves identically on all of the above
-- [ ] `GET /health` and `GET /ui` succeed with no `Content-Type` header
-- [ ] All three framework telemetry hooks, the stdio proxy and the log viewer continue to work unmodified
+- [ ] Every refused-corpus value yields `415` on both `POST /emit` and `POST /query`, and no event is written
+- [ ] Every accepted-corpus value succeeds on both POST routes, and both GET routes succeed with no `Content-Type` header at all
+- [ ] All six verified in-repo callers — the three framework hooks, the stdio proxy's two client modules, and the log viewer — continue to work unmodified
 
 ## Dependencies
 

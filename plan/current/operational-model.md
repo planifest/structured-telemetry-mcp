@@ -29,7 +29,7 @@ That creates a new diagnostic question — *"why did my client stop working?"* �
 
 ## Diagnostics this feature adds
 
-- **Correlation ids** (req-006) are the primary new diagnostic. Every error response carries one; the full error and stack are written to stderr against the same id. The workflow is: take the id from the client, grep the daemon log.
+- **Correlation ids** (req-006) are the primary new diagnostic. Every error response except a `403` carries one; the full error and stack are written to stderr against the same id. The workflow is: take the id from the client, grep the daemon log. A `403` has no id by design — it is decided before routing and before the body is read, so there is no executed operation to correlate with; the stderr refusal line is the whole record.
 - **Named-field errors** (req-005) mean a `400` states which parameter was wrong without quoting its value. Enough to fix the caller, not enough to leak data.
 
 ## Alerting thresholds

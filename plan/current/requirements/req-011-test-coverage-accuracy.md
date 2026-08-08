@@ -30,12 +30,9 @@ The suite is green and the *counts* in `test-coverage.md` are accurate. The defe
 
 ## Acceptance Criteria
 
-- [ ] Every security claim in `test-coverage.md` names a specific test file that exercises it
-- [ ] The `:38` injection claim is backed by req-009's tests, or reworded to match reality
-- [ ] `tests/unit/ui.test.ts` imports `SORTABLE_FIELDS` and `SUGGESTIBLE_FIELDS` rather than restating the literals
-- [ ] Changing `SORTABLE_FIELDS` in `src/query/column-allow-list.ts` without updating the UI template makes `ui.test.ts` fail
+- [ ] Every security claim in `test-coverage.md` names a specific test file that exercises it, and no claim remains that the suite does not exercise — including the `:38` injection claim, which is either backed by req-009's tests or reworded to match reality
+- [ ] `tests/unit/ui.test.ts` imports `SORTABLE_FIELDS` and `SUGGESTIBLE_FIELDS` instead of restating the literals at `:256`, such that changing `SORTABLE_FIELDS` without updating the UI template makes the test fail
 - [ ] Test counts match the actual post-feature suite
-- [ ] No claim remains that the suite does not exercise
 
 ## Dependencies
 

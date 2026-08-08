@@ -33,13 +33,9 @@ Verified at P0: `git check-ignore` matches neither (exit 1), and `git ls-files -
 
 ## Acceptance Criteria
 
-- [ ] `.gitignore` contains `*.local-only.*`
-- [ ] `git check-ignore -v update-planifest-framework.local-only.sh` matches the new pattern
-- [ ] `git ls-files` no longer lists either file
-- [ ] Both files still exist on disk and are unmodified in content
-- [ ] A newly created file matching the pattern is ignored by `git status`
-- [ ] `git add -A` from a clean tree stages neither file
-- [ ] The change does not share a commit with any `src/` change
+- [ ] `.gitignore` contains `*.local-only.*`, `git check-ignore -v` matches both existing files against that pattern, and a newly created file matching it is ignored by `git status`
+- [ ] `git ls-files` lists neither file, while both remain present on disk with unmodified content, and `git add -A` from a clean tree stages neither
+- [ ] The change shares no commit with any `src/` change
 
 ## Dependencies
 

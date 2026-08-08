@@ -26,24 +26,20 @@ Every other mode is bounded: `event_log` caps at `MAX_LIMIT` (1000), `distinct_v
 
 ## Functional Requirements
 
-- Both modes take an explicit `LIMIT` with a documented default, consistent with the `event_log` / ADR-016 precedent.
+- Both modes take an explicit `LIMIT` defaulting to **1000**, matching `event_log`'s existing ceiling (`src/query/event-log.ts:19`) and the ADR-016 precedent.
 - Both responses gain two additive fields:
   - `truncated: boolean` — whether the cap was hit
   - `total_count: number` — the full match count, so a caller can tell a capped result from a complete one
+- **Both fields nest inside the `aggregation` object**, which is what surfaces to callers as `json`. This is not a free choice: `src/query/event-log.ts:83-88` already places `total_count` there, and `src/ui/index-html.ts:371` and `:419` read `json.total_count`. Placing them at the top level of the response would break the existing consumer and diverge from the established shape for the same field name.
 - `total_count` is obtained without materialising the rows — a `COUNT(*)` over the same predicate, not `rows.length`.
 - The fields are additive. Existing successful response shapes are otherwise unchanged, so no caller breaks.
-- The cap is overridable per request through the same validated `limit` field governed by req-005, subject to the same `MAX_LIMIT` ceiling.
+- The cap is overridable per request through the same validated `limit` field governed by req-005. Consistent with `event_log`, a `limit` above the ceiling is **rejected**, not clamped.
 
 ## Acceptance Criteria
 
-- [ ] `failure_sequence` against a session with more rows than the cap returns exactly the cap, with `truncated: true`
-- [ ] `total_count` on that response reports the true total, greater than the number of rows returned
-- [ ] `failure_sequence` against a small session returns all rows with `truncated: false` and `total_count` equal to the row count
-- [ ] `drill_down` behaves identically on both of the above
-- [ ] `total_count` is computed by a count query, not by counting materialised rows — asserted by test or by inspection at review
-- [ ] An explicit in-range `limit` on either mode is honoured
-- [ ] An out-of-range `limit` is rejected by req-005's gate before reaching either mode
-- [ ] Existing consumers of both modes still parse their responses — the new fields are additive only
+- [ ] For both `failure_sequence` and `drill_down`: an over-cap session returns exactly 1000 rows with `json.truncated === true` and `json.total_count` reporting the true larger total, while an under-cap session returns every row with `json.truncated === false` and `json.total_count` equal to the row count
+- [ ] Both new fields appear **inside `json`**, alongside `event_log`'s existing `total_count`, and `total_count` is produced by a count query rather than by counting materialised rows
+- [ ] An in-range explicit `limit` is honoured on both modes; an over-ceiling `limit` is rejected by req-005's gate before either mode runs; and existing consumers still parse both responses unchanged
 
 ## Dependencies
 

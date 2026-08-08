@@ -36,17 +36,16 @@ There is no `Content-Length` check, no byte cap, and no socket timeout. `Buffer.
 - An over-cap request receives `413`; a body that is not valid JSON receives `400`. Neither terminates the process.
 - The `uncaughtException` handler at `:72-75` is **left as-is**. This requirement stops the request path from reaching it; changing that handler's policy is explicitly out of scope.
 
+## Test corpus
+
+**Over-cap, three delivery shapes — each must be refused independently:** honest `Content-Length`; no `Content-Length` (chunked transfer); forged small `Content-Length` with an over-cap actual body. The second and third are what prove the streaming counter fires on its own; a `Content-Length`-only implementation passes the first and fails these two.
+**Also in the fuzz corpus:** a body large enough to trigger `ERR_STRING_TOO_LONG` pre-fix, malformed JSON within the cap, a connection that sends headers then stalls, and a legitimate body just under the cap.
+
 ## Acceptance Criteria
 
-- [ ] A `POST /emit` with a body above the cap and an honest `Content-Length` is refused with `413`
-- [ ] A **chunked** `POST /emit` above the cap with no `Content-Length` is refused, proving the streaming counter fires independently
-- [ ] A `POST /emit` above the cap with a **forged** small `Content-Length` is refused by the streaming counter
-- [ ] After each of the three cases above, `GET /health` still returns `200` — **the process is alive**
-- [ ] A body large enough to trigger `ERR_STRING_TOO_LONG` pre-fix produces a `413`, not an exit
-- [ ] Malformed JSON within the cap returns `400`, not `500`, and the process stays alive
-- [ ] A connection that sends headers then stalls is closed by the timeout, and the daemon stays alive
-- [ ] A legitimate body just under the cap succeeds
-- [ ] A regression test drives a fuzz pass of malformed and oversized requests and asserts zero process exits
+- [ ] All three over-cap delivery shapes are refused with `413`, and a body just under the cap succeeds
+- [ ] After **every** case in the fuzz corpus, `GET /health` still returns `200` — zero process exits, satisfying NFR-003. This is the requirement's headline criterion
+- [ ] Malformed JSON within the cap returns `400` (not `500`, not an exit), and a stalled connection is closed by the timeout
 
 ## Dependencies
 

@@ -40,7 +40,7 @@ Four endpoints, all on `127.0.0.1:<PORT>`. No endpoint is added or removed. The 
 
 **New status codes:** `403` (Host/Origin refusal), `415` (wrong or missing Content-Type), `413` (body over cap), `500` (engine failure — previously misreported as `400`).
 
-**Formal contract:** `plan/current/openapi-spec.yaml` (OpenAPI 3.1). Note that `component.yml` currently records `contract.apiSpec: "none"`; this feature introduces the spec because the boundary contract is precisely what is being changed, and a language-agnostic statement of it is what P3, P4 and P5 verify against. `component.yml` is updated accordingly.
+**Formal contract:** drafted at P1 to `plan/current/openapi-spec.yaml` (OpenAPI 3.1). This feature introduces it because the boundary contract is precisely what is being changed, and a language-agnostic statement of it is what P3, P4 and P5 verify against. `component.yml`'s `contract.apiSpec` previously read `"none"` and now points at the living docs path, marked pending until **P6 publishes the file there** — `plan/current/` archives at P7, so a contract must not point into an archive.
 
 ## Data Summary
 

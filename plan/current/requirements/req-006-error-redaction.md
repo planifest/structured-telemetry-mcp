@@ -30,7 +30,8 @@ DuckDB binder errors embed the offending SQL statement. Conversion errors embed 
 ## Functional Requirements
 
 - No response body on any path ever contains engine text, a SQL fragment, a stack trace, or a value read from the database.
-- Every error response carries a `correlationId` (UUID v4). The same id is written to stderr alongside the full error and stack, so a developer can trace a redacted client error to the server log.
+- Every error response **that resulted from executing something** carries a `correlationId` (UUID v4). The same id is written to stderr alongside the full error and stack, so a developer can trace a redacted client error to the server log.
+- **Exception: `403` carries no `correlationId`.** A `Host`/`Origin` refusal (req-001, req-002) is decided before routing and before body reading; nothing was executed, so there is no server-side event to correlate with and no stderr entry beyond the refusal line itself. Minting an id there would imply a traceable operation that does not exist. `413` and `415` likewise short-circuit before execution but **do** carry an id, because the daemon has already consumed part of the request and an operator diagnosing a rejected client benefits from the log link.
 - Status codes are separated by cause:
   - `400` — client input that failed validation. Names the offending field. Quotes no value.
   - `413` — body over cap (req-004).
@@ -39,18 +40,20 @@ DuckDB binder errors embed the offending SQL statement. Conversion errors embed 
   - `500` — engine or internal failure. Generic message plus `correlationId`, nothing else.
 - The current behaviour of returning `400` for engine errors is wrong and must change: an engine failure is a `500`.
 - Validation errors from `validateEvent` on `/emit` may continue to name fields and schema violations — those are the caller's own submitted structure, not stored data. They must not include the submitted values themselves.
+- **`/emit`'s validation-error shape is unchanged.** `src/validation/validate-event.ts` types `errors` as `readonly string[]` and `src/server-http.ts:209` returns those strings directly. This requirement does not restructure them into objects; doing so would be an unstated breaking change to a response shape that existing callers parse. The error envelope therefore admits both a plain string and a `{field, message}` object as an `errors` item — the string form for schema-validation output, the object form for the new boundary and gate rejections.
 - All three sites above are fixed together. Fixing only the HTTP pair leaves the MCP leak open.
+
+## Test corpus
+
+**Leak probes, run against all three sites (HTTP `/emit`, HTTP `/query`, MCP `query_telemetry`):** `{"mode":"event_log","limit":"abc"}` (binder error embedding SQL), `{"mode":"event_log","session_id":123}` (conversion error embedding a real stored `session_id` — the case that leaked live data at 0.13.0), a malformed envelope on `/emit`, and a query forced to fail inside DuckDB.
+
+**Forbidden substrings in any response body:** `SELECT`, `FROM`, `LINE `, `Binder Error`, `Conversion Error`, and any value present in the events table.
 
 ## Acceptance Criteria
 
-- [ ] `POST /query {"mode":"event_log","limit":"abc"}` returns a body containing **no** SQL fragment, no `LINE n:` text, and no DuckDB wording
-- [ ] `POST /query {"mode":"event_log","session_id":123}` returns a body containing **no** stored `session_id` value — this is the exact case that leaked real data at 0.13.0
-- [ ] The same two inputs over the MCP path leak nothing either
-- [ ] Every error response includes a `correlationId`
-- [ ] The same `correlationId` appears in the stderr log line for that request
-- [ ] The stderr log line contains the full error and stack — redaction applies to the response only, never to the operator's log
-- [ ] An engine failure returns `500`; a validation failure returns `400`
-- [ ] A regression test asserts that for a deliberately type-confused filter, the response body matches none of: `SELECT`, `FROM`, `LINE `, `Binder Error`, `Conversion Error`, or any value present in the events table
+- [ ] For every leak probe, on every one of the three sites, the response body contains none of the forbidden substrings — asserted mechanically against a table-derived value list, not by eyeball
+- [ ] Every error response except `403` carries a `correlationId`, that id appears in the corresponding stderr line, and that line carries the full error and stack — redaction applies to the response only, never to the operator's log
+- [ ] Status codes split by cause: engine or internal failure returns `500` (previously a blanket `400`), validated client input returns `400` naming its field, and `403` carries no correlation id
 
 ## Dependencies
 

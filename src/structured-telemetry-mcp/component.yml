@@ -102,7 +102,7 @@ contract:
   # plan/current/openapi-spec.yaml; P6 publishes it to the living path below,
   # since plan/current/ archives at P7 and a contract must not point into an
   # archive.
-  apiSpec: "src/structured-telemetry-mcp/docs/openapi-spec.yaml"
+  apiSpec: "pending-p6: src/structured-telemetry-mcp/docs/openapi-spec.yaml (draft at plan/current/openapi-spec.yaml)"
   inputs:
     - name: "emit_event"
       type: "event"

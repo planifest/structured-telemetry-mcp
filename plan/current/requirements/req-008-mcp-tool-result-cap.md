@@ -40,13 +40,9 @@ req-007 bounds how many **rows** a query returns. This requirement bounds how mu
 
 ## Acceptance Criteria
 
-- [ ] A query whose serialised text exceeds the budget returns a truncated tool result under the budget
-- [ ] The truncated text contains no partial JSON block — every fenced block that appears is complete and parseable
-- [ ] The truncated text states that truncation occurred
-- [ ] The truncated text reports `total_count` when the underlying mode supplies it
-- [ ] Under a tight budget, the raw sample is dropped before the JSON payload, and the JSON payload before the markdown
-- [ ] The same query over HTTP returns the full req-007-bounded result, unaffected by this cap
-- [ ] A normal-sized result is byte-identical to its current output — no cosmetic change to the common case
+- [ ] A query exceeding the budget returns a tool result under the budget in which every fenced JSON block present is complete and parseable — no block is cut mid-structure
+- [ ] A truncated result states that truncation occurred and reports `json.total_count` when the underlying mode supplies it; under a progressively tighter budget the raw sample is dropped first, then the JSON payload, then the markdown last
+- [ ] The same query over HTTP returns the full req-007-bounded result unaffected by this cap, and a normal-sized result is byte-identical to its current output
 
 ## Dependencies
 

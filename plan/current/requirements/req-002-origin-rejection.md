@@ -23,15 +23,16 @@ As a developer, I want cross-origin requests refused, so that a page I visit can
 - No CORS response headers are added. The daemon does not opt in to cross-origin access; it refuses it. Adding `Access-Control-Allow-Origin` would defeat the requirement.
 - The check runs before body reading.
 
+## Test corpus
+
+**Refused:** `https://evil.example.com`, `http://localhost:<wrong-port>`, `null`, `http://127.0.0.1` (no port), and the same set repeated with `Content-Type: text/plain` to cover the CORS-simple no-preflight path.
+**Accepted:** header absent entirely; `http://127.0.0.1:<actual-port>`; `http://localhost:<actual-port>`.
+
 ## Acceptance Criteria
 
-- [ ] A `fetch` from a page at `https://evil.example.com` to `POST /emit` is refused with `403` and **no event is written** — verified by asserting the events table row count is unchanged
-- [ ] The same forged request using `Content-Type: text/plain` (the CORS-simple no-preflight path from backlog 00012) is refused
-- [ ] A request with **no** `Origin` header succeeds — covering the stdio proxy and emission hooks
-- [ ] A request with `Origin: http://127.0.0.1:<PORT>` succeeds — covering the log viewer's own `/query` calls
-- [ ] `GET /ui` loads and its subsequent `/query` calls work end-to-end in the browser
-- [ ] No `Access-Control-Allow-Origin` header appears on any response
-- [ ] The refusal body names `origin` and leaks no SQL, stored data, or engine text
+- [ ] Every refused-corpus value yields `403` on `POST /emit` and `POST /query`, and the events-table row count is unchanged afterwards
+- [ ] Every accepted-corpus value succeeds — covering the stdio proxy and emission hooks (absent header) and the log viewer (own origin) — and `GET /ui` plus its subsequent `/query` calls work end-to-end in a browser
+- [ ] No response on any route carries an `Access-Control-Allow-Origin` header, and the refusal body names `origin` and leaks no SQL, stored data, or engine text
 
 ## Dependencies
 
