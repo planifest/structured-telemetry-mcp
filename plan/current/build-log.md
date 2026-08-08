@@ -307,6 +307,21 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 
 ---
 
+### P7 — Archive (via ship-agent, owns P7 -> P8 -> P9)
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T11:22:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-ship-agent |
+| Agents spawned | `TBD` |
+| MCP calls | `TBD` |
+| Parallel task batches | `TBD` |
+| Telemetry | TBD |
+| Notes | Continuous mode; Cross-Model Review Gate toggle confirmed off (no plan/current/loop-toggles.yml) — skipped, proceeding straight to archive. P9's own gate always stops for confirmation regardless of continuous mode — final human sign-off still required after P8. |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
