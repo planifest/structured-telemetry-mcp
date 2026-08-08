@@ -23,7 +23,7 @@ export interface ServerHandle {
   stop(): Promise<void>;
 }
 
-export async function startServer(): Promise<ServerHandle> {
+export async function startServer(extraEnv: Record<string, string> = {}): Promise<ServerHandle> {
   const dbDir = mkdtempSync(join(tmpdir(), 'telemetry-e2e-'));
   const dbPath = join(dbDir, 'telemetry.db');
 
@@ -33,6 +33,9 @@ export async function startServer(): Promise<ServerHandle> {
       ...process.env,
       PLANIFEST_MCP_PORT: '0',
       PLANIFEST_TELEMETRY_DB: dbPath,
+      // Optional per-test overrides (e.g. a small PLANIFEST_MAX_BODY_BYTES so a
+      // body-cap test need not stream 4 MB). Non-breaking: default is no override.
+      ...extraEnv,
     },
     stdio: ['ignore', 'ignore', 'pipe'],
   });
