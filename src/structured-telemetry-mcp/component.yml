@@ -25,6 +25,14 @@ responsibilities:
   - "Support a sortField param on event_log queries (allow-listed: timestamp, event, session_id, phase, agent, product_id; defaults to timestamp, non-breaking) — real per-column sort, replacing the previous direction-only, timestamp-hardcoded ORDER BY (0000017)"
   - "Serve a distinct_values query mode returning up to 20 allow-listed-field distinct values (optional prefix-match), powering the UI's filter-suggestion comboboxes (0000017)"
   - "Support user-toggleable auto-refresh/tail polling, filter-value suggestions, and three-way-synced (header/dropdown/URL) sortable columns in the GET /ui log viewer, with all new UI state persisted via URL query params degrading gracefully to defaults when absent/malformed (0000017)"
+  - "Checkpoint the DuckDB WAL on graceful shutdown (SIGTERM/SIGINT) and periodically (every 60s or 100 events, whichever first), bounding the data-at-risk window on an unclean kill to that same threshold (0000018)"
+  - "Checkpoint immediately after any startup ALTER TABLE ADD COLUMN migration, so no schema-migration WAL entry is ever left pending replay (0000018)"
+  - "Refuse to start when the database is locked or its WAL is unreplayable, printing the file, conflicting PID where available, and the recovery procedure — the WAL is never deleted, truncated, or modified (0000018, decision D)"
+  - "Take a daily verified backup via EXPORT DATABASE, ordered strictly verify -> promote -> prune, retained 7 daily + 4 weekly, recording the outcome to a sidecar metadata file that `doctor` reads instead of opening the live database (0000018)"
+  - "Report the age of the most recent verified backup (or 'no verified backup') via `npm run doctor`, sourced from the sidecar metadata file so the check works even while the daemon holds the DuckDB lock (0000018)"
+  - "Expose an additive build-identity fingerprint (`buildId`, a SHA-256 hash of server-http.bundle.mjs) on GET /health, letting `npm run deploy` detect a stale running daemon even at an unchanged version string (0000018, decision A)"
+  - "Detect, during `npm run deploy`, a process bound to the daemon's port that launchd/systemd does not manage, and refuse to report success while naming that process rather than killing it (0000018)"
+  - "Append a uniqueness tiebreaker (`id`) to every event-log ORDER BY, guaranteeing a full pagination returns each row exactly once regardless of duplicate values in the sorted field (0000018)"
 
 exceptions:
   - "Does not emit telemetry itself — it is the sink, not a source"
@@ -43,6 +51,11 @@ exceptions:
   - "Does not push live updates via WebSocket/SSE — auto-refresh is interval-based polling only (0000017, A-001)"
   - "Does not support quick date-range filter presets (today/yesterday/last N days) — filed as backlog #00006, not part of this wave (0000017)"
   - "Does not sort or suggest on any events column outside the fixed 6/7-value allow-lists — no arbitrary column sort/suggestion (0000017, R-001)"
+  - "Does not queue, buffer, or retry client-side for events emitted while the daemon is down or refusing to start — those events are lost, not delayed (0000018)"
+  - "Does not auto-remediate a locked or poisoned-WAL database — refuses to start and leaves the WAL untouched for manual recovery; auto-copy-aside was considered and explicitly not chosen (0000018, decision D)"
+  - "Does not recover the ~4,100 events already stranded in the pre-existing unreplayable WAL from the 2026-08-03 incident — tracked separately at backlog #00023, explicitly deferred (0000018)"
+  - "Does not provide HTTP boundary hardening — request validation, error-message leakage, auth/Origin/Host checks, or request-body size limits — tracked separately at backlog 00010-00014/00020, out of scope this feature (0000018)"
+  - "Does not migrate event-log pagination away from limit/offset to keyset pagination — the id tiebreaker works within the existing ADR-016 bounding strategy, not instead of it (0000018)"
 
 stack:
   language: "typescript"
@@ -71,6 +84,9 @@ contract:
     - name: "GET /ui"
       type: "http"
       description: "New (0000015): serves the static browser log-viewer page from the same server-http.ts process. No new port/process."
+    - name: "GET /health"
+      type: "http"
+      description: "Liveness check, used by the platform service scripts to verify install/restart. Gains an additive `buildId` field as of 0000018 (SHA-256 hash of server-http.bundle.mjs) alongside the existing `ok`/`version` fields, letting `npm run deploy` detect a stale daemon at an unchanged version string."
   outputs:
     - name: "emit_event response"
       type: "event"
@@ -171,6 +187,10 @@ risk:
     - "E2E harness must explicitly bind 127.0.0.1, never 0.0.0.0, to avoid introducing new network exposure during test runs (0000016 R-005)"
     - "sortField (event_log) and field (distinct_values) are both column-identifier inputs — DuckDB has no parameterized-identifier binding, so both MUST validate against a shared allow-list before any SQL interpolation, or both become SQL-injection-via-identifier vectors (0000017 R-001, plan/current/risk-register.md)"
     - "req-001/002/003 all extend the same shared state-management functions in the single src/ui/index-html.ts embedded script (readStateFromUrl, writeStateToUrl, applyStateToForm, readFormIntoFilters) — must be implemented as one integrated pass, not three independently-parallelised edits, to avoid clobbering (0000017 R-002)"
+    - "Backup ownership vs. DuckDB's single-writer lock is unresolved pending a P2 ADR — an external scheduler cannot open telemetry.db while the daemon holds the lock, the exact conflict that produced the 2026-08-03 crash loop (0000018 R-001, plan/current/risk-register.md)"
+    - "doctor (src/cli.ts runDoctor()) already opens a second, independent DuckDB connection for its write-test check — confirmed capable of failing/blocking under the same single-writer lock; backup-staleness reporting must read a sidecar metadata file instead of opening telemetry.db directly (0000018 R-002)"
+    - "Changing the daemon's exit posture on refuse-to-start interacts with launchd KeepAlive/systemd Restart=on-failure — neither currently has a real circuit-breaker (macOS plist has no ThrottleInterval; systemd unit has no StartLimitIntervalSec/StartLimitBurst), confirmed by reading both service scripts (0000018 R-005)"
+    - "The false 'Service is healthy' health check originates in verify_service() in service-macos.sh (curl-only, no body inspection) — the Linux and Windows paths must be independently audited for the same defect shape, not assumed fixed by fixing one platform (0000018 R-009)"
 
 quality:
   testCoverage:
