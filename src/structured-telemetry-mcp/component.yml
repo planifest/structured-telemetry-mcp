@@ -49,18 +49,15 @@ exceptions:
   - "Does not provide an aggregation/dashboard view (bottleneck/failure/token-efficiency charts) in the UI — those remain MCP/REST-only (0024 — future; also plan/current/scope.md Deferred as of 0000015)"
   - "Does not publish to npm this pipeline run"
   - "Does not run in the cloud or as a hosted service"
-  # REVISED at 0000019 P2 per ADR-032 (accepted 2026-08-08). ADR-032 is now
-  # accepted — the DECISION is settled — but req-001/req-002's code lands at
-  # P3, not yet. Until P3 lands, no code in this tree actually checks Host or
-  # Origin: this entry states the target behaviour this feature is building
-  # toward, not yet the running behaviour. The original entry (0000015) read
-  # "Does not authenticate callers — bound to 127.0.0.1, no auth model
-  # required, including for the new UI", reasoned against a multi-user threat
-  # model that never considered browser-mediated attack, where the
-  # developer's own browser sits inside the trust boundary. ADR-032 narrows
-  # that claim rather than removing it: still no credential, and once P3
-  # lands, provenance will be checked too.
-  - "Does not authenticate callers with any credential — no token, password, or key (ADR-032 deliberately rejects a shared secret; see its Alternatives table). Caller *provenance* will be checked instead, once P3 lands: a Host allow-list and Origin rejection (0000019, req-001, req-002, ADR-032) — the decision is accepted as of this P2 manifest revision, the code is not"
+  # ADR-032 (accepted 2026-08-08). req-001/req-002's code landed at P3 and is
+  # green as of this P6 manifest revision — the checks below are now running
+  # behaviour, not a target. The original entry (0000015) read "Does not
+  # authenticate callers — bound to 127.0.0.1, no auth model required,
+  # including for the new UI", reasoned against a multi-user threat model that
+  # never considered browser-mediated attack, where the developer's own
+  # browser sits inside the trust boundary. ADR-032 narrows that claim rather
+  # than removing it: still no credential, but provenance is now checked too.
+  - "Does not authenticate callers with any credential — no token, password, or key (ADR-032 deliberately rejects a shared secret; see its Alternatives table). Caller *provenance* is checked instead: a Host allow-list and Origin rejection, live as of P3 (0000019, req-001, req-002, ADR-032)"
   - "Does not support multi-user access control — there is one local user, and distinguishing between humans remains out of scope (0000015, unaffected by ADR-032, which is about caller provenance, not about telling multiple humans apart)"
   - "Does not install a system-level (root) launchd daemon or root systemd unit — user-scoped service only"
   - "Does not auto-fix a root-owned ~/Library/LaunchAgents or auto-enable systemd lingering — both require explicit human action"
@@ -79,7 +76,7 @@ exceptions:
   # 00020) are now delivered, so the exception no longer holds and is replaced
   # by the narrower residual exclusions below.
   - "Does not drain in-flight requests on SIGTERM — server.close() keeps its existing semantics and the interaction between an in-flight request and the shutdown checkpoint is unspecified. Surfaced at 0000019 P0 and deliberately excluded as 0000018 shutdown-path surface, not request-boundary surface"
-  - "Does not emit CORS response headers — cross-origin access will be refused, not negotiated, once req-002 lands at P3; adding Access-Control-Allow-Origin would defeat the Origin check. Not yet true of the running code as of this P2 manifest revision (0000019, req-002)"
+  - "Does not emit CORS response headers — cross-origin access is refused, not negotiated (req-002, live as of P3); adding Access-Control-Allow-Origin would defeat the Origin check (0000019, req-002)"
   - "Does not change the uncaughtException -> process.exit(1) policy — 0000019 stops the request path from reaching it, but the handler itself is unchanged and other crash paths still exit (0000019, 00013 action 5 not adopted)"
   - "Does not guarantee that a refused /emit is surfaced to the caller as a telemetry failure — the daemon returns a structured 400, but whether the emission hooks write a failure marker for it is framework-side, tracked at plan/backlog/00028 (0000019)"
   - "Does not migrate event-log pagination away from limit/offset to keyset pagination — the id tiebreaker works within the existing ADR-016 bounding strategy, not instead of it (0000018)"
@@ -102,11 +99,11 @@ stack:
 contract:
   # 0000019 introduces a formal contract for the HTTP surface. The boundary is
   # exactly what this feature changes, so a language-agnostic statement of it is
-  # what P3, P4 and P5 verify against. Drafted at P1 to
-  # plan/current/openapi-spec.yaml; P6 publishes it to the living path below,
+  # what P3, P4 and P5 verified against. Drafted at P1 to
+  # plan/current/openapi-spec.yaml; published to the living path below at P6,
   # since plan/current/ archives at P7 and a contract must not point into an
   # archive.
-  apiSpec: "pending-p6: src/structured-telemetry-mcp/docs/openapi-spec.yaml (draft at plan/current/openapi-spec.yaml)"
+  apiSpec: "src/structured-telemetry-mcp/docs/openapi-spec.yaml"
   inputs:
     - name: "emit_event"
       type: "event"
@@ -282,7 +279,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-08-08T16:00:00Z"
+  updatedAt: "2026-08-08T18:00:00Z"
   # Updated by 0000017 (codegen-agent) P3: implemented event_log sortField
   # (allow-listed, defaults to timestamp), the distinct_values query mode
   # (allow-listed suggestion lookups), and the GET /ui frontend for all three
@@ -320,6 +317,11 @@ metadata:
   # per-requirement dispatch would have clobbered (R-002). Test coverage: 545
   # Vitest (was 491) + 25 Playwright E2E (was 22), all green; typecheck + build
   # clean.
+  # Updated by 0000019 (docs-agent) P6: published the drafted HTTP contract to
+  # the living path (contract.apiSpec = src/structured-telemetry-mcp/docs/
+  # openapi-spec.yaml), and corrected stale P2-tense exceptions comments that
+  # described the Host/Origin/CORS checks as "not yet running" — the code
+  # landed at P3 and is green, so those entries now state running behaviour.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"

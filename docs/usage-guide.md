@@ -160,8 +160,10 @@ curl http://127.0.0.1:3741/health
 
 Response:
 ```json
-{ "ok": true, "db": "connected" }
+{ "ok": true, "version": "0.15.0", "buildId": "a1b2c3…" }
 ```
+
+`buildId` is a SHA-256 fingerprint of `server-http.bundle.mjs` (`null` when running unbundled under `tsx` in dev) — added in 0000018 so `npm run deploy` can detect a stale running daemon even at an unchanged `version` string.
 
 ---
 
@@ -228,6 +230,32 @@ Invoke-RestMethod -Uri http://127.0.0.1:3741/query `
   -Method Post -ContentType "application/json" `
   -Body '{ "group_by": "phase" }'
 ```
+
+---
+
+### Request boundary and error handling _(0000019)_
+
+As of 0000019 (ADR-032), the daemon checks caller **provenance** on every request before routing — closing a browser-mediated CSRF-write and DNS-rebinding-read surface. There is still no credential (no token, password, or key); what is checked is where the request comes from. A request that fails a boundary check is refused before its body is read.
+
+The full request-boundary contract is published as an OpenAPI spec at `src/structured-telemetry-mcp/docs/openapi-spec.yaml`. In summary, a request is refused with:
+
+| Status | When | Notes |
+|--------|------|-------|
+| `403` | The `Host` header is absent or not on the allow-list (`127.0.0.1:<port>` / `localhost:<port>`, compared against the actually-bound port), **or** an `Origin` header is present and is not the daemon's own origin | A request with **no** `Origin` is accepted — the stdio proxy (ADR-009) and the Planifest emission hooks are non-browser clients and send none. Decided before anything executes, so a `403` carries no `correlationId`. No `Access-Control-Allow-Origin` header is ever emitted — cross-origin access is refused, not negotiated. The `Host` check also guards the `404` fallthrough, so a foreign-`Host` request to an unknown path is `403`, not `404` |
+| `415` | `Content-Type` is missing or is not `application/json` (on `POST /emit` and `POST /query`) | Parameters are ignored, so `application/json; charset=utf-8` is accepted. This forces any cross-origin write into a preflight the daemon then declines — closing the CORS-simple no-preflight path (`text/plain`, `application/x-www-form-urlencoded`, `multipart/form-data`) |
+| `413` | The request body exceeds `PLANIFEST_MAX_BODY_BYTES` (default 4 MB) | Enforced at two independent points — a `Content-Length` pre-check and a streaming byte counter — so a chunked or forged-`Content-Length` request cannot bypass the cap |
+| `500` | An engine or internal failure | The body carries a generic message and a `correlationId` only; the full error and stack are written to the daemon's stderr against the same id. **Never** leaks SQL text, a stack trace, or a stored row value. Before 0000019 these were reported as `400` with the raw engine error interpolated into the body |
+| `400` | Client input failed the shared validation gate (e.g. a non-integer or over-ceiling `limit`) — see §7 | Reserved for validated client input; an engine failure is a `500`, not a `400`. The body names the offending field and quotes no value |
+
+A connection that sends headers and then stalls is closed by the request timeout (`PLANIFEST_REQUEST_TIMEOUT_MS`, default 30 s) — a transport-level outcome, not a status code.
+
+#### Environment variables _(0000019)_
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `PLANIFEST_MAX_BODY_BYTES` | `4194304` (4 MB) | Maximum accepted request-body size; a larger body is refused with `413` |
+| `PLANIFEST_REQUEST_TIMEOUT_MS` | `30000` (30 s) | A request that sends headers but stalls before completing its body is closed after this interval |
+| `PLANIFEST_MCP_TEXT_BUDGET` | `100000` | Character budget for assembled `query_telemetry` MCP tool-result text; output is truncated at section boundaries so the agent never receives a half-serialised JSON block |
 
 ---
 
@@ -587,6 +615,8 @@ The reversal assessor denies a petitioned reversal. Same shape as `phase_reversa
 
 All queries are sent to `POST /query` (REST) or the `query_telemetry` MCP tool.
 
+As of 0000019 (req-005), both paths share one validation gate (`src/query/validate-query.ts`) applied before dispatch. It enforces integer-and-range constraints on `limit`, `offset`, and `loop_threshold`, with a per-mode `limit` ceiling (`event_log` 1000, `distinct_values` 20, `failure_sequence`/`drill_down` 1000; `trend` treats `limit` as a day count, ceiling 365). Over-ceiling and non-integer values are **rejected** (`400` over HTTP), never silently coerced or clamped. `offset` was previously undeclared and unvalidated on both paths; it is now constrained too.
+
 ---
 
 ### Bottleneck queries — `group_by`
@@ -628,6 +658,8 @@ Optional filters: `session_id`, `initiative_id`.
 { "mode": "failure_cluster" }
 ```
 
+As of 0000019, `failure_sequence` is bounded by a row cap and its `## JSON` payload carries two additive fields: `total_count` (all matching rows, computed by a count query independent of how many were returned) and `truncated` (`true` when the cap was reached, so a caller can tell a capped result from a complete one). See [drill_down](#token-efficiency-queries--mode) for the same fields on the token-efficiency side.
+
 ---
 
 ### Token efficiency queries — `mode`
@@ -646,6 +678,8 @@ Optional filters: `session_id`, `initiative_id`.
 { "mode": "mcp_impact" }
 { "mode": "drill_down", "session_id": "my-session-001" }
 ```
+
+As of 0000019, `drill_down` is bounded by a row cap and its `## JSON` payload carries the same additive `total_count` and `truncated` fields as `failure_sequence` (see above). Note that when `mode` is `trend`, `limit` is a **day count** (default 30, ceiling 365), not a row count — the row ceilings do not apply to it.
 
 ---
 
@@ -693,7 +727,7 @@ Added in 0000017 (ADR-026). Returns up to 20 distinct non-null values for an all
 | `mode` | string | — | `"distinct_values"` |
 | `field` | string | — | Required. Allow-listed: `session_id`, `initiative_id`, `event`, `phase`, `agent`, `product_id` — an unlisted value is rejected with an error before any SQL runs |
 | `q` | string | — | Optional prefix match (case-insensitive), evaluated server-side and always passed as a bound SQL parameter, never string-concatenated |
-| `limit` | number | `20` | Capped at `20` |
+| `limit` | number | `20` | Ceiling `20`. As of 0000019 a higher value is **rejected with an error** (`400` over HTTP), not silently clamped — matching `event_log`'s reject-not-clamp behaviour _(0000019, req-005)_ |
 
 The `## JSON` section of the response is `{ "mode": "distinct_values", "field": "<field>", "values": [...] }` — a flat array of matching values, not row objects.
 
