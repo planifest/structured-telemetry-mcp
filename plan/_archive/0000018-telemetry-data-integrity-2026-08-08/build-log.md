@@ -328,13 +328,29 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 | Field | Value |
 |-------|-------|
 | Start | `2026-08-08T11:36:00Z` |
+| End | `2026-08-08T11:40:00Z` |
 | Model tier | cheaper (haiku) — per Model Tier Decision Table: "Build assessment (P8) \| Cheaper \| Read-only summarisation from a structured log" |
 | Skills loaded | planifest-build-assessment-agent (sub-agent) |
+| Agents spawned | 1 (`general-purpose`/haiku, loaded planifest-build-assessment-agent) |
+| MCP calls | 0 (delegated to the sub-agent) |
+| Parallel task batches | 0 |
+| Telemetry | emitted |
+| Notes | build-report.md written to the archive directory. Findings: model routing correct (6 Primary + 1 Cheaper per Decision Table), P3 parallelism sound (2 correctly dependency-ordered waves), zero self-corrections across all phases, mid-P3 telemetry failure caught/root-caused/fixed same-session, zero drift at P6 audit, all required artifacts present. 1 low-severity finding: a documentation-clarity nit in the P3 phase entry, not blocking. Conclusion: pipeline ready for P9. |
+
+---
+
+### P9 — Ship
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T11:41:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-ship-agent (continued) |
 | Agents spawned | `TBD` |
 | MCP calls | `TBD` |
 | Parallel task batches | `0` |
 | Telemetry | TBD |
-| Notes | Archive path confirmed to exist: plan/_archive/0000018-telemetry-data-integrity-2026-08-08/. Dispatching build-assessment-agent as a sub-agent now. |
+| Notes | Deriving release version from product.yml. Gate is a mandatory human confirmation stop — proceeding to Step 9 (tag) and Step 10 (push/PR question), then stopping. |
 
 ---
 
