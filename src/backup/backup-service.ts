@@ -56,6 +56,21 @@ function stampFor(date: Date): string {
   return date.toISOString().replace(/[:.]/g, '-');
 }
 
+/**
+ * Escapes a path for interpolation into a single-quoted DuckDB SQL string
+ * literal (standard SQL literal escaping: double each embedded single quote).
+ * `tmpPath`/`finalPath` are built from PLANIFEST_TELEMETRY_BACKUP_DIR (an
+ * operator-controlled env var, not attacker-reachable over the network) plus
+ * a regex-constrained timestamp — but an unescaped embedded quote would still
+ * break or corrupt the EXPORT/IMPORT DATABASE statement (P5 security finding,
+ * CWE-88-adjacent; DuckDB has no parameterized-path binding for these
+ * statements, mirroring the identifier-injection class ADR-024 addresses
+ * for SQL column identifiers elsewhere in this codebase).
+ */
+export function sqlPathLiteral(path: string): string {
+  return path.replace(/'/g, "''");
+}
+
 function removeQuietly(path: string): void {
   try {
     rmSync(path, { recursive: true, force: true });
@@ -88,7 +103,7 @@ export async function runBackup(db: Connectable, warn: Warn, opts: RunBackupOpti
     let pinnedRowCount: number;
     try {
       pinnedRowCount = await countEvents(conn);
-      await conn.run(`EXPORT DATABASE '${tmpPath}' (FORMAT PARQUET)`);
+      await conn.run(`EXPORT DATABASE '${sqlPathLiteral(tmpPath)}' (FORMAT PARQUET)`);
     } finally {
       conn.disconnectSync();
     }
@@ -99,7 +114,7 @@ export async function runBackup(db: Connectable, warn: Warn, opts: RunBackupOpti
     try {
       const scratchConn = await scratchDb.connect();
       try {
-        await scratchConn.run(`IMPORT DATABASE '${tmpPath}'`);
+        await scratchConn.run(`IMPORT DATABASE '${sqlPathLiteral(tmpPath)}'`);
         verifiedRowCount = await countEvents(scratchConn);
       } finally {
         scratchConn.disconnectSync();

@@ -136,9 +136,27 @@ const checkpointTimer = setInterval(() => { void checkpoint(); }, CHECKPOINT_INT
 
 const BACKUP_INTERVAL_MS = Number(process.env['PLANIFEST_BACKUP_INTERVAL_MS'] ?? 24 * 60 * 60 * 1000);
 
+// Reentrancy guard: EXPORT DATABASE can, in principle, take longer than the
+// configured interval (unlikely at the 24h production default, but real for
+// any shortened/test interval or a slow-disk/large-DB system). Without this,
+// an overlapping tick could race pruneRetainedSet() against another run's
+// promote, or write the sidecar out of order — ironic for a data-integrity
+// feature (P5 security finding). A tick that finds a run already in flight
+// is simply skipped; the next tick will try again.
+let backupInFlight = false;
+
 /** Runs one backup cycle; failures warn and degrade-and-keep-serving (never crashes, never stops writes). */
 async function backup(): Promise<void> {
-  await runBackup(db, (msg) => process.stderr.write(`[telemetry-backend] ${msg}\n`));
+  if (backupInFlight) {
+    process.stderr.write('[telemetry-backend] backup tick skipped — previous run still in flight\n');
+    return;
+  }
+  backupInFlight = true;
+  try {
+    await runBackup(db, (msg) => process.stderr.write(`[telemetry-backend] ${msg}\n`));
+  } finally {
+    backupInFlight = false;
+  }
 }
 
 const backupTimer = setInterval(() => { void backup(); }, BACKUP_INTERVAL_MS);

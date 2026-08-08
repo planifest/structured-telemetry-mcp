@@ -94,6 +94,21 @@ describe('req-006: runBackup — happy path', () => {
     expect(ok).toBe(true);
     expect(existsSync(backupDir)).toBe(true);
   });
+
+  it('P5 security fix: a backup dir path containing a single quote (e.g. from an operator-set PLANIFEST_TELEMETRY_BACKUP_DIR) does not break EXPORT/IMPORT DATABASE', async () => {
+    const { dbPath, workDir } = freshWorkDir('telemetry-backup-quote-');
+    const backupDir = join(workDir, "o'brien's backups");
+    const db = await seededDb(dbPath, 2);
+    const warn = vi.fn();
+
+    const ok = await runBackup(db, warn, { backupDir });
+
+    expect(ok).toBe(true);
+    expect(warn).not.toHaveBeenCalled();
+    const meta = readBackupMetadata(backupDir);
+    expect(meta.state).toBe('verified');
+    if (meta.state === 'verified') expect(meta.metadata.rowCount).toBe(2);
+  });
 });
 
 describe('req-006: runBackup — verification failure never promotes', () => {
