@@ -366,6 +366,66 @@ Implementation order (dependency-driven):
 8. req-010: XSS escaping e2e tests
 9. req-011: test-coverage.md + ui.test.ts import
 
+#### P3 close-out
+
+All twelve requirements implemented, each RED-confirmed before GREEN. req-009
+and req-010 additionally verified with a real weakening cycle (allow-list
+poisoned / escapeHtml→identity → tests fail → restore → green). Nine P3
+commits, one logical group each:
+- req-012 (committed alone, no src/ — gitignore hygiene)
+- req-005 + req-007 (shared gate + bounded result sets)
+- req-005/006/008 MCP path (server-factory.ts)
+- req-001/002/003/004/006 HTTP path (integrated server-http.ts, one edit — R-002)
+- req-009 (injection tests)
+- req-010 (XSS e2e)
+- req-011 (docs accuracy)
+
+Three pre-existing server-factory tests asserted the old leaky error contract
+(one literally asserted an engine string reaches the caller) — updated to the
+redacted contract, since req-006 deliberately changes it. Not a workaround.
+
+Agents spawned: 0 (dependency reason recorded in the P3 Notes block above —
+five requirements share server-http.ts, three share server-factory.ts, so a
+per-requirement subagent swarm would clobber; the orchestrator ran the TDD
+loop directly). Escalations: 0.
+
+Verification at close: typecheck clean, build (tsc + bundle) clean, Vitest 545
+pass (was 491), Playwright E2E 25 pass (was 22). component.yml quality/metadata
+close-out done, YAML validated.
+
+Gate accepted: P3 — 2026-08-08T16:58:22Z (continuous run; implementation
+matches the spec's file structure, zero escalations, no human stop required)
+
+---
+
+### P4 — Validate
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T16:58:22Z` |
+| Model tier | primary |
+| Skills loaded | planifest-orchestrator, planifest-validate-agent |
+| Agents spawned | `0` |
+| MCP calls | `0` |
+| Parallel task batches | `0` |
+| Telemetry | confirmed-disabled |
+| Notes | CI checks (typecheck, test, build, e2e) all pass first-attempt, zero self-corrections. |
+
+CI results, first attempt, zero self-corrections:
+- typecheck (`tsc --noEmit`): clean
+- build (`tsc && esbuild` bundle): clean, all three bundles produced
+- Vitest (`vitest run`): 545 pass / 33 files
+- Playwright E2E (`playwright test`): 25 pass / 3 files
+
+Per the P4 STOP-rule exception (all checks passed first-attempt with zero
+self-corrections), continuous run proceeds without a human confirmation stop.
+
+Gate accepted: P4 — 2026-08-08T16:58:22Z
+
+---
+
+## Summary (filled at P7)
+
 | Metric | Value |
 |--------|-------|
 | Total phases completed | `{{count}}` |

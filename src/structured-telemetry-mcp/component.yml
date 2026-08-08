@@ -249,9 +249,9 @@ risk:
 
 quality:
   testCoverage:
-    unit: 229   # 491 Vitest tests across 28 files as of 0000018 (229 unit + 124 integration + 137 regression + 1 performance), plus 26 bats tests (tests/bats/, was 23 — +3 for req-005's supervision-config keys; not counted here — separate framework/CI job). Includes P5 security-fix regression coverage: sqlPathLiteral() escaping + backup-timer reentrancy guard, both verified with real RED-before-GREEN cycles.
-    integration: 124
-    e2e: 22   # @playwright/test, Chromium-only: unchanged from 0000017 — no new HTTP/UI surface added by 0000018 (deploy/backup/doctor are CLI/daemon-lifecycle, outside the E2E suites' scope)
+    unit: 262   # 545 Vitest tests as of 0000019 (262 unit + 145 integration + 137 regression + 1 performance), plus 26 bats tests (separate framework/CI job, not counted here). 0000019 added +54 Vitest across validate-query, server-factory-hardening, bounded-result-sets, server-http-boundary, injection-identifiers; req-009 and req-010 each verified with a real RED-before-GREEN weakening cycle.
+    integration: 145
+    e2e: 25   # @playwright/test, Chromium-only: 22 prior + 3 new XSS-escaping tests (req-010, tests/e2e/ui/xss-escaping.spec.ts)
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
@@ -271,6 +271,9 @@ quality:
     - "distinct_values' field param uses real column names (event, not event_type) per ADR-024, diverging from event_log's filter-param naming; the frontend bridges this with a small SUGGEST_FIELD_COLUMN map (0000017, docs/quirks.md)"
     - "index-html.ts hand-mirrors SORTABLE_FIELDS/SUGGESTIBLE_FIELDS from src/query/column-allow-list.ts as client-side constants — no import mechanism at runtime (ADR-018), so a future backend allow-list change must be manually synced into the frontend copy (0000017, docs/quirks.md)"
     - "pollForUpdates() required a post-implementation fix to toggle table/pager visibility on a genuine zero-result poll response, so auto-refresh actually reveals new rows when starting from an empty state — covered by a new E2E test (0000017, docs/quirks.md)"
+    - "The Host/Origin checks compare against the ACTUALLY-bound port (server.address()), captured into a mutable boundPort in the listen callback, not the configured PORT constant — required so the ephemeral-port (PLANIFEST_MCP_PORT=0) E2E harness is not locked out (0000019, req-001, design R-008)."
+    - "readBody's over-cap handling differs by delivery shape: an honest Content-Length over the cap rejects WITHOUT destroying the socket (so a 413 can still be sent), while a streaming/forged-length overflow calls req.destroy() (the body is unbounded). Both reject with BodyTooLargeError; only the streaming path kills the connection (0000019, req-004)."
+    - "distinct_values' module-level limit clamp (distinct-values.ts:39, Math.min) is now unreachable via the HTTP and MCP paths, which reject an over-20 limit at the shared gate (validate-query.ts) before dispatch. Left in place as harmless defense-in-depth for any direct internal caller; the gate is authoritative (0000019, req-005)."
 
 pipeline:
   templateVersion: "1.0.0"
@@ -279,7 +282,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-08-08T00:00:00Z"
+  updatedAt: "2026-08-08T16:00:00Z"
   # Updated by 0000017 (codegen-agent) P3: implemented event_log sortField
   # (allow-listed, defaults to timestamp), the distinct_values query mode
   # (allow-listed suggestion lookups), and the GET /ui frontend for all three
@@ -303,8 +306,22 @@ metadata:
   # implementers across 2 dependency-ordered batches, zero escalations.
   # Test coverage: 485 Vitest (was 405) + 22 Playwright E2E (unchanged, no
   # new HTTP/UI surface), all green; typecheck clean.
+  # Updated by 0000019 (codegen-agent) P3: loopback daemon hardening. Integrated
+  # server-http.ts boundary pass — Host allow-list, Origin rejection,
+  # Content-Type-required, two-point body cap + crash-safe readBody, error
+  # redaction with correlationId (req-001/002/003/004/006, ADR-032). New shared
+  # src/query/validate-query.ts gate reused by both HTTP and MCP paths (req-005).
+  # failure_sequence/drill_down bounded with truncated/total_count (req-007), MCP
+  # tool-result text budget (req-008), genuine injection + XSS tests each with a
+  # RED-before-GREEN weakening cycle (req-009/010), test-coverage.md false-claim
+  # correction (req-011), *.local-only.* gitignore (req-012). Implemented
+  # directly by the codegen orchestrator rather than parallel subagents: five
+  # requirements share server-http.ts and three share server-factory.ts, so
+  # per-requirement dispatch would have clobbered (R-002). Test coverage: 545
+  # Vitest (was 491) + 25 Playwright E2E (was 22), all green; typecheck + build
+  # clean.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"
   tool: "claude-code"
-  model: "claude-sonnet-5"
+  model: "claude-fable-5"
