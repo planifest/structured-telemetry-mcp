@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { INDEX_HTML } from '../../src/ui/index-html.js';
+import { SORTABLE_FIELDS } from '../../src/query/column-allow-list.js';
 
 describe('req-002-event-log-table: log viewer page', () => {
   it('is a well-formed HTML document', () => {
@@ -252,8 +253,12 @@ describe('req-003-sortable-headers-three-way-sync: combined sort control + click
     }
   });
 
-  it('each of the 6 sortable <th> elements carries a data-field attribute', () => {
-    for (const field of ['timestamp', 'event', 'session_id', 'phase', 'agent', 'product_id']) {
+  it('each sortable <th> carries a data-field attribute for every SORTABLE_FIELDS entry', () => {
+    // req-011: import the allow-list rather than restating the six literals, so
+    // a backend change to SORTABLE_FIELDS that the hand-mirrored UI template does
+    // not track (docs/quirks.md notes there is no runtime import, ADR-018) fails
+    // this test instead of silently drifting.
+    for (const field of SORTABLE_FIELDS) {
       expect(INDEX_HTML).toContain('data-field="' + field + '"');
     }
   });
