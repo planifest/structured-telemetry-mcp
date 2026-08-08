@@ -1,7 +1,7 @@
 id: "planifest-framework"
 name: "Planifest Framework"
-feature: "0000025-pipeline-gate-and-config-fixes-and-ship-agent-fixes"
-version: "0.25.1"
+feature: "0000026-context-hook-and-telemetry-backstop-fixes"
+version: "0.26.1"
 status: "active"
 type: "component-pack"
 domain: "developer-tooling"
@@ -201,16 +201,20 @@ metadata:
   # installed, not gated behind --context-mode-mcp or
   # --structured-telemetry-mcp). Updated the orchestrator SKILL.md's
   # Telemetry section to note the new backstop.
-  # 0.25.1: hooks/telemetry/context-pressure.mjs gained a narrow, bounded retry
-  # (2 retries, 300ms gaps, network-level failures only — never on an HTTP
-  # error status) for the connection-refused window a consuming product's own
-  # daemon restart briefly opens. Fixed directly in this repo's session per the
-  # Framework Update Policy (not tied to a numbered framework feature) after
-  # 10 spurious durable-failure markers were traced to structured-telemetry-mcp's
-  # own req-008/009 live deploy-restart verification tripping the hook during
-  # the daemon's restart gap. Verified with a real two-case reproduction (a
-  # genuinely unreachable backend still fails and writes the marker unchanged;
-  # a backend that returns mid-retry now succeeds silently, no marker).
+  #
+  # LOCAL PATCH (not upstream, carried on top of the 0.26.1 release):
+  # hooks/telemetry/context-pressure.mjs carries a bounded retry (2 retries,
+  # 300ms gaps, network-level fetch failures only — never on an HTTP error
+  # status) for the connection-refused window a consuming product's own
+  # daemon restart briefly opens. Added in this repo during
+  # structured-telemetry-mcp's 0000018 run, after 10 spurious durable-failure
+  # markers were traced to its own req-008/009 live deploy-restart
+  # verification tripping the hook during the daemon's restart gap. Verified
+  # with a two-case reproduction (a genuinely unreachable backend still fails
+  # and writes the marker unchanged; a backend returning mid-retry now
+  # succeeds silently). Release 0.26.1 does not contain this change — it will
+  # be lost by the next `update-planifest-framework.local-only.sh` run unless
+  # it is upstreamed into the framework's own repo first.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"

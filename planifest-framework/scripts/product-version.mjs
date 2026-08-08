@@ -7,12 +7,22 @@
  *
  * Exit codes:
  *   0 — version derived; printed to stdout
- *   2 — invalid manifest (bad semver, unknown versionPolicy); reason on stderr
+ *   2 — invalid manifest (bad semver, unknown versionPolicy, unreadable
+ *       component path, missing/invalid version in a referenced
+ *       component.yml); reason on stderr
  *   4 — no product.yml at root; caller falls back to single component.yml
  *   5 — versionPolicy is "external"; caller must consult the anchor/human
  *
  * No YAML dependency: parses the constrained shape of product.template.yml
  * (top-level scalars + a flat components list) line-by-line.
+ *
+ * `components[]` entries hold {id, path} — a pointer to that component's own
+ * component.yml — not a cached version. Under versionPolicy
+ * max-component-version, this script reads each referenced component.yml's
+ * own `version:` field live at derivation time, so there is nothing in
+ * product.yml itself to fall out of sync when a component bumps its version
+ * mid-feature (revised 2026-08-08; see docs/decisions-index.md's Feature
+ * 0000016 ADR-002 entry).
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -42,15 +52,28 @@ function parseProductYml(text) {
     if (/^[A-Za-z]/.test(line)) inComponents = false;
     if (inComponents) {
       const idMatch = line.match(/^\s*-\s*id:\s*(.+)$/);
-      if (idMatch) { current = { id: unquote(idMatch[1]), version: null }; doc.components.push(current); continue; }
-      const verMatch = line.match(/^\s*version:\s*(.+)$/);
-      if (verMatch && current) { current.version = unquote(verMatch[1]); continue; }
+      if (idMatch) { current = { id: unquote(idMatch[1]), path: null }; doc.components.push(current); continue; }
+      const pathMatch = line.match(/^\s*path:\s*(.+)$/);
+      if (pathMatch && current) { current.path = unquote(pathMatch[1]); continue; }
     } else {
       const m = line.match(/^(version|versionPolicy):\s*(.+)$/);
       if (m) doc[m[1]] = unquote(m[2]);
     }
   }
   return doc;
+}
+
+function readComponentVersion(root, componentId, relPath) {
+  const label = `component ${componentId ?? "(unnamed)"}`;
+  if (!relPath) fail(2, `${label}: product.yml components[] entry has no path`);
+  const abs = join(root, relPath);
+  if (!existsSync(abs)) fail(2, `${label}: component.yml not found at ${relPath}`);
+  const text = readFileSync(abs, "utf-8");
+  for (const raw of text.split(/\r?\n/)) {
+    const m = raw.replace(/#.*$/, "").trimEnd().match(/^version:\s*(.+)$/);
+    if (m) return unquote(m[1]);
+  }
+  fail(2, `${label}: no top-level version: field found in ${relPath}`);
 }
 
 function semverCompare(a, b) {
@@ -96,14 +119,15 @@ if (doc.versionPolicy === "explicit") {
   process.exit(0);
 }
 
-// max-component-version
+// max-component-version — read each referenced component.yml's version live
 if (doc.components.length === 0) {
   fail(2, "versionPolicy max-component-version requires a non-empty components list");
 }
 let max = null;
 for (const c of doc.components) {
-  validSemver(c.version, `component ${c.id ?? "(unnamed)"}`);
-  if (max === null || semverCompare(c.version, max) > 0) max = c.version;
+  const v = readComponentVersion(root, c.id, c.path);
+  validSemver(v, `component ${c.id ?? "(unnamed)"} (${c.path})`);
+  if (max === null || semverCompare(v, max) > 0) max = v;
 }
 process.stdout.write(max);
 process.exit(0);

@@ -52,6 +52,7 @@ assert_contains "max-component-version"  "$PRODUCT_T" "req-003: max-component-ve
 assert_contains "explicit"               "$PRODUCT_T" "req-003: explicit documented"
 assert_contains "external"               "$PRODUCT_T" "req-003: external documented"
 assert_contains "components"             "$PRODUCT_T" "req-003: components list"
+assert_contains "path"                   "$PRODUCT_T" "req-003: components[] entries are path pointers, not cached versions"
 
 # -----------------------------------------------------------------------
 echo ""
@@ -61,8 +62,14 @@ echo "=== req-004: product-version.mjs derivation ==="
 PV="$SCRIPTS/product-version.mjs"
 assert_file_exists "$PV" "req-004: product-version.mjs exists"
 
+# components[] holds {id, path} pointers to each component's own component.yml —
+# not a cached version — so max-component-version fixtures need real component.yml
+# files on disk for the script to read live (revised 2026-08-08).
+
 # fixture: max-component-version
-FIX1="$TMP/fix-max"; mkdir -p "$FIX1"
+FIX1="$TMP/fix-max"; mkdir -p "$FIX1/comp-a" "$FIX1/comp-b"
+printf 'id: "comp-a"\nversion: "1.2.0"\n' > "$FIX1/comp-a/component.yml"
+printf 'id: "comp-b"\nversion: "1.10.3"\n' > "$FIX1/comp-b/component.yml"
 cat > "$FIX1/product.yml" <<'YAML'
 id: "demo-product"
 name: "Demo"
@@ -71,15 +78,15 @@ feature: "0000001-demo"
 versionPolicy: "max-component-version"
 components:
   - id: "comp-a"
-    version: "1.2.0"
+    path: "comp-a/component.yml"
   - id: "comp-b"
-    version: "1.10.3"
+    path: "comp-b/component.yml"
 YAML
 OUT=$(node "$PV" --root "$FIX1" 2>&1); RC=$?
 assert_equals "1.10.3" "$OUT" "req-004: max-component-version derives highest semver (1.10.3 > 1.2.0)"
 assert_exit_zero "$RC" "req-004: max policy exits 0"
 
-# fixture: explicit
+# fixture: explicit — doesn't touch components[]/component.yml at all
 FIX2="$TMP/fix-explicit"; mkdir -p "$FIX2"
 sed 's/max-component-version/explicit/; s/version: "0.1.0"/version: "2.5.1"/' "$FIX1/product.yml" > "$FIX2/product.yml"
 OUT=$(node "$PV" --root "$FIX2" 2>&1); RC=$?
@@ -92,11 +99,21 @@ sed 's/max-component-version/external/' "$FIX1/product.yml" > "$FIX3/product.yml
 OUT=$(node "$PV" --root "$FIX3" 2>&1); RC=$?
 assert_equals "5" "$RC" "req-004: external policy exits 5 (caller must consult anchor)"
 
-# fixture: invalid version string rejected
-FIX4="$TMP/fix-invalid"; mkdir -p "$FIX4"
-sed 's/1.10.3/not-a-version/' "$FIX1/product.yml" > "$FIX4/product.yml"
+# fixture: invalid version string in the referenced component.yml rejected
+FIX4="$TMP/fix-invalid"; mkdir -p "$FIX4/comp-a" "$FIX4/comp-b"
+cp "$FIX1/product.yml" "$FIX4/product.yml"
+cp "$FIX1/comp-a/component.yml" "$FIX4/comp-a/component.yml"
+printf 'id: "comp-b"\nversion: "not-a-version"\n' > "$FIX4/comp-b/component.yml"
 OUT=$(node "$PV" --root "$FIX4" 2>&1); RC=$?
 assert_equals "2" "$RC" "req-004: invalid component version exits 2"
+
+# fixture: components[] path points at a component.yml that doesn't exist
+FIX4B="$TMP/fix-missing-path"; mkdir -p "$FIX4B/comp-a"
+cp "$FIX1/product.yml" "$FIX4B/product.yml"
+cp "$FIX1/comp-a/component.yml" "$FIX4B/comp-a/component.yml"
+# comp-b/component.yml deliberately absent
+OUT=$(node "$PV" --root "$FIX4B" 2>&1); RC=$?
+assert_equals "2" "$RC" "req-004: components[] path with no component.yml at it exits 2"
 
 # fixture: invalid policy rejected
 FIX5="$TMP/fix-badpolicy"; mkdir -p "$FIX5"
