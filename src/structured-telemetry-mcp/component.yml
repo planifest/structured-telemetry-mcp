@@ -194,8 +194,8 @@ risk:
 
 quality:
   testCoverage:
-    unit: 225   # 485 Vitest tests across 27 files as of 0000018 (225 unit + 122 integration + 137 regression + 1 performance), plus 26 bats tests (tests/bats/, was 23 — +3 for req-005's supervision-config keys; not counted here — separate framework/CI job)
-    integration: 122
+    unit: 229   # 491 Vitest tests across 28 files as of 0000018 (229 unit + 124 integration + 137 regression + 1 performance), plus 26 bats tests (tests/bats/, was 23 — +3 for req-005's supervision-config keys; not counted here — separate framework/CI job). Includes P5 security-fix regression coverage: sqlPathLiteral() escaping + backup-timer reentrancy guard, both verified with real RED-before-GREEN cycles.
+    integration: 124
     e2e: 22   # @playwright/test, Chromium-only: unchanged from 0000017 — no new HTTP/UI surface added by 0000018 (deploy/backup/doctor are CLI/daemon-lifecycle, outside the E2E suites' scope)
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
