@@ -314,11 +314,27 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 | Start | `2026-08-08T11:22:00Z` |
 | Model tier | primary |
 | Skills loaded | planifest-ship-agent |
+| End | `2026-08-08T11:35:00Z` |
+| Agents spawned | 0 (archive work performed inline) |
+| MCP calls | 0 (pure file operations this step) |
+| Parallel task batches | 0 |
+| Telemetry | emitted |
+| Notes | Continuous mode; Cross-Model Review Gate toggle confirmed off (no plan/current/loop-toggles.yml) — skipped, proceeding straight to archive. Cross-reference check run first (per skill instruction): found and fixed 6 stale `plan/current/...` links (4 ADR links in docs/decisions-index.md, 2 in src/structured-telemetry-mcp/docs/{risk,tech-debt}.md) before archiving. Changelog + test report written (0 regression-candidate tags found, 0 promotions). Archived via copy-then-delete to plan/_archive/0000018-telemetry-data-integrity-2026-08-08/ (git detected as renames). docs/about.md updated (0.13.0->0.14.0). Sentinels removed: plan/.orchestrator-active, plan/.run-mode (no plan/.orchestrator-ack existed). P9's own gate always stops for confirmation regardless of continuous mode — final human sign-off still required after P8. |
+
+---
+
+### P8 — Build Assessment
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T11:36:00Z` |
+| Model tier | cheaper (haiku) — per Model Tier Decision Table: "Build assessment (P8) \| Cheaper \| Read-only summarisation from a structured log" |
+| Skills loaded | planifest-build-assessment-agent (sub-agent) |
 | Agents spawned | `TBD` |
 | MCP calls | `TBD` |
-| Parallel task batches | `TBD` |
+| Parallel task batches | `0` |
 | Telemetry | TBD |
-| Notes | Continuous mode; Cross-Model Review Gate toggle confirmed off (no plan/current/loop-toggles.yml) — skipped, proceeding straight to archive. P9's own gate always stops for confirmation regardless of continuous mode — final human sign-off still required after P8. |
+| Notes | Archive path confirmed to exist: plan/_archive/0000018-telemetry-data-integrity-2026-08-08/. Dispatching build-assessment-agent as a sub-agent now. |
 
 ---
 
@@ -326,12 +342,12 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 
 | Metric | Value |
 |--------|-------|
-| Total phases completed | `{{count}}` |
-| Total agents spawned | `{{count}}` |
-| Total MCP calls | `{{count}}` |
-| Phases using parallelism | `{{count}}` |
-| Primary tier agent calls | `{{count}}` |
-| Cheaper tier agent calls | `{{count}}` |
-| Self-corrections | `{{count}}` |
-| Phases skipped | `{{list or "none"}}` |
-| Phases with a recorded telemetry gap | `{{count — phases where Telemetry was failed-with-recorded-choice, or "0"}}` |
+| Total phases completed | 10 (P0–P9, all phases; P8/P9 completing within this same ship-agent invocation) |
+| Total agents spawned | 6 (5 in P3 — 3 batch 1 + 2 batch 2, all `general-purpose`/sonnet; 1 in P8 — `planifest-build-assessment-agent`/haiku) |
+| Total MCP calls | ~130 (approximate — context-mode source reads/greps across P1–P6 grounding and verification; ~20 `emit_event` calls for `phase_start`/`phase_end`/`adr_decision`/`security_finding`) |
+| Phases using parallelism | 1 (P3 — 2 parallel agent-dispatch batches) |
+| Primary tier agent calls | 5 (all of P3's dispatched implementers — "Code generation" resolves to Primary per `agent-dispatch-standards.md`'s Model Tier Decision Table) |
+| Cheaper tier agent calls | 1 (P8's build-assessment-agent) |
+| Self-corrections | 0 (P4 passed every check first-attempt; the P5 security fixes were direct human-directed fixes, not validate-agent self-correct cycles) |
+| Phases skipped | none |
+| Phases with a recorded telemetry gap | 1 (P3 — `context-pressure.mjs` hook failure marker, root-caused and fixed same-phase, not merely acknowledged; recorded as `failed-with-recorded-choice`) |
