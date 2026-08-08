@@ -181,6 +181,22 @@ Revalidated: `2026-08-08T07:40:18Z`
 
 ---
 
+### P1 — Requirements
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T07:40:18Z` |
+| End | `2026-08-08T08:05:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-spec-agent |
+| Agents spawned | `0 — performed inline by the orchestrator acting as spec-agent, no subagents dispatched` |
+| MCP calls | `~20 (context-mode sandbox greps/reads of source to ground requirements: server-http.ts, db/schema.ts, service-macos.sh, service-linux.sh, service-manager.mjs, event-log.ts, cli.ts)` |
+| Parallel task batches | `0 — sequential, artifact-type grouped commits` |
+| Telemetry | emitted (`phase_start` emitted retroactively at phase end, session_id `0000018-p1-resume-20260808` — the same auto-trigger gap recorded in backlog 00025 meant this session's orchestrator wasn't loaded at the true phase start, so live phase_start emission wasn't possible until now) |
+| Notes | Human confirmed proceeding from revalidated P0 gate. Grounded 10 requirement files against actual source rather than the brief alone — found and resolved: (1) `doctor` already opens a second DuckDB connection (risk R-002, resolved via sidecar metadata file, not left open); (2) neither the macOS plist nor the systemd unit has a restart circuit-breaker today (risk R-005); (3) the incident's "function-valued default" root cause is a DuckDB-internal `ReplayAlter` limitation, not an avoidable pattern in this codebase's own migration SQL — req-003 changes to "checkpoint immediately after any ALTER" instead. No OpenAPI spec generated — no new route this feature (`/health` gains one additive field only), consistent with existing project precedent recorded in `docs/api-index.md`. |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
