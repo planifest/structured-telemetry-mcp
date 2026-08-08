@@ -15,7 +15,7 @@ summary: "In scope, out of scope, and deferred - stated explicitly."
 | 5 | `try/catch` around the `req.on('end')` handler so a throw rejects rather than exits the process | req-004 |
 | 6 | Socket/request timeout against slow-body connections | req-004 |
 | 7 | One shared query-validation gate across the HTTP and MCP paths | req-005 |
-| 8 | Integer/range validation for `limit`, `offset`, `loop_threshold`, `trend.limit` | req-005 |
+| 8 | Per-mode integer/range validation for `limit` (event_log 1000, distinct_values 20 — clamp changes to reject, failure_sequence/drill_down 1000 new), `offset`, `loop_threshold`, and `limit`-as-days when `mode: trend` (no separate `trend.limit` field exists) | req-005 |
 | 9 | Error redaction with correlation ids; `500` for engine errors, `400` for validated input | req-006 |
 | 10 | Explicit `LIMIT` plus `truncated` and `total_count` on `failure_sequence` and `drill_down` | req-007 |
 | 11 | Independent character budget on MCP tool-result text | req-008 |

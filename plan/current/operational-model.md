@@ -25,7 +25,7 @@ That creates a new diagnostic question — *"why did my client stop working?"* �
 | A query returns fewer rows than expected with `truncated: true` | req-007's row cap | Expected behaviour. Narrow by session or time range; `total_count` reports the true total |
 | Client receives `500` with a correlation id and nothing else | An engine or internal failure — redaction working as designed | Grep stderr for the correlation id to get the full error and stack |
 | Client receives `413` | Body over the 4 MB cap | Legitimate payloads should not approach this. Investigate what the client is sending before raising `PLANIFEST_MAX_BODY_BYTES` |
-| Daemon exits unexpectedly | **Should not happen after this feature.** NFR-003 targets zero exits under hostile input | Capture the stderr line and treat as a defect against req-004, not as an operational event |
+| Daemon exits unexpectedly from handling a request | **Should not happen after this feature.** NFR-003 targets zero exits under hostile input on the request path specifically | Capture the stderr line and treat as a defect against req-004, not as an operational event. Note this feature does not change the daemon's `unhandledRejection`/`uncaughtException` policy in general (`server-http.ts:68-75`) — an exit triggered by something other than request handling is a separate, pre-existing failure mode, not a regression |
 
 ## Diagnostics this feature adds
 

@@ -47,5 +47,5 @@ As a developer, I want `Content-Type: application/json` required on writes, so t
 - [ ] Input source: `Content-Type` request header (`req.headers['content-type']`)
 - [ ] Allowed character pattern: media type must equal `application/json` after lowercasing, trimming, and discarding everything from the first `;`
 - [ ] Maximum length: 255 characters — longer values refused, not truncated
-- [ ] Failure behaviour: respond `415` with `{ok:false, errors:[{field:"content-type", message:"..."}]}` and end the response
+- [ ] Failure behaviour: respond `415` with `{ok:false, errors:[{field:"content-type", message:"..."}], correlationId:"<uuid>"}` and end the response. Per req-006, `415` and `413` carry a correlation id because the daemon has already begun handling the request; only `403` (decided before routing) omits one
 - [ ] Logging policy: the raw rejected value is written to stderr only, never echoed into the response body

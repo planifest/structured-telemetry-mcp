@@ -57,5 +57,5 @@ There is no `Content-Length` check, no byte cap, and no socket timeout. `Buffer.
 - [ ] Input source: HTTP request body stream, and the `Content-Length` request header
 - [ ] Allowed character pattern: not applicable — the body is byte-counted, not pattern-matched; JSON validity is checked after the cap
 - [ ] Maximum length: 4 MB default (`PLANIFEST_MAX_BODY_BYTES`); exceeded input causes `req.destroy()`, never truncate-and-continue, because a truncated JSON body could parse into a different valid document
-- [ ] Failure behaviour: `413` for over-cap, `400` for unparseable within cap; connection destroyed on over-cap; process must survive in every case
+- [ ] Failure behaviour: `413` for over-cap, `400` for unparseable within cap, both per req-006 including a `correlationId` (the request has already begun processing by this point, unlike a `403`); connection destroyed on over-cap; process must survive in every case
 - [ ] Logging policy: byte count and remote address to stderr; the body content itself is never logged

@@ -37,7 +37,7 @@ responsibilities:
   - "Refuse a request carrying a foreign Origin, while accepting one with no Origin at all — the stdio proxy and emission hooks are non-browser clients and send none (0000019, req-002, ADR-009)"
   - "Require Content-Type: application/json on POST /emit and POST /query, closing the CORS-simple no-preflight write path (0000019, req-003)"
   - "Cap request bodies at PLANIFEST_MAX_BODY_BYTES (4 MB) at two independent enforcement points — a Content-Length pre-check and a streaming byte counter — so a chunked or forged-length request cannot bypass the cap, and survive the attempt rather than exiting (0000019, req-004)"
-  - "Apply one shared validation gate across the HTTP and MCP query paths, with integer/range constraints on limit, offset, loop_threshold and trend.limit (0000019, req-005)"
+  - "Apply one shared validation gate across the HTTP and MCP query paths, with per-mode integer/range ceilings on limit (event_log 1000, distinct_values 20 — changed from clamp to reject, failure_sequence/drill_down 1000 new), offset, loop_threshold, and limit-as-day-count when mode is trend (there is no separate trend.limit field) (0000019, req-005)"
   - "Return redacted error bodies carrying a correlation id, with the full error and stack written to stderr against the same id; 500 for engine failures, 400 reserved for validated client input (0000019, req-006)"
   - "Bound failure_sequence and drill_down by MAX_LIMIT with additive truncated and total_count fields, total_count computed by a count query rather than by counting materialised rows (0000019, req-007)"
   - "Cap assembled MCP tool-result text at PLANIFEST_MCP_TEXT_BUDGET, truncating at section boundaries so the agent never receives a half-serialised JSON block (0000019, req-008)"
@@ -49,15 +49,22 @@ exceptions:
   - "Does not provide an aggregation/dashboard view (bottleneck/failure/token-efficiency charts) in the UI — those remain MCP/REST-only (0024 — future; also plan/current/scope.md Deferred as of 0000015)"
   - "Does not publish to npm this pipeline run"
   - "Does not run in the cloud or as a hosted service"
-  # SUPERSEDED by ADR-032 (0000019). The original entry read: "Does not
-  # authenticate callers — bound to 127.0.0.1, no auth model required,
-  # including for the new UI (0000015)". That was reasoned against a
-  # multi-user threat model. It did not consider browser-mediated attack,
-  # where the developer's own browser sits inside the trust boundary and
-  # 127.0.0.1 binding provides no protection. The replacement below narrows
-  # the claim to what remains true.
-  - "Does not authenticate callers with any credential — no token, password, or key. Caller *provenance* is nonetheless checked: Host is allow-listed and a foreign Origin is refused (0000019, ADR-032). A shared secret was considered and deliberately not adopted, because a token readable by the owning user gives no protection against a same-user process that can read telemetry.db directly"
-  - "Does not support multi-user access control — there is one local user, and distinguishing between humans remains out of scope (0000015, unchanged by ADR-032)"
+  # PENDING REVISION at 0000019 P2 — do not treat as current behaviour yet.
+  # This entry is still true today: no code in this tree checks Host or
+  # Origin. 0000019 P1 has planned a change here (req-001, req-002) that
+  # will add caller-provenance checks without a credential, but that change
+  # is gated on ADR-032 (breakingChangePolicy: requires-adr), which has not
+  # been written. Do not cite "ADR-032" as an accepted decision or describe
+  # provenance checks as implemented until P2 lands the ADR and P3 lands the
+  # code — both are still pending as of this manifest revision. The original
+  # entry read: "Does not authenticate callers — bound to 127.0.0.1, no auth
+  # model required, including for the new UI (0000015)", reasoned against a
+  # multi-user threat model that never considered browser-mediated attack,
+  # where the developer's own browser sits inside the trust boundary. That
+  # reasoning gap is why a change is planned; it is not yet a reason to
+  # describe the change as already true.
+  - "Does not authenticate callers — bound to 127.0.0.1, no auth model required, including for the UI (0000015). A revision is planned at 0000019 pending ADR-032 and req-001/req-002 landing — see plan/current/design.md until that ADR is accepted, at which point this entry is rewritten to reflect the shipped behaviour, not before"
+  - "Does not support multi-user access control — there is one local user, and distinguishing between humans remains out of scope (0000015). Unaffected by 0000019's pending revision above, which is about caller provenance, not about telling multiple humans apart"
   - "Does not install a system-level (root) launchd daemon or root systemd unit — user-scoped service only"
   - "Does not auto-fix a root-owned ~/Library/LaunchAgents or auto-enable systemd lingering — both require explicit human action"
   - "Does not support editing or deleting events from the UI — read-only viewer (0000015)"
@@ -170,7 +177,7 @@ scope:
     - "URL-state persistence extended to cover sort field, sort direction, and auto-refresh toggle state, alongside the existing filter persistence from 0000015 (0000017)"
     - "HTTP request boundary: Host allow-list, foreign-Origin refusal, Content-Type requirement on writes, and a two-point request-body cap — all checked before the body is read (0000019, req-001 to req-004)"
     - "Crash safety on the request path: try/catch around the readBody end-listener so a throw rejects the promise instead of reaching uncaughtException, plus a slow-body socket timeout (0000019, req-004)"
-    - "One shared query validation gate across HTTP and MCP, tightening limit/offset/loop_threshold/trend.limit to integer-and-range and newly declaring offset, which was previously unvalidated on both paths (0000019, req-005)"
+    - "One shared query validation gate across HTTP and MCP, tightening limit/offset/loop_threshold to integer-and-range with a per-mode ceiling (event_log 1000 reject, distinct_values 20 changed from clamp to reject, failure_sequence/drill_down 1000 new), newly declaring offset which was previously unvalidated on both paths, and constraining limit as a day count (default 30, ceiling 365) when mode is trend — there is no separate trend.limit field (0000019, req-005)"
     - "Error redaction with correlation ids across all three leak sites — server-http.ts /emit and /query, and the MCP result path in server-factory.ts — with 500 for engine failures replacing the previous blanket 400 (0000019, req-006)"
     - "Bounded failure_sequence and drill_down with additive truncated/total_count, plus an independent character budget on assembled MCP tool-result text (0000019, req-007, req-008)"
     - "Injection-shaped input tests against sortField and distinct_values.field on both paths, including prototype keys, each verified by a real RED-before-GREEN cycle (0000019, req-009)"

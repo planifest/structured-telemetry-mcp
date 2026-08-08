@@ -35,8 +35,6 @@ The tautological pair is `:34-38` and `:40-44`. The membership tests at `:22-26`
 
 This matters because DuckDB has no parameterised-identifier binding (0000017 R-001) — the allow-list *is* the entire defence for these two inputs, and it currently has no test that can fail on the property that matters: whether a hostile value is rejected.
 
-This matters because DuckDB has no parameterised-identifier binding (0000017 R-001) — the allow-list *is* the entire defence for these two inputs. It is the one control in the system with no test that can fail.
-
 ## Functional Requirements
 
 - Add tests passing genuinely injection-shaped values to **both** `sortField` (`event_log`) and `field` (`distinct_values`), over both the HTTP and MCP paths.

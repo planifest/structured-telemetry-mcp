@@ -45,29 +45,39 @@ Note the last row's consequence: because `offset` is undeclared, the offset defe
   - `loop_threshold`: integer, `>= 1`
   - `limit` when `mode: trend` — see the note below
 
-### The ceiling is per-mode, and over-ceiling is a rejection
+### The ceiling is per-mode, over-ceiling always rejects — and one mode's behaviour is deliberately changing
 
-Two facts about the existing code constrain how the gate handles the upper bound. Both were verified against the tree at P1, and getting either wrong breaks a passing test or a documented contract.
+Three facts about the existing code constrain how the gate handles the upper bound. All three were verified against the tree at P1.
 
-**Over-ceiling rejects; it does not clamp.** `src/query/event-log.ts:40-41` throws `event_log limit must not exceed 1000 (received N)`. `tests/integration/query-telemetry.test.ts:299` asserts `.rejects.toThrow('must not exceed 1000')`. `docs/usage-guide.md:667` documents *"Capped at 1000 — a higher value is rejected with an error"*. The gate must preserve rejection. Clamping would break that test and contradict the published contract.
+**`MAX_LIMIT` is not one number, and the modes disagree on what happens above it — today.** Three module-local constants, none exported: `event-log.ts:19` (1000) and `event-log.ts:40-41` **throws** above it — asserted by `tests/integration/query-telemetry.test.ts:299` and documented at `docs/usage-guide.md:667` ("a higher value is rejected with an error"). `distinct-values.ts:20` (20) but `distinct-values.ts:39` — `Math.min(Math.max(1, Number(query.limit ?? DEFAULT_LIMIT)), MAX_LIMIT)` — **clamps silently**; `{"mode":"distinct_values","limit":500}` succeeds today and returns 20 rows. `failures.ts` and `token-efficiency.ts` have no ceiling at all yet (that gap is req-007's).
 
-**`MAX_LIMIT` is not one number.** It is two module-local constants, neither exported: `event-log.ts:19` is 1000, `distinct-values.ts:20` is 20. A single global ceiling in the shared gate would let `{"mode":"distinct_values","limit":500}` through, to be silently reduced to 20 downstream. The gate must therefore either resolve the ceiling per mode, or validate only type and lower bound and leave the upper bound to the owning module. Either is acceptable; a single global ceiling is not.
+**This requirement makes rejection the uniform rule, changing `distinct_values`'s current behaviour.** Every mode gets an explicit ceiling and exceeding it is a `400`, never a silent clamp:
 
-**`trend.limit` does not exist.** `src/query/token-efficiency.ts:25` reads `queryTrend(db, query.limit ?? 30, initiativeId)` — it is the **top-level `limit`**, reinterpreted as a day count. There is no nested `trend` object. The gate must not apply a row ceiling to it: 1000 rows and 1000 days are different quantities. Constrain it as a positive integer with its own documented ceiling.
+| Mode | Ceiling | Current behaviour above it | Behaviour after this requirement |
+|---|---|---|---|
+| `event_log` | 1000 | Rejects (`event-log.ts:40-41`) | Unchanged |
+| `distinct_values` | 20 | **Clamps** (`distinct-values.ts:39`) | **Changed to reject** |
+| `failure_sequence`, `drill_down` | 1000 (req-007's default) | No ceiling exists | New: rejects above 1000 |
+
+A single global ceiling is explicitly rejected as an approach: it would let `{"mode":"distinct_values","limit":500}` through at the gate only to be silently reduced downstream, which is the exact defect this table is closing, just moved one layer up.
+
+**This is a real, disclosed behaviour change, not an implementation detail.** `{"mode":"distinct_values","limit":500}` succeeds today; after this requirement it is a `400`. No caller in this codebase sends `limit` above 20 on `distinct_values` — the log-viewer's suggestion comboboxes never request more — but this is stated here because `execution-plan.md` NFR-012 and this requirement's own Input Validation section both describe "no successful-shape change" language that is true of every other case and must not be read as covering this one.
+
+**`trend`'s `limit` does not exist as a separate field — it is the top-level `limit`, reinterpreted.** `src/query/token-efficiency.ts:25` reads `queryTrend(db, query.limit ?? 30, initiativeId)`. There is no nested `trend` object anywhere in this codebase — any artifact naming `trend.limit` as a distinct field is wrong. When `mode: trend`, `limit` is a **day count**, not a row count, and none of the per-mode row ceilings above apply to it. It gets its own ceiling, documented as a day count: default 30, ceiling 365 (a year of trend data is already a generous query).
 - Rejection is explicit rather than comparison-derived. `NaN > MAX_LIMIT` evaluating to `false` is how the current cap at `event-log.ts:40` is bypassed; the gate must reject on a positive type/range test, never on a failed comparison.
 - Loosening `QueryShape` for the MCP path is not acceptable. If tightening it breaks an existing MCP caller, report it — do not widen the schema to accommodate.
 - The gate returns a structured `{ok:false, errors:[{field, message}]}` naming the offending field, per req-006. It never surfaces a DuckDB message.
 
 ## Test corpus
 
-**Rejected, each naming its field:** `limit: "abc"`, `limit: -5`, `limit: 1.5`, `limit: 0`, `limit: 1001` on `event_log`, `limit: 21` on `distinct_values`, `offset: -1`, `offset: 1e21`, `offset: 1.5`, `loop_threshold: 0`, `loop_threshold: -1`, and `limit: 0` with `mode: trend`.
-**Accepted:** `limit: 1000` on `event_log`, `limit: 20` on `distinct_values`, `limit: 30` with `mode: trend`, `offset: 0`, omitted values falling back to their existing defaults.
+**Rejected, each naming its field:** `limit: "abc"`, `limit: -5`, `limit: 1.5`, `limit: 0`, `limit: 1001` on `event_log`, **`limit: 21` on `distinct_values` (the behaviour-change case — must reject, not clamp to 20)**, `limit: 1001` on `failure_sequence`, `limit: 1001` on `drill_down`, `limit: 366` with `mode: trend`, `offset: -1`, `offset: 1e21`, `offset: 1.5`, `loop_threshold: 0`, `loop_threshold: -1`, and `limit: 0` with `mode: trend`.
+**Accepted:** `limit: 1000` on `event_log`, `limit: 20` on `distinct_values`, `limit: 1000` on `failure_sequence` and `drill_down`, `limit: 365` and `limit: 30` (the default) with `mode: trend`, `offset: 0`, omitted values falling back to their existing defaults.
 
 ## Acceptance Criteria
 
 - [ ] Every rejected-corpus value returns a structured field-level error naming the offending field, with no DuckDB text in the body; every accepted-corpus value succeeds with an unchanged response shape
 - [ ] The whole corpus behaves **identically over the HTTP and MCP paths** — same input, same outcome on both. This is the requirement's central property: today the two paths disagree
-- [ ] The existing rejection contract is preserved — `event_log` with `limit: 1001` still throws `must not exceed 1000`, keeping `tests/integration/query-telemetry.test.ts:299` green — and the log viewer's own `/query` payloads all still succeed (design R-004)
+- [ ] Per-mode ceilings hold exactly as tabled above: `event_log`'s existing rejection contract is preserved (`limit: 1001` still throws `must not exceed 1000`, keeping `tests/integration/query-telemetry.test.ts:299` green), `distinct_values`'s clamp is replaced by rejection, and `failure_sequence`/`drill_down` gain a ceiling where none existed — with the log viewer's own `/query` payloads still succeeding throughout (design R-004)
 
 ## Dependencies
 
@@ -79,6 +89,6 @@ Two facts about the existing code constrain how the gate handles the upper bound
 
 - [ ] Input source: JSON request body of `POST /query`, and the `query` tool argument on the MCP path
 - [ ] Allowed character pattern: not applicable to the numeric fields; identifier-valued fields (`sortField`, `distinct_values.field`) remain governed by the ADR-024 allow-list and are covered by req-009
-- [ ] Maximum length: numeric bounds as listed above; `MAX_LIMIT` unchanged from its current value
+- [ ] Maximum length: numeric bounds per the per-mode ceiling table above. `event_log`'s ceiling is unchanged from its current value; `distinct_values`'s ceiling value is unchanged but its enforcement changes from clamp to reject; `failure_sequence`/`drill_down` gain a ceiling for the first time (req-007); `trend`'s `limit` gets its own day-count ceiling, independent of the row ceilings
 - [ ] Failure behaviour: reject the whole request with `400` and a field-named error; never coerce, round, or partially apply a query
 - [ ] Logging policy: the offending field name is returned to the caller; the offending value is written to stderr only

@@ -126,7 +126,10 @@ paths:
         '400':
           description: |
             The submitted envelope failed schema validation, or the body was not
-            valid JSON. Names the offending field. Never quotes stored data.
+            valid JSON. `errors` is the pre-existing `validateEvent` shape — a
+            plain string per violation, unchanged by 0000019 (see the `oneOf`
+            note on `ErrorEnvelope.errors` below) — so this response does not
+            name a `field`. Never quotes stored data.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
@@ -166,12 +169,15 @@ paths:
               schema: { $ref: '#/components/schemas/ErrorEnvelope' }
               examples:
                 nonIntegerLimit:
-                  summary: limit must be an integer
+                  summary: limit must be an integer, within its mode's ceiling
+                  description: |
+                    The ceiling is per-mode (see QueryRequest.properties.limit) —
+                    this example deliberately does not say "1000" for every mode.
                   value:
                     ok: false
                     errors:
                       - field: limit
-                        message: must be an integer between 1 and 1000
+                        message: must be a positive integer within the limit for this query mode
                     correlationId: 3f2b7c10-9e4a-4b21-8f77-2c1d5a6e9b04
         '403': { $ref: '#/components/responses/HostOrOriginRefused' }
         '413': { $ref: '#/components/responses/BodyTooLarge' }
