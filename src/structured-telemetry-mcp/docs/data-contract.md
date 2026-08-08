@@ -270,7 +270,7 @@ Not a DuckDB table — a second, file-based copy of the same owned data, still g
 
 **Retention:** 7 daily + 4 weekly (~1 month), pruned only after promotion and only over already-verified artifacts — a failed or interrupted run can never remove an older good backup.
 
-**Sidecar metadata file:** a small JSON file (path TBC at P2, sibling to the backup directory) recording, for the most recent *verified* backup only:
+**Sidecar metadata file:** `latest-verified-backup.json`, written directly inside the backup directory (`PLANIFEST_TELEMETRY_BACKUP_DIR`, default `~/.planifest-backups`) — finalized at P3 (req-006, `src/backup/backup-metadata.ts`). Recording, for the most recent *verified* backup only:
 
 | Field | Type | Description |
 |-------|------|-------------|

@@ -25,6 +25,7 @@ import type { DuckDBInstance } from '@duckdb/node-api';
 import { openDatabase, resolveDbPath, closeDatabase } from './db/index.js';
 import { classifyStartupError, formatRefuseToStartMessage } from './db/refuse-to-start.js';
 import { runCheckpoint } from './db/checkpoint.js';
+import { runBackup } from './backup/backup-service.js';
 import { DuckDbEventRepository } from './db/duckdb-event-repository.js';
 import { DuckDbQueryService } from './query/query-service.js';
 import { dispatchQuery } from './server-factory.js';
@@ -126,6 +127,22 @@ function noteWrite(): void {
 
 const checkpointTimer = setInterval(() => { void checkpoint(); }, CHECKPOINT_INTERVAL_MS);
 
+// ── Scheduled, verified backup (req-006) ─────────────────────────────────────
+// ADR-029: an in-process timer, alongside the checkpoint timer above, using
+// this same daemon's already-open connection for EXPORT DATABASE — never a
+// second connection to telemetry.db. Failures degrade-and-keep-serving, same
+// as the checkpoint path. Overridable via env for tests; production default
+// is once every 24h.
+
+const BACKUP_INTERVAL_MS = Number(process.env['PLANIFEST_BACKUP_INTERVAL_MS'] ?? 24 * 60 * 60 * 1000);
+
+/** Runs one backup cycle; failures warn and degrade-and-keep-serving (never crashes, never stops writes). */
+async function backup(): Promise<void> {
+  await runBackup(db, (msg) => process.stderr.write(`[telemetry-backend] ${msg}\n`));
+}
+
+const backupTimer = setInterval(() => { void backup(); }, BACKUP_INTERVAL_MS);
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -221,6 +238,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
   shuttingDown = true;
 
   clearInterval(checkpointTimer);
+  clearInterval(backupTimer);
   process.stderr.write(`[telemetry-backend] ${signal} received — checkpointing and shutting down\n`);
   server.close();
 
