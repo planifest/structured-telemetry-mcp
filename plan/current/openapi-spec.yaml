@@ -1,0 +1,325 @@
+openapi: 3.1.0
+
+info:
+  title: structured-telemetry-mcp — loopback daemon
+  version: 0.15.0
+  summary: Local telemetry ingestion and query daemon, bound to the loopback interface.
+  description: |
+    The HTTP surface of `src/server-http.ts`. Four endpoints, all served by one
+    process on 127.0.0.1.
+
+    This specification is introduced by feature 0000019-loopback-daemon-hardening.
+    No endpoint is added or removed by that feature — what it changes is the
+    request boundary (which requests are refused, and with what status) and the
+    error contract (what an error body may contain). Those are precisely the
+    things a language-agnostic contract should pin, which is why the spec exists
+    now rather than earlier.
+
+    Three rules govern the whole surface and are not repeated per operation:
+
+    1. Every request is checked against a `Host` allow-list before routing.
+    2. A request carrying a foreign `Origin` is refused. A request with **no**
+       `Origin` is accepted — the stdio proxy (ADR-009) and the Planifest
+       emission hooks are non-browser clients and send none.
+    3. No error response body ever contains engine text, a SQL fragment, a stack
+       trace, or a value read from the database. Errors carry a `correlationId`
+       that an operator can grep for in the daemon's stderr log.
+
+servers:
+  - url: http://127.0.0.1:{port}
+    description: Loopback only. The daemon never binds a non-loopback interface.
+    variables:
+      port:
+        default: '3741'
+        description: PLANIFEST_MCP_PORT
+
+tags:
+  - name: liveness
+  - name: ingest
+  - name: query
+  - name: ui
+
+paths:
+
+  /health:
+    get:
+      tags: [liveness]
+      operationId: getHealth
+      summary: Liveness check.
+      description: |
+        Used by the platform service scripts to verify install and restart.
+        `buildId` is a SHA-256 fingerprint of `server-http.bundle.mjs`, added by
+        0000018 so `npm run deploy` can detect a stale running daemon even when
+        the version string is unchanged. It is `null` when running unbundled
+        (tsx in dev), which is not an error condition.
+      responses:
+        '200':
+          description: Daemon is alive.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, version]
+                properties:
+                  ok: { type: boolean, const: true }
+                  version: { type: string, examples: ['0.15.0'] }
+                  buildId:
+                    type: [string, 'null']
+                    description: SHA-256 hex of the built bundle, or null when unbundled.
+        '403': { $ref: '#/components/responses/HostOrOriginRefused' }
+
+  /ui:
+    get:
+      tags: [ui]
+      operationId: getUi
+      summary: Static log-viewer page.
+      description: |
+        Served in-process from an embedded template-literal string (ADR-018).
+        Same-origin with the API it calls, so the `Origin` rule never affects it.
+      responses:
+        '200':
+          description: The log-viewer page.
+          content:
+            text/html:
+              schema: { type: string }
+        '403': { $ref: '#/components/responses/HostOrOriginRefused' }
+
+  /emit:
+    post:
+      tags: [ingest]
+      operationId: emitEvent
+      summary: Write a telemetry event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: |
+                A telemetry event envelope, validated against
+                `schemas/telemetry-event.schema.json`. Its structure is owned by
+                that schema and is not restated here.
+      responses:
+        '200':
+          description: Event accepted and written.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean, const: true }
+                  id: { type: string }
+        '400':
+          description: |
+            The submitted envelope failed schema validation, or the body was not
+            valid JSON. Names the offending field. Never quotes stored data.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+        '403': { $ref: '#/components/responses/HostOrOriginRefused' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /query:
+    post:
+      tags: [query]
+      operationId: runQuery
+      summary: Run a telemetry query.
+      description: |
+        Four query families plus `event_log` and `distinct_values`. Every request
+        passes the shared validation gate before dispatch — the same gate the MCP
+        `query_telemetry` tool uses. Prior to 0000019 this path bypassed that gate
+        entirely.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/QueryRequest' }
+      responses:
+        '200':
+          description: Query executed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/QueryResponse' }
+        '400':
+          description: |
+            Input failed the shared validation gate. The body names the offending
+            field and quotes no value. This status is reserved for client input;
+            an engine failure is a 500.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              examples:
+                nonIntegerLimit:
+                  summary: limit must be an integer
+                  value:
+                    ok: false
+                    errors:
+                      - field: limit
+                        message: must be an integer between 1 and 1000
+                    correlationId: 3f2b7c10-9e4a-4b21-8f77-2c1d5a6e9b04
+        '403': { $ref: '#/components/responses/HostOrOriginRefused' }
+        '413': { $ref: '#/components/responses/BodyTooLarge' }
+        '415': { $ref: '#/components/responses/UnsupportedMediaType' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+components:
+
+  responses:
+
+    HostOrOriginRefused:
+      description: |
+        The `Host` header is absent or not on the allow-list
+        (`127.0.0.1:<port>` / `localhost:<port>`), or an `Origin` header is
+        present and is not the daemon's own origin.
+
+        Checked before the body is read, so a refused request buffers nothing.
+        No `Access-Control-Allow-Origin` header is emitted on any response — the
+        daemon refuses cross-origin access rather than negotiating it.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+    UnsupportedMediaType:
+      description: |
+        `Content-Type` is missing, or its media type is not `application/json`.
+        Parameters are ignored, so `application/json; charset=utf-8` is accepted.
+
+        This closes the CORS-simple loophole: `text/plain`,
+        `application/x-www-form-urlencoded` and `multipart/form-data` are the only
+        types a cross-origin fetch can send without a preflight, and requiring
+        JSON forces a preflight the daemon then declines.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+    BodyTooLarge:
+      description: |
+        The request body exceeded `PLANIFEST_MAX_BODY_BYTES` (default 4 MB).
+
+        Enforced at two independent points: a `Content-Length` pre-check, and a
+        byte counter in the stream handler that destroys the connection on
+        exceedance. The second is what holds when `Content-Length` is absent or
+        forged; a `Content-Length` check alone is not sufficient.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+    InternalError:
+      description: |
+        An engine or internal failure. The body carries a generic message and a
+        `correlationId` only. The full error and stack are written to the daemon's
+        stderr against the same id.
+
+        Before 0000019 these were reported as `400` with the raw engine error
+        interpolated into the body, which leaked SQL statements and stored row
+        values.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  schemas:
+
+    ErrorEnvelope:
+      type: object
+      required: [ok, errors]
+      properties:
+        ok: { type: boolean, const: false }
+        errors:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [message]
+            properties:
+              field:
+                type: string
+                description: The offending input field, when the error is attributable to one.
+              message:
+                type: string
+                description: |
+                  A message safe to return to a caller. Must not contain engine
+                  text, SQL, a stack trace, or any value read from the database.
+        correlationId:
+          type: string
+          format: uuid
+          description: |
+            Present on every error except a `403`, where nothing was executed and
+            there is nothing to trace. Matches a stderr log line carrying the
+            full error and stack.
+
+    QueryRequest:
+      type: object
+      required: [mode]
+      description: |
+        Shapes vary across query families. The fields below are the ones the
+        shared validation gate constrains; family-specific fields pass through
+        and are validated by their own dispatch path.
+      properties:
+        mode:
+          type: string
+          examples: [event_log, distinct_values, failure_sequence, drill_down]
+        session_id: { type: string }
+        initiative_id: { type: string }
+        event_type: { type: string }
+        group_by: { type: string }
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          description: |
+            Integer only. A non-integer, negative, or non-numeric value is
+            rejected rather than coerced. Values above the maximum are clamped.
+        offset:
+          type: integer
+          minimum: 0
+          description: |
+            Newly constrained by 0000019. Previously undeclared, which left it
+            unvalidated on the MCP path as well as over HTTP.
+        loop_threshold:
+          type: integer
+          minimum: 1
+        sortField:
+          type: string
+          enum: [timestamp, event, session_id, phase, agent, product_id]
+          description: |
+            Allow-listed identifier. DuckDB has no parameterised-identifier
+            binding, so membership of this list is the entire defence — validated
+            before any SQL is constructed (ADR-024).
+        field:
+          type: string
+          description: |
+            `distinct_values` only. Allow-listed against SUGGESTIBLE_FIELDS on the
+            same basis as `sortField`.
+
+    QueryResponse:
+      type: object
+      description: |
+        Markdown summary plus structured payload plus a raw sample. Family-specific
+        payload shapes are owned by their query modules and are not restated here.
+      properties:
+        markdown: { type: string }
+        json:
+          description: Structured result payload; shape varies by mode.
+        rawSample:
+          type: array
+          description: A small sample of matching raw events.
+        hint:
+          type: string
+          description: |
+            Additive. Present on a zero-row scoped query, naming other event types
+            found for that scope (0000014).
+        total_count:
+          type: integer
+          description: |
+            Total matching rows, independent of how many were returned. Present on
+            `event_log` (0000015) and, as of 0000019, on `failure_sequence` and
+            `drill_down`. Computed by a count query, not by counting returned rows.
+        truncated:
+          type: boolean
+          description: |
+            Added by 0000019 to `failure_sequence` and `drill_down`. True when the
+            row cap was reached, so a caller can distinguish a capped result from
+            a complete one.
