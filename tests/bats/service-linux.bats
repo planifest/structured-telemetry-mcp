@@ -70,6 +70,35 @@ EOF
   [[ "$output" == *"systemd not found on this system"* ]]
 }
 
+# ── install(): unit file circuit-breaker keys ────────────────────────────────
+# req-005 / ADR-031: StartLimitIntervalSec/StartLimitBurst bound systemd's
+# restart cadence as defense-in-depth (not the primary stop-the-loop
+# mechanism — that's ADR-030's exit(0), which Restart=on-failure already
+# respects with no config change needed).
+
+@test "install: unit file includes StartLimitIntervalSec and StartLimitBurst in [Unit]" {
+  fake_bin="${BATS_TEST_TMPDIR}/fakebin"
+  mkdir -p "$fake_bin"
+  for cmd in node systemctl curl loginctl; do
+    cat > "$fake_bin/$cmd" <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+    chmod +x "$fake_bin/$cmd"
+  done
+
+  UNIT_DIR="${BATS_TEST_TMPDIR}/systemd-user"
+  UNIT_FILE="${UNIT_DIR}/${UNIT_NAME}.service"
+
+  PATH="$fake_bin:$PATH" run install
+  [ "$status" -eq 0 ]
+  [ -f "$UNIT_FILE" ]
+
+  unit_section="$(sed -n '/^\[Unit\]/,/^\[Service\]/p' "$UNIT_FILE")"
+  [[ "$unit_section" == *"StartLimitIntervalSec=60"* ]]
+  [[ "$unit_section" == *"StartLimitBurst=5"* ]]
+}
+
 # ── main() dispatch ───────────────────────────────────────────────────────────
 
 @test "main: no action prints usage and exits non-zero" {

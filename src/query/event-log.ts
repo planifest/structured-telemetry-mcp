@@ -59,7 +59,7 @@ export async function queryEventLog(db: DuckDBInstance, query: EventLogQuery): P
       FROM events
       WHERE 1=1
         ${whereClause}
-      ORDER BY ${sortColumn} ${sortDirection}
+      ORDER BY ${sortColumn} ${sortDirection}, id ${sortDirection}
       LIMIT ${limit}
       OFFSET ${offset}
     `;

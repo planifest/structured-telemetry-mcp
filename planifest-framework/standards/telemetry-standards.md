@@ -109,7 +109,7 @@ Every `emit_event` call must use this envelope. The `data` field carries event-s
 {
   "schema_version": "1.0",
   "event": "<event_name>",
-  "product_id": "<git repo root, or cwd if not a git repo>",
+  "product_id": "<declared product id from product.yml's id field>",
   "agent": "<skill-name e.g. planifest-validate-agent>",
   "phase": "<phase e.g. validate>",
   "tool": "<tool e.g. claude-code>",
@@ -123,7 +123,9 @@ Every `emit_event` call must use this envelope. The `data` field carries event-s
 
 The snippets in each skill's `## Telemetry` section show the `data` field content only — the full envelope above always wraps it.
 
-`product_id` attributes an event to the repo it was emitted from, so events from multiple projects sharing one telemetry backend don't show "unknown". Hook-driven emission (`emit-phase-start.mjs`, `emit-phase-end.mjs`, `context-pressure.mjs`) derives it via `git rev-parse --show-toplevel` run against the hook's own `cwd`, falling back to that raw `cwd` on any failure (not a git repo, or `git` unavailable). Agent-driven inline `emit_event` calls derive `product_id` the same way — `git rev-parse --show-toplevel` from the agent's own cwd, falling back to cwd on failure.
+**Calling `emit_event` (0000024):** the MCP tool's top-level call argument is named `envelope`, not `event` — do not confuse this with the envelope's own internal `event` discriminator field shown above (e.g. `emit_event({ envelope: { schema_version: "1.0", event: "phase_start", ... } })`). Passing the envelope object as a flat/`event`-named argument, or as a JSON string, fails with a structural validation error rather than succeeding.
+
+`product_id` attributes an event to the repo it was emitted from, so events from multiple projects sharing one telemetry backend don't show "unknown". It is sourced from `product.yml`'s `id` field — the declared product identity, confirmed by the human at P0 and durable across machines and clones. There is no path-based fallback: hook-driven emission (`emit-phase-start.mjs`, `emit-phase-end.mjs`, `context-pressure.mjs`) treats an absent, unparseable, or `id`-less `product.yml` as an emission failure, routed through the existing `recordTelemetryFailure()` marker mechanism (never blocking — ADR-005 unchanged). Agent-driven inline `emit_event` calls resolve `product_id` the same way — from `product.yml`, with no fallback value — and if it cannot be resolved, stop and ask the human per the Failure Detection and Interactive Recovery rules above.
 
 ---
 

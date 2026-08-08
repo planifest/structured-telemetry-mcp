@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000017-log-viewer-enhancements"
-version: "0.13.0"
+feature: "0000018-telemetry-data-integrity"
+version: "0.14.0"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -25,6 +25,14 @@ responsibilities:
   - "Support a sortField param on event_log queries (allow-listed: timestamp, event, session_id, phase, agent, product_id; defaults to timestamp, non-breaking) — real per-column sort, replacing the previous direction-only, timestamp-hardcoded ORDER BY (0000017)"
   - "Serve a distinct_values query mode returning up to 20 allow-listed-field distinct values (optional prefix-match), powering the UI's filter-suggestion comboboxes (0000017)"
   - "Support user-toggleable auto-refresh/tail polling, filter-value suggestions, and three-way-synced (header/dropdown/URL) sortable columns in the GET /ui log viewer, with all new UI state persisted via URL query params degrading gracefully to defaults when absent/malformed (0000017)"
+  - "Checkpoint the DuckDB WAL on graceful shutdown (SIGTERM/SIGINT) and periodically (every 60s or 100 events, whichever first), bounding the data-at-risk window on an unclean kill to that same threshold (0000018)"
+  - "Checkpoint immediately after any startup ALTER TABLE ADD COLUMN migration, so no schema-migration WAL entry is ever left pending replay (0000018)"
+  - "Refuse to start when the database is locked or its WAL is unreplayable, printing the file, conflicting PID where available, and the recovery procedure — the WAL is never deleted, truncated, or modified (0000018, decision D)"
+  - "Take a daily verified backup via EXPORT DATABASE, ordered strictly verify -> promote -> prune, retained 7 daily + 4 weekly, recording the outcome to a sidecar metadata file that `doctor` reads instead of opening the live database (0000018)"
+  - "Report the age of the most recent verified backup (or 'no verified backup') via `npm run doctor`, sourced from the sidecar metadata file so the check works even while the daemon holds the DuckDB lock (0000018)"
+  - "Expose an additive build-identity fingerprint (`buildId`, a SHA-256 hash of server-http.bundle.mjs) on GET /health, letting `npm run deploy` detect a stale running daemon even at an unchanged version string (0000018, decision A)"
+  - "Detect, during `npm run deploy`, a process bound to the daemon's port that launchd/systemd does not manage, and refuse to report success while naming that process rather than killing it (0000018)"
+  - "Append a uniqueness tiebreaker (`id`) to every event-log ORDER BY, guaranteeing a full pagination returns each row exactly once regardless of duplicate values in the sorted field (0000018)"
 
 exceptions:
   - "Does not emit telemetry itself — it is the sink, not a source"
@@ -43,6 +51,11 @@ exceptions:
   - "Does not push live updates via WebSocket/SSE — auto-refresh is interval-based polling only (0000017, A-001)"
   - "Does not support quick date-range filter presets (today/yesterday/last N days) — filed as backlog #00006, not part of this wave (0000017)"
   - "Does not sort or suggest on any events column outside the fixed 6/7-value allow-lists — no arbitrary column sort/suggestion (0000017, R-001)"
+  - "Does not queue, buffer, or retry client-side for events emitted while the daemon is down or refusing to start — those events are lost, not delayed (0000018)"
+  - "Does not auto-remediate a locked or poisoned-WAL database — refuses to start and leaves the WAL untouched for manual recovery; auto-copy-aside was considered and explicitly not chosen (0000018, decision D)"
+  - "Does not recover the ~4,100 events already stranded in the pre-existing unreplayable WAL from the 2026-08-03 incident — tracked separately at backlog #00023, explicitly deferred (0000018)"
+  - "Does not provide HTTP boundary hardening — request validation, error-message leakage, auth/Origin/Host checks, or request-body size limits — tracked separately at backlog 00010-00014/00020, out of scope this feature (0000018)"
+  - "Does not migrate event-log pagination away from limit/offset to keyset pagination — the id tiebreaker works within the existing ADR-016 bounding strategy, not instead of it (0000018)"
 
 stack:
   language: "typescript"
@@ -71,6 +84,9 @@ contract:
     - name: "GET /ui"
       type: "http"
       description: "New (0000015): serves the static browser log-viewer page from the same server-http.ts process. No new port/process."
+    - name: "GET /health"
+      type: "http"
+      description: "Liveness check, used by the platform service scripts to verify install/restart. Gains an additive `buildId` field as of 0000018 (SHA-256 hash of server-http.bundle.mjs) alongside the existing `ok`/`version` fields, letting `npm run deploy` detect a stale daemon at an unchanged version string."
   outputs:
     - name: "emit_event response"
       type: "event"
@@ -171,12 +187,16 @@ risk:
     - "E2E harness must explicitly bind 127.0.0.1, never 0.0.0.0, to avoid introducing new network exposure during test runs (0000016 R-005)"
     - "sortField (event_log) and field (distinct_values) are both column-identifier inputs — DuckDB has no parameterized-identifier binding, so both MUST validate against a shared allow-list before any SQL interpolation, or both become SQL-injection-via-identifier vectors (0000017 R-001, plan/current/risk-register.md)"
     - "req-001/002/003 all extend the same shared state-management functions in the single src/ui/index-html.ts embedded script (readStateFromUrl, writeStateToUrl, applyStateToForm, readFormIntoFilters) — must be implemented as one integrated pass, not three independently-parallelised edits, to avoid clobbering (0000017 R-002)"
+    - "Backup runs in-process on the daemon's own DuckDB connection (ADR-029) — no external scheduler, so no second connection ever opens telemetry.db; EXPORT DATABASE format chosen for DuckDB-version independence (ADR-028) (0000018)"
+    - "doctor's backup-staleness check (req-007) reads a sidecar JSON metadata file, never telemetry.db directly — avoids the single-writer-lock conflict doctor's pre-existing write-test check is independently exposed to (0000018)"
+    - "Refuse-to-start exits 0 (ADR-030), matching both launchd's SuccessfulExit:false and systemd's Restart=on-failure, which already restart only on non-zero exit — no plist/unit change was required for the primary stay-stopped guarantee; ThrottleInterval/StartLimitBurst (ADR-031) remain as defense-in-depth against unrelated crash loops (0000018)"
+    - "The false 'Service is healthy' health check (verify_service() in service-macos.sh, curl-only, no body inspection) is fixed via an additive buildId fingerprint on GET /health, compared by deploy across all three platform paths (req-008); orphan-port detection (req-009) closes the sibling case of an unmanaged process answering on the port (0000018)"
 
 quality:
   testCoverage:
-    unit: 179   # 405 Vitest tests across 16 files as of 0000017 (179 unit + 88 integration + 137 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
-    integration: 88
-    e2e: 22   # @playwright/test, Chromium-only: 9 backend (tests/e2e/backend/) + 13 UI (tests/e2e/ui/) as of 0000017 (+5: sortable-header click/dropdown/URL-preload, suggestion combobox, auto-refresh toggle+live-pickup)
+    unit: 229   # 491 Vitest tests across 28 files as of 0000018 (229 unit + 124 integration + 137 regression + 1 performance), plus 26 bats tests (tests/bats/, was 23 — +3 for req-005's supervision-config keys; not counted here — separate framework/CI job). Includes P5 security-fix regression coverage: sqlPathLiteral() escaping + backup-timer reentrancy guard, both verified with real RED-before-GREEN cycles.
+    integration: 124
+    e2e: 22   # @playwright/test, Chromium-only: unchanged from 0000017 — no new HTTP/UI surface added by 0000018 (deploy/backup/doctor are CLI/daemon-lifecycle, outside the E2E suites' scope)
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
@@ -204,7 +224,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-08-03T00:00:00Z"
+  updatedAt: "2026-08-08T00:00:00Z"
   # Updated by 0000017 (codegen-agent) P3: implemented event_log sortField
   # (allow-listed, defaults to timestamp), the distinct_values query mode
   # (allow-listed suggestion lookups), and the GET /ui frontend for all three
@@ -212,6 +232,22 @@ metadata:
   # sortable headers). New shared src/query/column-allow-list.ts (ADR-024).
   # Test coverage: 405 Vitest (unit/integration/regression) + 22 Playwright
   # E2E, all green; typecheck clean.
+  # Updated by 0000018 (codegen-agent) P3: daemon durability (graceful
+  # shutdown checkpoint, periodic checkpoint, WAL-safe migration checkpoint,
+  # refuse-to-start on an unopenable database — exit(0) per ADR-030), a new
+  # in-process scheduled+verified backup module (src/backup/, ADR-028/029:
+  # EXPORT DATABASE format, verify->promote->prune, PLANIFEST_TELEMETRY_
+  # BACKUP_DIR defaulting to ~/.planifest-backups) with doctor reporting
+  # verified-backup staleness from a sidecar file (never opening telemetry.db
+  # directly), an additive buildId fingerprint on GET /health plus deploy-side
+  # build-identity and orphan-port-holder verification across all three
+  # platforms (scripts/service-manager.mjs, deploy.ps1), launchd/systemd
+  # supervision circuit-breaker config (ADR-031, defense-in-depth), and an id
+  # tiebreaker on every event-log ORDER BY closing the pagination-completeness
+  # defect. All 10 requirements landed via 4 parallel Agent-dispatched TDD
+  # implementers across 2 dependency-ordered batches, zero escalations.
+  # Test coverage: 485 Vitest (was 405) + 22 Playwright E2E (unchanged, no
+  # new HTTP/UI surface), all green; typecheck clean.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"

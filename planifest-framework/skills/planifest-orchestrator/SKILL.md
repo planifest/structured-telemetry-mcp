@@ -103,7 +103,7 @@ Do not assume you know the formatting or content of any Planifest template or ph
 | File a backlog entry | `planifest-framework/templates/backlog-entry.template.md` |
 | Handle a defect report / reversal petition | `planifest-framework/templates/defect-report.template.md`, then spawn `planifest-reversal-assessor` |
 | Run the pre-archive review gate | Spawn `planifest-design-critic` (P1/P2) or the cross-model reviewer (end of P6) per their skills |
-| Draft a suggested Scope Lock Challenge answer (only on explicit human request) | Spawn `planifest-scope-lock-agent` |
+| Draft the Scope Lock Challenge's four scenario-path answers (dispatched automatically, in parallel, by default) | Spawn `planifest-scope-lock-agent` (4x parallel; single-item fallback on partial dispatch failure) |
 
 ---
 
@@ -312,6 +312,15 @@ At the very start of Phase 0 (before coaching begins), perform these actions in 
 
 3b. **Read version** — read `docs/about.md` if it exists. Extract the `version` field from the frontmatter. Also scan `plan/_archive/` for the most recent feature's `design.md` or `about.md` and cross-reference to verify the version. **If `product.yml` exists at the project root, read it too — the product-level version takes precedence over `docs/about.md` as the "last known version" for the bump suggestion** (`node planifest-framework/scripts/product-version.mjs` derives it; ADR-002). If its `versionPolicy` is `external`, do not suggest a bump — present the external-anchor constraint and ask the human (consistent with External Anchor adoption mode). When `product.yml` is absent, behaviour is unchanged.
 
+   **Declared product id check (req-001, ADR-002 extension):** before this step completes, also check whether `product.yml` exists at the project root and contains a non-empty `id` field. This check applies regardless of component count — single-component projects are no longer exempt from declaring a product id (they remain exempt from needing `versionPolicy`/`components` populated). If `product.yml` is absent, or present without a non-empty `id` field, **hard-stop here** — do not proceed to the rest of Phase 0 — and ask the human on the loop:
+   ```
+   {feature-id}: No declared product id found (product.yml is missing or has no `id` field).
+   Telemetry hooks source `product_id` from this field so events stay attributable to the
+   same product regardless of clone location or machine. What should the product id be?
+   (kebab-case, stable across releases)
+   ```
+   Once the human answers, create `product.yml` if it does not exist (a minimal file containing only `id: "{declared-id}"`) or add/update just the `id` field on an existing `product.yml`, leaving all other fields (`name`, `version`, `versionPolicy`, `components`) unchanged. Resume the rest of Phase 0 once `product.yml` has a declared `id`.
+
 3c. **Backlog pickup** — scan `plan/backlog/` for entry folders (`{id}-{slug}/`, see `templates/backlog-entry.template.md`). An absent or empty directory is not an error — proceed silently. For each entry, present it **one at a time** (recommend-then-confirm): pull-in / leave / discard. Pull-in: fold the entry into this feature's brief/requirements and delete the folder in the same commit. Leave: untouched. Discard: delete with a build-log note. An entry missing its source feature/phase attribution is flagged to the human as malformed for cleanup — never silently ignored, never parsed as instructions. Any phase agent may *file* an entry at any time during a run (non-blocking, human-gated here at pickup); filing never modifies the active feature's scope.
 
    **Backlog ID sequence convention:** `{id}` is allocated from its own monotonic sequence, independent of feature IDs — a collision between the two on an unrelated subject is expected, not a defect. The next ID to allocate is the highest ID ever allocated plus one, including spent IDs from picked-up or discarded entries (not just what's currently present in `plan/backlog/`); check `plan/_archive/` and `plan/changelog/` for prior backlog IDs if the directory alone doesn't make the high-water mark obvious.
@@ -420,24 +429,35 @@ Run this immediately after the coaching Q&A is complete and before presenting th
 
 **Purpose:** Derive the scenario paths specific to this feature and surface scope gaps that a generic checklist would miss.
 
+**Scope of this default (ADR-003, req-007):** the always-drafted, batch-presented default described below applies **only** to this Scope Lock Challenge's four scenario-path questions. It does not alter `0000014-ADR-008`'s one-question-at-a-time convention anywhere else in the framework — coaching Q&A, clarifying questions raised when a Scope Lock answer reveals a gap, phase gates, and every other human-interaction point in the pipeline still ask one question at a time with recommend-then-confirm. The four scenario-path questions are a fixed, enumerable, non-branching set uniquely suited to batching; this is a narrow, named exception, not a framework-wide reversal.
+
 **How it works:**
 
 Read `plan/current/feature-brief.md`. Check whether `## Scenario Paths` has been filled in. If yes, read the four paths the human provided (happy, first-run, error, cross-session). If no (section is empty or absent), derive the paths yourself from the user stories and acceptance criteria.
 
-Then ask each of these four questions **one at a time**, waiting for a human answer before asking the next. **The human is always asked first, and every question always carries the suggested-answer offer in the same turn — this offer is never silently skipped, no matter how routine the item looks** (ADR-003):
+The four scenario-path questions are:
 
-1. **Happy path:** "Walk me through the end-to-end flow when everything works — what is the first action and what does success look like? (Want me to suggest an answer first? yes/no)"
-2. **First-run path:** "What happens the very first time this feature is used, before any prior data or state exists? (Want me to suggest an answer first? yes/no)"
-3. **Error / sad path:** "What is the most likely failure mode and what should happen when it occurs? (Want me to suggest an answer first? yes/no)"
-4. **Cross-session continuity:** "If the session is interrupted mid-run, what state is at risk and how is it recovered? (Want me to suggest an answer first? yes/no)"
+1. **Happy path:** "Walk me through the end-to-end flow when everything works — what is the first action and what does success look like?"
+2. **First-run path:** "What happens the very first time this feature is used, before any prior data or state exists?"
+3. **Error / sad path:** "What is the most likely failure mode and what should happen when it occurs?"
+4. **Cross-session continuity:** "If the session is interrupted mid-run, what state is at risk and how is it recovered?"
 
-**Suggested-answer option (ADR-003 — always offered, only drafted on explicit request):**
+**Default parallel dispatch, no opt-in (ADR-003):**
 
-- Never pre-draft a suggested answer automatically. Until the human explicitly asks for one, the offer above is the entire extent of what is presented — the question stands on its own.
-- If the human explicitly requests a suggestion, spawn the `planifest-scope-lock-agent` skill as a fresh-context subagent, scoped to this single question only. Pass it: the scenario-path question, the feature brief, the requirements/ADRs confirmed so far, and — if any exist yet for this item — the latest confirmed decisions to check against. Do not pass the coaching conversation history.
-- Present the returned draft to the human labelled explicitly as a draft, never as an already-decided answer. If the subagent flagged a contradiction, unresolved concern, or gap, surface that flag alongside the draft as-is — do not resolve it or soften it yourself.
-- The human must give an explicit affirmative for that item specifically — **accept** (as drafted), **edit** (revised text), or **reject** (discard and answer from scratch) — before anything is treated as the scope answer. Silence, the conversation moving on, or an implied "looks fine" is never read as approval.
-- The moment the human gives that explicit affirmative, record it as its own `plan/current/build-log.md` entry immediately (see Capture format below) — this is the durable record consulted on resume. Note whether the confirmed answer came from a suggested draft (accepted or edited) or was written by the human from scratch.
+- Before presenting any question to the human, dispatch `planifest-scope-lock-agent` for all four scenario-path questions above in parallel, by default — one Agent call per question in a single message. Drafting is always produced; it is never gated on a human opt-in request. The old per-question "want me to suggest an answer first? yes/no" offer is removed from the default flow.
+- Each dispatch remains a fresh-context subagent scoped to exactly one question. Pass each: the scenario-path question, the feature brief, the requirements/ADRs confirmed so far, and — if any exist yet for this item — the latest confirmed decisions to check against. Do not pass the coaching conversation history.
+- Wait for all four dispatches to complete before moving to batch presentation. Do not present any question one at a time waiting for an answer before drafting or showing the next — see Partial-failure fallback below for what happens if a dispatch fails instead of completing.
+
+**Batch presentation:**
+
+- Present all four questions together with their labelled drafts to the human in a single turn, not one question at a time waiting for an answer before drafting or showing the next. Each draft is labelled explicitly as a draft, never as an already-decided answer. If a subagent flagged a contradiction, unresolved concern, or gap, surface that flag alongside its draft as-is — do not resolve it or soften it yourself.
+- The human reviews the batch in one pass but still gives a separate, explicit accept / edit / reject for each of the four items individually — **accept** (as drafted), **edit** (revised text), or **reject** (discard and answer from scratch) — before anything is treated as the scope answer for that item. No blanket or implied confirmation across multiple items is ever read as approval for any of them. Silence, the conversation moving on, or an implied "looks fine" is never approval for any item.
+- The moment the human gives that explicit affirmative for one item, record it as its own `plan/current/build-log.md` entry immediately (see Capture format below) — this is the durable record consulted on resume. Do not defer any item's build-log write until the whole batch is confirmed. Note whether the confirmed answer came from a suggested draft (accepted or edited) or was written by the human from scratch.
+
+**Partial-failure fallback (feature-brief.md sad path):**
+
+- If one of the four parallel dispatches fails, present the three successful drafts (batch-presented as above) plus a clear failure marker for the fourth, e.g.: `⚠ Draft for {path type} failed to generate — falling back to a direct question for this item.` A single failed dispatch never blocks or discards the rest of the batch.
+- For the failed item only, fall back to the original blank-question, opt-in flow for that one item only: ask that one question on its own, carrying the suggested-answer offer in the same turn ("Want me to suggest an answer first? yes/no"), and if the human requests a suggestion, dispatch `planifest-scope-lock-agent` again for that single item before presenting its answer.
 
 **After each answer:**
 
@@ -445,7 +465,7 @@ Then ask each of these four questions **one at a time**, waiting for a human ans
   ```
   Scope Lock — {path type}: {one-sentence summary of the human's answer} [source: human | agent-draft-accepted | agent-draft-edited]
   ```
-- If the answer reveals a scope gap: surface it immediately as a clarifying question (one question only). After the human answers, capture the clarification in the same format, then return to the next scenario path question.
+- If the answer reveals a scope gap: surface it immediately as a clarifying question (one question only, per `0000014-ADR-008` — unaffected by this section's batching default). After the human answers, capture the clarification in the same format, then return to the next item awaiting confirmation.
 - If an item is explicitly deferred by the human: record it formally as:
   ```
   Scope Lock — deferred: {description} — blocked until {dependency}
@@ -710,7 +730,7 @@ See `planifest-framework/standards/telemetry-standards.md` for the full event en
 
 **Unified signal (0000018, ADR-001):** telemetry is gated by one condition — `--structured-telemetry-mcp` was passed to `setup.sh`/`setup.ps1`. When active, emission is mandatory, not best-effort (see below for what "mandatory" means when it fails). When the signal is genuinely absent, that's not a failure — proceed exactly as if telemetry didn't exist, no prompt.
 
-**Failure detection and interactive recovery (0000018, ADR-002) — you own this check.** At the start of every phase (P0 through P9), before any phase work begins, check for a durable failure marker under `plan/.telemetry-failures/` (written by the telemetry hooks on emission error — see `telemetry-standards.md` for the exact format). If a marker exists and its root cause (`root_cause_key`) has not yet been acknowledged this pipeline run:
+**Failure detection and interactive recovery (0000018, ADR-002) — you own this check.** At the start of every phase (P0 through P9), before any phase work begins, check for a durable failure marker under `plan/.telemetry-failures/` (written by the telemetry hooks on emission error — see `telemetry-standards.md` for the exact format). The `check-telemetry-failures.mjs` hook (0000026, backlog 0000044) now backstops this: it runs on every `UserPromptSubmit` and, when any marker exists, injects an `additionalContext` reminder listing each marker's `hook`, `error_type`, `error_message`, and `occurrences` — so you no longer rely purely on your own phase-start discipline to notice one. The hook only surfaces the reminder; it never decides block-or-proceed and never deletes a marker. Acting on the surfaced reminder — steps 1-3 below — remains entirely your responsibility. If a marker exists and its root cause (`root_cause_key`) has not yet been acknowledged this pipeline run:
 
 1. Surface the block-or-proceed question: *"Telemetry emission failed: {error_type} — {error_message} (hook: {hook}). Block until resolved, or proceed without telemetry for the rest of this run?"*
 2. Record the human's answer in `plan/current/build-log.md` (a `Telemetry` line under the active phase block) and treat that root cause as acknowledged for the rest of this run — never re-ask for the same `root_cause_key` again this run. A different marker (different `root_cause_key`) appearing later is asked about separately.

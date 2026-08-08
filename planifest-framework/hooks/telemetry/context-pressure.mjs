@@ -12,7 +12,25 @@
  * it grows proportionally with context use within a session and resets at
  * session start. It does not account for compaction events.
  *
- * Silent on all errors (NFR-001). No retries. No local fallback (NFR-002).
+ * Silent on all errors (NFR-001). No local fallback (NFR-002) — a failure
+ * is never queued or persisted for later delivery, it is dropped (with a
+ * durable marker recording *that* it was dropped, per req-002/ADR-002).
+ *
+ * Bounded retry for connection-refused only (0000018, filed against this
+ * repo directly): a `structured-telemetry-mcp` deploy briefly leaves no
+ * listener on BACKEND_URL between the old daemon exiting and the new one
+ * binding the port (req-001/002 checkpoint on exit; launchd/systemd then
+ * relaunches). A hook firing in that ~1-2s window saw a network-level
+ * connection failure (fetch's TypeError, not an HTTP error status) and
+ * treated a routine, self-correcting restart as a hard failure, tripping
+ * the durable-marker/human-interrupt path for something that was never
+ * actually wrong. Retries up to 2 times (3 attempts total), fixed 300ms
+ * gaps, only on a network-level fetch failure — never on an HTTP error
+ * response (4xx/5xx are real failures, not a listener gap, and are not
+ * retried). Total added worst-case latency ~600ms, still well inside a
+ * hook's "must be fast" budget. This is not a general retry/queue
+ * mechanism — a backend that is still unreachable after 3 attempts is
+ * still recorded via the durable marker exactly as before.
  *
  * Durable failure marker (req-002, ADR-002): on emission failure this hook
  * still exits 0 and never blocks (NFR-001 unchanged) — but it now also
@@ -47,7 +65,6 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
 
 const THRESHOLD_PCT = 70;
 // Rough estimate: ~900 KB of JSONL transcript ≈ full 200K token context window.
@@ -75,16 +92,29 @@ function getSessionId(input) {
   return `pid-${process.ppid}`;
 }
 
-function getProductId(cwd) {
-  try {
-    return execFileSync("git", ["rev-parse", "--show-toplevel"], {
-      cwd,
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    return cwd;
+// Declared product_id source (req-001): product.yml's top-level `id` field,
+// resolved relative to the hook's own `cwd`. No git-derived or path-shaped
+// fallback — an absent/unparseable/`id`-less product.yml is a hard failure
+// that propagates to the caller's top-level try/catch and is routed through
+// recordTelemetryFailure() below (never a silent path-shaped fallback).
+function readProductId(cwd) {
+  const text = readFileSync(join(cwd, "product.yml"), "utf-8");
+  for (const raw of text.split(/\r?\n/)) {
+    const noComment = raw.replace(/#.*$/, "");
+    const m = noComment.match(/^id:\s*(.*)$/);
+    if (!m) continue;
+    let value = m[1].trim();
+    if (/^"[^"]*"$/.test(value) || /^'[^']*'$/.test(value)) {
+      value = value.slice(1, -1).trim();
+    } else if (/["']/.test(value)) {
+      throw new Error("product.yml id field is malformed (unbalanced quoting)");
+    }
+    if (!value || /^(null|~)$/i.test(value)) {
+      throw new Error("product.yml id field is empty");
+    }
+    return value;
   }
+  throw new Error("product.yml has no top-level id field");
 }
 
 // Best-effort durable failure marker (req-002, ADR-002) — see file header for
@@ -175,7 +205,7 @@ try {
   const event = {
     schema_version: "1.0",
     event: "context_pressure",
-    product_id: getProductId(cwd),
+    product_id: readProductId(cwd),
     session_id: sessionId,
     // "monitoring" is not a valid envelope `phase` value (see telemetry-standards.md's
     // enum) — context-pressure is a session-wide check the orchestrator owns
@@ -193,24 +223,39 @@ try {
     },
   };
 
-  // Fire-and-forget: abort after 3 s to keep the hook fast.
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), 3_000);
-  try {
-    const res = await fetch(`${BACKEND_URL}/emit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(event),
-      signal: ac.signal,
-    });
-    if (!res.ok) {
-      const httpErr = new Error(`emission POST failed: HTTP ${res.status}`);
-      httpErr.name = `http_${res.status}`;
-      throw httpErr;
+  // Fire-and-forget: abort each attempt after 3 s to keep the hook fast.
+  const RETRY_DELAYS_MS = [300, 300]; // up to 2 retries (3 attempts total)
+  let lastErr;
+  for (let attempt = 0; ; attempt++) {
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), 3_000);
+    try {
+      const res = await fetch(`${BACKEND_URL}/emit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(event),
+        signal: ac.signal,
+      });
+      if (!res.ok) {
+        const httpErr = new Error(`emission POST failed: HTTP ${res.status}`);
+        httpErr.name = `http_${res.status}`;
+        throw httpErr;
+      }
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+      // Only retry a network-level failure (e.g. ECONNREFUSED surfaced by
+      // fetch as a TypeError) — a real HTTP error status is never a
+      // listener-gap symptom and is not worth retrying.
+      const isNetworkFailure = !(err?.name ?? "").startsWith("http_");
+      if (!isNetworkFailure || attempt >= RETRY_DELAYS_MS.length) break;
+    } finally {
+      clearTimeout(timer);
     }
-  } finally {
-    clearTimeout(timer);
+    await new Promise((r) => setTimeout(r, RETRY_DELAYS_MS[attempt]));
   }
+  if (lastErr) throw lastErr;
 } catch (err) {
   // PostToolUse must never block the session — silent fallback (NFR-001).
   recordTelemetryFailure("context-pressure", err, { cwd, phase: "monitoring", sessionId });

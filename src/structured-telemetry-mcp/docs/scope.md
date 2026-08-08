@@ -11,6 +11,7 @@ Component-scoped mirror of the most recent feature's scope document (currently `
 - `group_by` validation against an allow-list; zero-result scope hints on bottleneck/failure/token-efficiency queries (0000013, 0000014).
 - `product_id` optional field/column (no backfill), `event_log` pagination/sort/total_count/expanded filters with no mandatory scope filter, and a read-only browser Log Viewer UI at `GET /ui` (0000015).
 - `event_log` gains an allow-listed per-column `sortField` param (ADR-024, ADR-025); a new `distinct_values` query mode serving up to 20 allow-listed field values for filter-suggestion lookups (ADR-024, ADR-026); and Log Viewer UI polling-based auto-refresh/tail mode, filter-combobox suggestions, and clickable sortable column headers (ADR-027) (0000017).
+- Daemon durability: graceful-shutdown checkpoint, periodic checkpoint (60s/100-write threshold), checkpoint-immediately-after-migration, and refuse-to-start (exit 0, ADR-030) on a locked or unreplayable-WAL database, never touching the WAL. A new in-process scheduled+verified backup module (`EXPORT DATABASE`/`IMPORT DATABASE`, ADR-028; in-process trigger, ADR-029; `PLANIFEST_TELEMETRY_BACKUP_DIR`, default `~/.planifest-backups`) with strict verify→promote→prune ordering and 7-daily+4-weekly retention. `doctor` reports verified-backup staleness from a sidecar file. Deploy gains an additive `buildId` fingerprint on `/health` plus orphan-port-holder detection, across all three platforms. An `id` tiebreaker on every `event_log` `ORDER BY` closes a pagination-completeness defect (0000018).
 
 ## Out of scope (cumulative)
 
@@ -22,6 +23,13 @@ Component-scoped mirror of the most recent feature's scope document (currently `
 - Backfilling `product_id` on historical rows — no reliable signal exists; other projects besides this repo have also used the shared DB (0000015, ADR-017).
 - Populating `product_id` in `planifest-framework`'s own emission hooks — a separate product's responsibility (0000015, ADR-019; tracked at `plan/backlog/00002-framework-product-id-emission`).
 
+## Out of scope, 0000018
+
+- HTTP boundary hardening — validation gaps, error leakage, auth/Origin/Host, body DoS, unbounded result sets (backlog 00010–00014, 00020) — deliberately a separate wave.
+- Log viewer correctness/improvements (backlog 00015–00018, 00021–00022).
+- Client-side buffering/retry for events emitted while the daemon is down.
+- Migrating from limit/offset to keyset pagination — the `id` tiebreaker works within ADR-016's existing bounding strategy, not instead of it.
+
 ## Deferred
 
 - npm publish — blocked on a decision to make the package public.
@@ -29,3 +37,6 @@ Component-scoped mirror of the most recent feature's scope document (currently `
 - Auto-fixing a root-owned `~/Library/LaunchAgents` — blocked on human confirmation it's safe to override a possible MDM control (0000010).
 - Auto-enabling `systemd` lingering — blocked on a human decision to accept an account-wide setting change (0000010).
 - Aggregation/dashboard charts in the UI (Wave 2 of 0000017, deferred to backlog #00004), authentication/multi-user UI access — each blocked on a specific future need arising (0000015). Live auto-refresh/tail mode is no longer deferred — delivered in 0000017.
+- Recovery of the ~4,100 events stranded in the pre-existing unreplayable WAL from the 2026-08-03 incident — tracked at `plan/backlog/00023-recover-stranded-wal-events`, explicitly deferred (0000018); the data is safe in two checksum-verified copies meanwhile.
+- A live, real-supervision respawn-count drill for req-005's circuit-breaker config — config-content-level bats coverage exists, but no test actually installs the service under real launchd/systemd, poisons the database, and counts respawn attempts over time. Filed to the backlog at P6 (0000018).
+- Measuring backup export duration against production-realistic data volumes — currently only verified at small test scale. Filed to the backlog at P6 (0000018).

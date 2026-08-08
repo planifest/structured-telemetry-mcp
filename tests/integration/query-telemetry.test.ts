@@ -7,7 +7,7 @@ import { openDatabase, closeDatabase } from '../../src/db/index.js';
 import { DuckDbEventRepository } from '../../src/db/duckdb-event-repository.js';
 import { DuckDbQueryService } from '../../src/query/query-service.js';
 import type { TelemetryEvent } from '../../src/types/events.js';
-import { queryEventLog } from '../../src/query/event-log.js';
+import { queryEventLog, type SortField } from '../../src/query/event-log.js';
 
 // req-002-query-bottlenecks, req-003-query-failures, req-004-query-token-efficiency
 
@@ -38,11 +38,12 @@ const BASE_OTHER_SESSION: Omit<TelemetryEvent, 'event' | 'data'> = {
 };
 
 let qs: DuckDbQueryService;
+let repo: DuckDbEventRepository;
 
 beforeAll(async () => {
   process.env['PLANIFEST_TELEMETRY_DB'] = TEST_DB;
   const db: DuckDBInstance = await openDatabase(TEST_DB);
-  const repo = new DuckDbEventRepository(db);
+  repo = new DuckDbEventRepository(db);
   qs = new DuckDbQueryService(db);
 
   // Seed: phase_end events for bottleneck queries.
@@ -400,6 +401,68 @@ describe('req-003-sortable-headers-three-way-sync: queryEventLog sortField', () 
       'Invalid sortField: "data". Valid values: timestamp, event, session_id, phase, agent, product_id',
     );
   });
+});
+
+// req-010-pagination-tiebreaker (0000018) — ORDER BY sortColumn, id guarantees a
+// strict total order so paging is stable even when the sortField has duplicate
+// values across rows. Regression for the 26-45% row-drop/duplication defect.
+describe('req-010-pagination-tiebreaker: queryEventLog pagination with duplicate sort keys', () => {
+  const TIEBREAKER_SESSION = 'tiebreaker-test-session';
+  const TIEBREAKER_COUNT = 37;
+  const PAGE_SIZE = 8;
+  let seededIds: string[] = [];
+
+  beforeAll(async () => {
+    seededIds = [];
+    for (let i = 0; i < TIEBREAKER_COUNT; i++) {
+      // Every sortable field (timestamp, event, session_id, phase, agent,
+      // product_id) is identical across all seeded rows, so every field has
+      // a tie across the whole result set — id is the only distinguishing
+      // column, exercising it as the pagination tiebreaker for each field.
+      const result = await repo.write({
+        ...BASE,
+        session_id: TIEBREAKER_SESSION,
+        product_id: 'product-tiebreaker',
+        event: 'phase_end',
+        phase: 'codegen',
+        agent: 'planifest-codegen-agent',
+        timestamp: '2026-04-13T18:00:00Z',
+        data: { phase_name: 'codegen', status: 'pass', duration_ms: 100 },
+      });
+      if (result.ok) seededIds.push(result.id);
+    }
+  });
+
+  async function collectAllPages(sortField: SortField, sort: 'asc' | 'desc'): Promise<string[]> {
+    const collected: string[] = [];
+    for (let offset = 0; offset < TIEBREAKER_COUNT; offset += PAGE_SIZE) {
+      const response = await qs.eventLog({
+        mode: 'event_log',
+        session_id: TIEBREAKER_SESSION,
+        sortField,
+        sort,
+        limit: PAGE_SIZE,
+        offset,
+      });
+      const result = response.json as { events: Array<{ id: string }>; total_count: number };
+      expect(result.total_count).toBe(TIEBREAKER_COUNT);
+      collected.push(...result.events.map((e) => e.id));
+    }
+    return collected;
+  }
+
+  const fields: readonly SortField[] = ['timestamp', 'event', 'session_id', 'phase', 'agent', 'product_id'];
+
+  for (const field of fields) {
+    for (const direction of ['asc', 'desc'] as const) {
+      it(`pages through all ${TIEBREAKER_COUNT} rows with zero dropped/duplicated rows sorting by "${field}" (${direction}, duplicate keys)`, async () => {
+        const collected = await collectAllPages(field, direction);
+        expect(collected).toHaveLength(TIEBREAKER_COUNT);
+        expect(new Set(collected).size).toBe(TIEBREAKER_COUNT);
+        expect(new Set(collected)).toEqual(new Set(seededIds));
+      });
+    }
+  }
 });
 
 // req-005-initiative-id-groupby (FEA-002)

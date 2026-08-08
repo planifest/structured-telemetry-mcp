@@ -526,8 +526,13 @@ install_before_submit_hook_registration() {
 
 install_enforcement_hooks() {
   # Copy enforcement hooks and wire PreToolUse/UserPromptSubmit (REQ-002, REQ-006, REQ-008).
-  # Includes auto-trigger-orchestrator.mjs (REQ-002), gate-write.mjs, check-design.mjs.
-  # Always installed, regardless of MCP flags.
+  # Includes auto-trigger-orchestrator.mjs (REQ-002), gate-write.mjs, check-design.mjs,
+  # check-telemetry-failures.mjs (0000026, backlog 0000044 — deterministic backstop for
+  # the orchestrator's ADR-002 phase-start telemetry-failure-marker check).
+  # Always installed, regardless of MCP flags — it is UserPromptSubmit-shaped like the
+  # other enforcement hooks, not PostToolUse like context-pressure.mjs, and reads
+  # plan/.telemetry-failures/ rather than requiring the telemetry hooks themselves to be
+  # active, so it does not belong behind --structured-telemetry-mcp or --context-mode-mcp.
   local hooks_src_rel="$1"   # e.g. hooks/enforcement
   local hooks_dir_rel="$2"   # e.g. .claude/hooks/enforcement
   local settings_rel="$3"    # e.g. .claude/settings.json
@@ -559,15 +564,17 @@ install_enforcement_hooks() {
   local trigger_cmd="$hooks_dir_rel/auto-trigger-orchestrator.mjs"
   local presence_cmd="$hooks_dir_rel/check-orchestrator-presence.mjs"
   local design_cmd="$hooks_dir_rel/check-design.mjs"
+  local telemetry_failures_cmd="$hooks_dir_rel/check-telemetry-failures.mjs"
 
   if command -v node >/dev/null 2>&1; then
-    PLANIFEST_GATE="$gate_cmd" PLANIFEST_RATCHET="$ratchet_cmd" PLANIFEST_TRIGGER="$trigger_cmd" PLANIFEST_PRESENCE="$presence_cmd" PLANIFEST_DESIGN="$design_cmd" PLANIFEST_SETTINGS="$settings" node -e '
+    PLANIFEST_GATE="$gate_cmd" PLANIFEST_RATCHET="$ratchet_cmd" PLANIFEST_TRIGGER="$trigger_cmd" PLANIFEST_PRESENCE="$presence_cmd" PLANIFEST_DESIGN="$design_cmd" PLANIFEST_TELEMETRY_FAILURES="$telemetry_failures_cmd" PLANIFEST_SETTINGS="$settings" node -e '
       const fs = require("fs"), path = require("path");
       const gate     = process.env.PLANIFEST_GATE;
       const ratchet  = process.env.PLANIFEST_RATCHET;
       const trigger  = process.env.PLANIFEST_TRIGGER;
       const presence = process.env.PLANIFEST_PRESENCE;
       const design   = process.env.PLANIFEST_DESIGN;
+      const telemetryFailures = process.env.PLANIFEST_TELEMETRY_FAILURES;
       const sf       = process.env.PLANIFEST_SETTINGS;
       let s = {};
       if (fs.existsSync(sf)) s = JSON.parse(fs.readFileSync(sf,"utf8").replace(/^\uFEFF/,""));
@@ -583,16 +590,19 @@ install_enforcement_hooks() {
         {matcher:"Write", hooks:[{type:"command",command:ratchet}]},
         {matcher:"Edit",  hooks:[{type:"command",command:ratchet}]}
       );
-      // UserPromptSubmit: auto-trigger first, then presence check, then check-design (REQ-002, REQ-008, idempotent)
+      // UserPromptSubmit: auto-trigger first, then presence check, then check-design,
+      // then check-telemetry-failures (REQ-002, REQ-008, 0000026, idempotent)
       s.hooks.UserPromptSubmit = (s.hooks.UserPromptSubmit || [])
         .filter(h => !(h.hooks||[]).some(e =>
           (e.command||"").includes("auto-trigger-orchestrator") ||
           (e.command||"").includes("check-orchestrator-presence") ||
-          (e.command||"").includes("check-design")));
+          (e.command||"").includes("check-design") ||
+          (e.command||"").includes("check-telemetry-failures")));
       s.hooks.UserPromptSubmit.push(
         {matcher:".*", hooks:[{type:"command",command:trigger}]},
         {matcher:".*", hooks:[{type:"command",command:presence}]},
-        {matcher:".*", hooks:[{type:"command",command:design}]}
+        {matcher:".*", hooks:[{type:"command",command:design}]},
+        {matcher:".*", hooks:[{type:"command",command:telemetryFailures}]}
       );
       fs.mkdirSync(path.dirname(sf),{recursive:true});
       fs.writeFileSync(sf, JSON.stringify(s,null,2)+"\n");
@@ -600,7 +610,7 @@ install_enforcement_hooks() {
     echo "  ~ $settings_rel (enforcement hooks wired)"
   else
     echo "  ! Warning: node not found — skipping settings.json enforcement hook wiring"
-    echo "  ! Manually add gate-write (Write/Edit PreToolUse), auto-trigger-orchestrator, check-orchestrator-presence and check-design (UserPromptSubmit) to $settings_rel"
+    echo "  ! Manually add gate-write (Write/Edit PreToolUse), auto-trigger-orchestrator, check-orchestrator-presence, check-design and check-telemetry-failures (UserPromptSubmit) to $settings_rel"
   fi
 }
 
@@ -1200,6 +1210,68 @@ TOML
   echo "  Done."
 }
 
+# Write planifest-overrides/setup-config/{tool}.md — the tracked, git-versioned source
+# of truth for active setup flags/backendUrl (0000025 req-004, ADR-002 decision 1). This
+# is additive: it does not replace write_setup_flags_marker, and it is called BEFORE it so
+# the gitignored marker is always (re)written to match this file's values for the current
+# run, satisfying ADR-002 decision 3's reconciliation rule. If the write fails (e.g.
+# permissions), warns and returns non-zero so the caller falls back to existing
+# marker-only behavior instead of aborting setup (req-004 acceptance criteria, sad path).
+write_setup_config_override() {
+  local tool="$1"
+
+  local config_dir="$PROJECT_ROOT/planifest-overrides/setup-config"
+  local config_file="$config_dir/${tool}.md"
+
+  local flags=()
+  [ "$CONTEXT_MODE_MCP" = true ] && flags+=("--context-mode-mcp")
+  [ "$STRUCTURED_TELEMETRY_MCP" = true ] && flags+=("--structured-telemetry-mcp")
+  [ "$INCLUDE_FULL_SKILL_LIBRARY" = true ] && flags+=("--include-full-skill-library")
+  [ "$STRICT_ORCHESTRATOR" = true ] && flags+=("--strict-orchestrator")
+
+  local flags_json="[]"
+  if [ ${#flags[@]} -gt 0 ]; then
+    flags_json=$(printf '"%s",' "${flags[@]}")
+    flags_json="[${flags_json%,}]"
+  fi
+
+  local backend_url_json="null"
+  [ "$STRUCTURED_TELEMETRY_MCP" = true ] && backend_url_json="\"$BACKEND_URL\""
+
+  local written_at
+  written_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+  if ! mkdir -p "$config_dir" 2>/dev/null; then
+    echo "  ! Warning: could not create planifest-overrides/setup-config/ — continuing with .planifest-setup-flags-only behavior" >&2
+    return 1
+  fi
+
+  if ! cat > "$config_file" << CONFIG_EOF
+# Setup config: $tool
+
+> Tracked source of truth for active setup flags/backend-url for **$tool**
+> (0000025 req-004, ADR-002). The gitignored \`.planifest-setup-flags\` marker in
+> this tool's config directory is a local completion-status cache, reconciled to
+> match this file on every \`setup.sh\`/\`setup.ps1\` run.
+
+\`\`\`json
+{
+  "tool": "$tool",
+  "flags": $flags_json,
+  "backendUrl": $backend_url_json,
+  "writtenAt": "$written_at"
+}
+\`\`\`
+CONFIG_EOF
+  then
+    echo "  ! Warning: failed to write planifest-overrides/setup-config/${tool}.md — continuing with .planifest-setup-flags-only behavior" >&2
+    return 1
+  fi
+
+  echo "  + planifest-overrides/setup-config/${tool}.md"
+  return 0
+}
+
 # Write the flags-used marker recording what was applied at install time (REQ-008, ADR-002).
 # Called only after a tool's setup completes successfully. set -euo pipefail means a failed
 # setup_tool/opencode.sh call aborts the script before this function is ever reached, satisfying
@@ -1323,9 +1395,11 @@ run_tool_setup() {
   # opencode has its own bespoke setup script (Tier 2: Bun plugin)
   if [ "$t" = "opencode" ]; then
     bash "$SETUP_DIR/opencode.sh"
+    write_setup_config_override "$t" || true
     write_setup_flags_marker "$t" ".opencode"
   else
     setup_tool "$t"
+    write_setup_config_override "$t" || true
     # TOOL_SKILLS_DIR is set globally by the tool config sourced inside setup_tool
     # (e.g. ".claude/skills"); its parent is the tool's own config directory (REQ-008).
     write_setup_flags_marker "$t" "$(dirname "$TOOL_SKILLS_DIR")"

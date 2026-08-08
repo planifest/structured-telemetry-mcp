@@ -121,7 +121,7 @@ Generate the test report artifact before archiving.
 Commit the archive, changelog, and `docs/about.md` to the branch:
 
 ```
-git add plan/_archive/ plan/changelog/ docs/about.md plan/.orchestrator-active plan/.orchestrator-ack plan/.run-mode
+git add plan/current/ plan/_archive/ plan/changelog/ docs/about.md plan/.orchestrator-active plan/.orchestrator-ack plan/.run-mode
 git commit -m "plan(p7): archive {feature-id}"
 ```
 
@@ -155,9 +155,9 @@ Determine the release version (ADR-002, product-level versioning):
    ```bash
    node planifest-framework/scripts/product-version.mjs
    ```
-   Exit 0 → use the printed version. Exit 5 (`versionPolicy: external`) → present the external-anchor constraint and ask the human for the version. Exit 2 (invalid version or unknown policy) → show the script's reason and prompt the human for a manual value — never tag a fabricated version. Before tagging, update `product.yml`'s `components[]` versions and `feature` field to reflect this release.
+   Exit 0 → use the printed version. Exit 5 (`versionPolicy: external`) → present the external-anchor constraint and ask the human for the version. Exit 2 (invalid version, unknown policy, or a `components[]` entry pointing at a missing/unversioned `component.yml`) → show the script's reason and prompt the human for a manual value — never tag a fabricated version. `components[]` entries hold `{id, path}`, not a cached version — the script reads each referenced `component.yml`'s own `version:` field live, so there is nothing to sync here before tagging. Only update `product.yml`'s top-level `version` (informational under `max-component-version`; authoritative under `explicit`) and `feature` field to reflect this release, and update `components[]` only if a component was added or removed this feature.
 2. **No `product.yml` and the project has exactly one component** (exit 4) — read the `version` field from the single `component.yml` (for this repo: `planifest-framework/component.yml`). This is the unchanged pre-0000016 behaviour.
-3. **No `product.yml` and the project has 2+ components** — create `product.yml` from `planifest-framework/templates/product.template.yml` with `versionPolicy: max-component-version`, populate `components[]` from the component manifests, then derive as in case 1.
+3. **No `product.yml` and the project has 2+ components** — create `product.yml` from `planifest-framework/templates/product.template.yml` with `versionPolicy: max-component-version`, populate `components[]` with each component's `{id, path}` (path to its `component.yml`, not its version), then derive as in case 1.
 
 Validate the final value: must match `[0-9]+\.[0-9]+(\.[0-9]+)?` and be ≤20 characters, and must not be lower than the last release tag. If validation fails, prompt the human to supply the version manually — do not create the tag with an unvalidated value.
 
@@ -178,6 +178,8 @@ If the output is empty, the markers were correctly removed and committed in Step
 ### Step 10 — Push/PR decision
 
 Check `planifest-overrides/instructions/` for any file containing "local-git-only" or "no remote" or "no push". If found, skip the prompt and proceed directly to option [2].
+
+Also check `planifest-overrides/instructions/` for any file whose contents contain "restore-pr-attribution" (case-insensitive substring match, same scan style as the check above). This controls the attribution footer in the PR description template below (Option [1] and Option [2] share the same body): if matched, the footer line `🤖 Generated with [Planifest](https://github.com/planifest/framework) + Claude` is appended as the final line of the PR description; if not matched (the default), the footer is omitted entirely.
 
 Otherwise, ask the human:
 
@@ -223,8 +225,7 @@ Output the following as a fenced markdown code block for copy-paste:
 
 ## Test Plan
 {Bulleted checklist of manual verification steps}
-
-🤖 Generated with [Planifest](https://github.com/planifest/framework) + Claude
+{Attribution footer — append "🤖 Generated with [Planifest](https://github.com/planifest/framework) + Claude" as the final line only if the restore-pr-attribution override matched above. Default: omit this line entirely.}
 ```
 
 Also output the suggested PR title: `{feature-id}: {one-line feature summary}`

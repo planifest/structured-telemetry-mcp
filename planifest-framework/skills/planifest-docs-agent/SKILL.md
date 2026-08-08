@@ -52,7 +52,19 @@ Check whether `docs/` exists at the repository root.
 
 Read the feature brief and design to understand the scope of this pipeline run. Assess whether the living docs (`docs/architecture-overview.md`, `docs/component-registry.md`, `docs/dependency-graph.md`, `docs/decisions-index.md`, `docs/api-index.md`) require updating based on what was built.
 
-Present your assessment and a recommendation to the human:
+Check `continuous_run` / `plan/.run-mode` before deciding how to present the assessment:
+
+**When `continuous_run` is active:** log the assessment and recommendation as a statement, not a question, and proceed automatically — do not stop for confirmation:
+
+```
+P6: Gate B — docs update assessment (continuous run, auto-accepted).
+[Summary of what changed in this run — one sentence.]
+Auto-accepted: [updating / no update needed for] the following docs: [list or "none"].
+```
+
+Record the auto-accepted decision in the P6 build log block, same as a human-confirmed decision.
+
+**When `continuous_run` is not active:** present the assessment and wait for the human to confirm before proceeding, unchanged from today:
 
 ```
 P6: Gate B — docs update assessment.
@@ -105,6 +117,12 @@ Write `plan/changelog/{feature-id}-<YYYY-MM-DD>.md`. Read `planifest-framework/t
 - **Cross-references.** The component registry must link to each component's purpose document. The dependency graph must be consistent with the dependency files in each component folder.
 - **Consistency check.** The domain glossary terms should match what appears in the code. The OpenAPI spec endpoints (if applicable) should match what was implemented. Flag any drift you find - do not silently fix it.
 - **Recommendations.** Produce `plan/current/recommendations.md` - suggested improvements for future iterations. Be constructive and specific. Reference concrete files or decisions.
+- **Backlog filing for Deferred Items and Tech Debt.** In addition to writing `recommendations.md`'s Deferred Items and Tech Debt tables, file each row from those two tables as its own `plan/backlog/{id}-{slug}/entry.md`, following `planifest-framework/templates/backlog-entry.template.md`:
+  - **Applies going forward only.** This routing runs for the feature currently being produced by this pipeline run. Do not backfill entries for Deferred Items/Tech Debt rows already sitting in an already-archived feature's `recommendations.md`.
+  - Set the template's `Source feature` and `Source phase` fields to this feature's ID and the docs phase (P6).
+  - Set `Deferral source` to `deliberate scope decision` for a row filed from the Deferred Items table, or `tech debt` for a row filed from the Tech Debt table.
+  - Point `## Why Deferred` at the originating rationale already captured elsewhere in this feature (its own `scope.md`, ADRs, or the `recommendations.md` row itself) rather than duplicating that rationale in the entry.
+  - Allocate `{id}` per the existing backlog convention: highest `{id}` ever allocated (including picked-up and discarded entries), plus one — check `plan/backlog/`, `plan/_archive/`, and `plan/changelog/` for the high-water mark.
 - Load a capability skill if one exists for a document generation format the feature needs (e.g. `docx`, `pdf`).
 
 ### Drift Detection
@@ -137,6 +155,7 @@ Do not flag legitimate absences as drift. Do flag missing artifacts that should 
 | Per-component docs for independent components (purpose, interface, risk, scope) | Dependency graph before all component dependency files exist |
 | Drift checks across independent areas (API endpoints, domain terms, data ownership) | Component registry before all component purpose.md files exist |
 | Recommendations + iteration log (independent documents) | Consistency check before individual artifacts are written |
+| 2+ independent living-doc updates (no shared content dependency) — e.g. `component-registry.md`, `decisions-index.md`, `architecture-overview.md` edited in a single parallel batch instead of serially | A living doc that reads another living doc's newly-written content in the same run |
 
 ## Telemetry
 

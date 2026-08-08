@@ -23,6 +23,13 @@ MOCK_PORT=19741
 ORIG_PWD="$(pwd)"
 SCRATCH_CWD=$(mktemp -d -t planifest_ctxpressure_cwd_XXXXXX)
 cd "$SCRATCH_CWD"
+# req-001: product_id now resolves from product.yml's `id` field at cwd —
+# a declared id is required here so the "above threshold" case below can
+# reach its POST (this file's own scope is REQ-008 envelope/threshold
+# behaviour, not product_id resolution, so a fixed declared id is enough).
+cat > "$SCRATCH_CWD/product.yml" << 'EOF'
+id: "test-context-pressure-product"
+EOF
 
 # Write the mock HTTP server to a temp file so it can be run as a plain node process.
 # Using -t flag for mktemp ensures the path lands in the real Windows temp dir on Git Bash.

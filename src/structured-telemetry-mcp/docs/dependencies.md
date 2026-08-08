@@ -26,4 +26,6 @@ No new npm dependencies were added by 0000015 — the Log Viewer UI is plain HTM
 
 No new npm dependencies were added by 0000017 either — the new `sortField` param, `distinct_values` query mode, and UI auto-refresh/suggestions/sortable-headers work are all built from the existing DuckDB query layer and vanilla JS, zero new packages (ADR-024–027).
 
+No new npm dependencies were added by 0000018 either — durability (checkpoint/shutdown/refuse-to-start), the backup module, and deploy verification are all built from Node built-ins (`node:crypto` for the build-identity hash, `node:fs`/`node:path` for the sidecar file and backup artifacts) plus DuckDB's existing `EXPORT DATABASE`/`IMPORT DATABASE` (ADR-028), zero new packages.
+
 No other component in this repo, and no other repo with a code-level import, depends on `structured-telemetry-mcp`.

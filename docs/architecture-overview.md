@@ -3,13 +3,13 @@
 > Living document. Reflects current system state. Updated after every pipeline run.
 > Do not archive this file — update it in place.
 
-Last updated: 0000017-log-viewer-enhancements
+Last updated: 0000018-telemetry-data-integrity
 
 ---
 
 ## System Summary
 
-`structured-telemetry-mcp` is a local MCP server that ingests structured telemetry events (phase timings, failures, context pressure, loop iterations, phase reversals) from Planifest pipeline agents and answers structured queries over them. It runs continuously as a background service — on Windows via `nssm`, and as of 0000010 also on macOS (`launchd`) and Linux (`systemd --user`) — so any Planifest project's telemetry hooks work without a foreground terminal. As of 0000015, the same backend also serves a read-only browser UI (`GET /ui`) for browsing, filtering, and paging events — the first human-facing (non-MCP, non-CLI) surface this component exposes. As of 0000016, the HTTP/browser surface (`/emit`, `/query`, `/health`, `/ui`) has true black-box E2E coverage (`@playwright/test`, real server process + ephemeral DuckDB per run) — the first automated test layer in this project that exercises the live `node:http` server rather than its exported handlers. As of 0000017, the Log Viewer gained three interaction-quality improvements over 0000015's static browse-only view: live auto-refresh/tail mode (interval polling, no push mechanism), per-field filter-value suggestions (a new `distinct_values` query mode), and sortable table headers backed by a genuine per-column backend sort (previously hardcoded to `timestamp` only) — all three kept in sync via URL query params.
+`structured-telemetry-mcp` is a local MCP server that ingests structured telemetry events (phase timings, failures, context pressure, loop iterations, phase reversals) from Planifest pipeline agents and answers structured queries over them. It runs continuously as a background service — on Windows via `nssm`, and as of 0000010 also on macOS (`launchd`) and Linux (`systemd --user`) — so any Planifest project's telemetry hooks work without a foreground terminal. As of 0000015, the same backend also serves a read-only browser UI (`GET /ui`) for browsing, filtering, and paging events — the first human-facing (non-MCP, non-CLI) surface this component exposes. As of 0000016, the HTTP/browser surface (`/emit`, `/query`, `/health`, `/ui`) has true black-box E2E coverage (`@playwright/test`, real server process + ephemeral DuckDB per run) — the first automated test layer in this project that exercises the live `node:http` server rather than its exported handlers. As of 0000017, the Log Viewer gained three interaction-quality improvements over 0000015's static browse-only view: live auto-refresh/tail mode (interval polling, no push mechanism), per-field filter-value suggestions (a new `distinct_values` query mode), and sortable table headers backed by a genuine per-column backend sort (previously hardcoded to `timestamp` only) — all three kept in sync via URL query params. As of 0000018, the daemon guarantees the integrity of its own record: it checkpoints on a schedule and on graceful shutdown (bounding data loss on an unclean kill to 60s/100 events), refuses to start rather than serve from a locked or unreplayable-WAL database (exiting cleanly, per ADR-030, so supervision correctly leaves it stopped), and takes a daily verified backup in-process on its own DuckDB connection (ADR-028/029) — restored, row-counted, and only then promoted, never left in a state that could be mistaken for good. Deploy tooling gained a build-content fingerprint (an additive `/health` field) and orphan-port detection, so a stale running process is caught even at an unchanged version string.
 
 ---
 
@@ -28,10 +28,13 @@ flowchart LR
     Agent[Agent tool<br/>Claude Code / Cursor / etc.] -->|MCP stdio| Proxy[stdio proxy<br/>server.bundle.mjs]
     Proxy -->|HTTP :3741| Backend[server-http.bundle.mjs<br/>persistent daemon]
     Browser[Browser<br/>Log Viewer UI] -->|GET /ui, POST /query<br/>incl. 5s auto-refresh poll| Backend
-    Backend -->|read/write| DuckDB[(DuckDB<br/>telemetry.db)]
+    Backend -->|read/write, checkpoint| DuckDB[(DuckDB<br/>telemetry.db)]
+    Backend -->|daily, in-process timer<br/>verify -> promote -> prune| Backups[(Backup artifacts<br/>~/.planifest-backups)]
+    Deploy[npm run deploy] -->|GET /health incl. buildId| Backend
+    Doctor[npm run doctor] -.->|reads sidecar, never opens telemetry.db| Backups
 ```
 
-The stdio proxy (spawned per agent session, per ADR-009) forwards `emit_event`/`query_telemetry` calls over HTTP to a single persistent backend process, which owns the one DuckDB connection. The backend is what 0000010's service scripts install and supervise — it's the process launchd/systemd/nssm keep running. As of 0000015, a human's browser talks to the same backend directly (`GET /ui` for the page, same-origin `POST /query` for data) — no proxy, no separate process (ADR-018).
+The stdio proxy (spawned per agent session, per ADR-009) forwards `emit_event`/`query_telemetry` calls over HTTP to a single persistent backend process, which owns the one DuckDB connection. The backend is what 0000010's service scripts install and supervise — it's the process launchd/systemd/nssm keep running. As of 0000015, a human's browser talks to the same backend directly (`GET /ui` for the page, same-origin `POST /query` for data) — no proxy, no separate process (ADR-018). As of 0000018, the backend also owns a second on-disk location for verified backups (ADR-029: in-process, its own connection, never a second connection to `telemetry.db`) — `doctor` reads a small sidecar file there rather than ever opening the live database.
 
 ---
 
@@ -40,6 +43,7 @@ The stdio proxy (spawned per agent session, per ADR-009) forwards `emit_event`/`
 | Data Store | Owner | Consumers |
 |------------|-------|-----------|
 | `telemetry.db` (DuckDB, `~/.planifest/telemetry.db`) | structured-telemetry-mcp | Read-only via `query_telemetry` MCP tool or `POST /query` REST endpoint — never direct file access |
+| Backup artifacts (`PLANIFEST_TELEMETRY_BACKUP_DIR`, default `~/.planifest-backups`) — not a DuckDB table, `EXPORT DATABASE` directories + a sidecar JSON metadata file (0000018) | structured-telemetry-mcp | `npm run doctor` reads the sidecar file only; a human restores via `IMPORT DATABASE` per `src/structured-telemetry-mcp/docs/restore-procedure.md` |
 
 ---
 
@@ -78,6 +82,10 @@ Reference `docs/decisions-index.md` for the full list.
 - **ADR-025:** `event_log` gains a real per-column `sortField` (allow-listed, defaults to `timestamp`), replacing the previously hardcoded `ORDER BY timestamp` — additive, non-breaking.
 - **ADR-026:** `distinct_values` is a new `mode` on the existing `POST /query` dispatch, not a new REST route — consistent with how every other query family (bottlenecks, failures, token-efficiency, event_log) is reached.
 - **ADR-027:** Auto-refresh is client-side interval polling (5s) against the existing `/query` endpoint — no WebSocket/SSE/push mechanism; the server has no awareness a request is a "poll."
+- **ADR-028:** Backups use DuckDB's native `EXPORT DATABASE` (Parquet + `schema.sql`), not a raw file copy — version-independent, unlike the exact failure mode that caused the 2026-08-03 incident.
+- **ADR-029:** The backup routine runs in-process, on the daemon's own DuckDB connection — never a second connection to `telemetry.db`, eliminating the single-writer-lock conflict by construction rather than by scheduling around it.
+- **ADR-030:** Refuse-to-start exits 0, deliberately — matches `planifest-framework`'s own ADR-005 (0000003) hook precedent, and is mechanically correct against both `launchd`'s and `systemd`'s existing restart-on-failure-only semantics.
+- **ADR-031 (amends ADR-014):** Supervision circuit-breaker config (`ThrottleInterval`/`StartLimitBurst`) is defense-in-depth against unrelated crash loops, not the primary stay-stopped mechanism — that's ADR-030's exit code.
 
 ---
 

@@ -18,9 +18,14 @@ import { createServer } from 'node:http';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { DuckDBInstance } from '@duckdb/node-api';
 
-import { openDatabase } from './db/index.js';
+import { openDatabase, resolveDbPath, closeDatabase } from './db/index.js';
+import { classifyStartupError, formatRefuseToStartMessage } from './db/refuse-to-start.js';
+import { runCheckpoint } from './db/checkpoint.js';
+import { runBackup } from './backup/backup-service.js';
 import { DuckDbEventRepository } from './db/duckdb-event-repository.js';
 import { DuckDbQueryService } from './query/query-service.js';
 import { dispatchQuery } from './server-factory.js';
@@ -42,6 +47,22 @@ const VERSION: string = (() => {
   return 'unknown';
 })();
 
+// req-004b (req-008): a build-identity fingerprint distinct from VERSION — two
+// builds can share the same semver but differ in content (deploy.mjs uses this
+// to detect a stale running process). SHA-256 of the built bundle; when running
+// unbundled (tsx in dev) the bundle file may not be found — degrade gracefully
+// (null), never throw or block startup/health.
+const BUILD_ID: string | null = (() => {
+  for (const rel of ['../server-http.bundle.mjs', './server-http.bundle.mjs']) {
+    const p = resolve(__dirname, rel);
+    if (existsSync(p)) {
+      try { return createHash('sha256').update(readFileSync(p)).digest('hex'); }
+      catch { /* continue */ }
+    }
+  }
+  return null;
+})();
+
 // ── Error handling ────────────────────────────────────────────────────────────
 
 process.on('unhandledRejection', (err) => {
@@ -56,9 +77,89 @@ process.on('uncaughtException', (err: Error) => {
 // ── DB ────────────────────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env['PLANIFEST_MCP_PORT'] ?? '3741', 10);
-const db   = await openDatabase();
+
+// req-004: attempt to open the database exactly once, before any migration
+// (src/db/index.ts) and before the HTTP listener opens. A lock-contention or
+// poisoned-WAL failure means the store is unusable — refuse to start rather
+// than retry-looping or touching the WAL. ADR-030: this exits 0, deliberately.
+let db: DuckDBInstance;
+try {
+  db = await openDatabase();
+} catch (err) {
+  const classification = classifyStartupError(err);
+  if (classification !== null) {
+    process.stderr.write(`${formatRefuseToStartMessage(resolveDbPath(), classification)}\n`);
+    process.exit(0);
+  }
+  // Not a "store is unusable" condition — an unrelated startup error keeps
+  // its existing behaviour (crash / non-zero exit).
+  throw err;
+}
+
 const repo = new DuckDbEventRepository(db);
 const qs   = new DuckDbQueryService(db);
+
+// ── Checkpoint discipline (req-001, req-002) ─────────────────────────────────
+// Checkpoint every 60s or every 100 writes since the last checkpoint —
+// whichever comes first — plus once more on graceful shutdown, bounding the
+// data-at-risk window (domain-glossary.md). Overridable via env for tests;
+// production defaults are the 60s/100-write/5s values req-002/req-001 specify.
+
+const CHECKPOINT_INTERVAL_MS = Number(process.env['PLANIFEST_CHECKPOINT_INTERVAL_MS'] ?? 60_000);
+const CHECKPOINT_WRITE_THRESHOLD = Number(process.env['PLANIFEST_CHECKPOINT_WRITE_THRESHOLD'] ?? 100);
+const SHUTDOWN_TIMEOUT_MS = Number(process.env['PLANIFEST_SHUTDOWN_TIMEOUT_MS'] ?? 5_000);
+
+let writesSinceCheckpoint = 0;
+
+/** Runs a checkpoint; a failure warns and degrades-and-keeps-serving (never crashes, never stops writes). */
+async function checkpoint(): Promise<void> {
+  const ok = await runCheckpoint(db, (msg) => process.stderr.write(`[telemetry-backend] ${msg}\n`));
+  if (ok) writesSinceCheckpoint = 0;
+}
+
+/** Called once per successful write; triggers a checkpoint at the write-count threshold. */
+function noteWrite(): void {
+  writesSinceCheckpoint += 1;
+  if (writesSinceCheckpoint >= CHECKPOINT_WRITE_THRESHOLD) {
+    void checkpoint();
+  }
+}
+
+const checkpointTimer = setInterval(() => { void checkpoint(); }, CHECKPOINT_INTERVAL_MS);
+
+// ── Scheduled, verified backup (req-006) ─────────────────────────────────────
+// ADR-029: an in-process timer, alongside the checkpoint timer above, using
+// this same daemon's already-open connection for EXPORT DATABASE — never a
+// second connection to telemetry.db. Failures degrade-and-keep-serving, same
+// as the checkpoint path. Overridable via env for tests; production default
+// is once every 24h.
+
+const BACKUP_INTERVAL_MS = Number(process.env['PLANIFEST_BACKUP_INTERVAL_MS'] ?? 24 * 60 * 60 * 1000);
+
+// Reentrancy guard: EXPORT DATABASE can, in principle, take longer than the
+// configured interval (unlikely at the 24h production default, but real for
+// any shortened/test interval or a slow-disk/large-DB system). Without this,
+// an overlapping tick could race pruneRetainedSet() against another run's
+// promote, or write the sidecar out of order — ironic for a data-integrity
+// feature (P5 security finding). A tick that finds a run already in flight
+// is simply skipped; the next tick will try again.
+let backupInFlight = false;
+
+/** Runs one backup cycle; failures warn and degrade-and-keep-serving (never crashes, never stops writes). */
+async function backup(): Promise<void> {
+  if (backupInFlight) {
+    process.stderr.write('[telemetry-backend] backup tick skipped — previous run still in flight\n');
+    return;
+  }
+  backupInFlight = true;
+  try {
+    await runBackup(db, (msg) => process.stderr.write(`[telemetry-backend] ${msg}\n`));
+  } finally {
+    backupInFlight = false;
+  }
+}
+
+const backupTimer = setInterval(() => { void backup(); }, BACKUP_INTERVAL_MS);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -88,7 +189,7 @@ const server = createServer(async (req, res) => {
 
   // GET /health
   if (req.method === 'GET' && url.pathname === '/health') {
-    json(res, 200, { ok: true, version: VERSION });
+    json(res, 200, { ok: true, version: VERSION, buildId: BUILD_ID });
     return;
   }
 
@@ -109,6 +210,9 @@ const server = createServer(async (req, res) => {
         return;
       }
       const result = await repo.write(event as Parameters<typeof repo.write>[0]);
+      if (result.ok) {
+        noteWrite();
+      }
       json(res, 200, result);
     } catch (err) {
       json(res, 400, { ok: false, errors: [`emit error: ${err}`] });
@@ -137,3 +241,32 @@ server.listen(PORT, '127.0.0.1', () => {
   const actualPort = typeof addr === 'object' && addr !== null ? addr.port : PORT;
   process.stderr.write(`[telemetry-backend] v${VERSION} ready — http://127.0.0.1:${actualPort}\n`);
 });
+
+// ── Graceful shutdown (req-001) ──────────────────────────────────────────────
+// SIGTERM/SIGINT: stop accepting new connections, checkpoint, close the DB,
+// exit 0 — bounded by SHUTDOWN_TIMEOUT_MS so a hung final checkpoint (e.g.
+// disk full) can't hang shutdown forever. launchd (SuccessfulExit: false) and
+// systemd (Restart=on-failure) both treat exit 0 as an intentional stop, not
+// a crash to respawn from (ADR-030's same reasoning applies here).
+
+let shuttingDown = false;
+
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  clearInterval(checkpointTimer);
+  clearInterval(backupTimer);
+  process.stderr.write(`[telemetry-backend] ${signal} received — checkpointing and shutting down\n`);
+  server.close();
+
+  await Promise.race([
+    checkpoint(),
+    new Promise<void>((res) => setTimeout(res, SHUTDOWN_TIMEOUT_MS)),
+  ]);
+  closeDatabase();
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+process.on('SIGINT', () => { void shutdown('SIGINT'); });

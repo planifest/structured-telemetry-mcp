@@ -1,23 +1,37 @@
 # Test Coverage Summary — structured-telemetry-mcp
 
-Snapshot at 0.13.0 (`0000017-log-viewer-enhancements`).
+Snapshot at 0.14.0 (`0000018-telemetry-data-integrity`).
 
 ## Totals
 
 | Category | Count |
 |----------|-------|
-| Unit (`tests/unit/`) | 179 |
-| Integration (`tests/integration/`) | 88 |
+| Unit (`tests/unit/`) | 229 |
+| Integration (`tests/integration/`) | 124 |
 | Regression (`tests/regression/`) | 137 |
 | Performance (`tests/performance.test.ts`) | 1 |
 | E2E (`tests/e2e/`, `@playwright/test`, Chromium-only) | 22 |
-| **Total** | **427** |
+| **Total** | **513** |
 
-405 of the total are Vitest tests (179 + 88 + 137 + 1); the remaining 22 are Playwright E2E — 9 backend (`tests/e2e/backend/emit-query-health.spec.ts`, unchanged this feature) + 13 UI (`tests/e2e/ui/log-viewer.spec.ts`).
+491 of the total are Vitest tests (229 + 124 + 137 + 1); the remaining 22 are Playwright E2E, unchanged this feature — no new HTTP/UI surface was added (deploy/backup/doctor are CLI/daemon-lifecycle, outside the E2E suites' scope).
 
-Baseline before this feature: 379 (as of 0.12.0 / `0000016`). Growth this feature: +48 — new unit/integration coverage for the shared allow-list (`tests/unit/column-allow-list.test.ts`, ADR-024), `event_log`'s `sortField` (`tests/integration/query-telemetry.test.ts`, ADR-025), and the new `distinct_values` mode (`tests/integration/distinct-values.test.ts`, ADR-026), plus 5 new Playwright UI E2E tests covering auto-refresh, filter suggestions, and sortable headers — including a post-implementation-review fix (`pollForUpdates()` not revealing the table on a zero-to-nonzero transition). No pre-existing test was modified.
+Plus 26 bats tests (`tests/bats/`, was 23 — +3 for req-005's supervision-config key assertions), a separate framework/CI job not counted in the Vitest totals above.
 
-Performance gate: p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95) — unaffected by 0000016/0000017. `event_log`'s new `sortField` and the new `distinct_values` mode (NFR-001, p95 < 300ms per poll/query) measured well within budget at P4 against local DuckDB. E2E suite runtime (NFR-001 of 0000016, p95 < 5 min for both suites combined): measured at ~2.8s combined during P4, far under budget.
+Baseline before this feature: 427 (as of 0.13.0 / `0000017`). Growth this feature: +86 Vitest tests (405→491) across req-001 through req-010 plus the P5 security-fix regression coverage (`sqlPathLiteral()` escaping, backup-timer reentrancy guard). New test files: `tests/unit/checkpoint.test.ts`, `backup-prune.test.ts`, `backup-metadata.test.ts`, `service-manager.test.ts`, `backup-sql-path-literal.test.ts`; `tests/integration/server-http-refuse-to-start.test.ts`, `server-http-wal-safe-migrations.test.ts`, `server-http-periodic-checkpoint.test.ts`, `server-http-graceful-shutdown.test.ts`, `server-http-scheduled-backup.test.ts`, `backup-service.test.ts`, `cli-doctor-backup-staleness.test.ts`. No pre-existing test was modified.
+
+Notably, several of the highest-value tests this feature added are real-execution, not mocked: the poisoned-WAL and lock-held fixtures in `server-http-refuse-to-start.test.ts` reproduce the actual DuckDB failure modes against a real database file; `server-http-scheduled-backup.test.ts` runs a live server process through a real `EXPORT`/`IMPORT DATABASE` cycle; and both P5 security fixes were verified with a genuine RED-before-GREEN cycle (the fix was temporarily reverted, the new test confirmed to fail for the right reason, then restored) rather than review alone.
+
+Performance gate: p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95) — unaffected by 0000018. Backup export duration was measured only at small test scale (P5 finding, tracked as a follow-up) — not yet validated against production-realistic data volumes.
+
+## What's covered by automated tests (0000018)
+
+- Graceful shutdown checkpoint on SIGTERM/SIGINT (req-001), periodic checkpoint at the 60s/100-write threshold (req-002), checkpoint-immediately-after-migration (req-003) — `tests/integration/server-http-graceful-shutdown.test.ts`, `server-http-periodic-checkpoint.test.ts`, `server-http-wal-safe-migrations.test.ts`, `tests/unit/checkpoint.test.ts`
+- Refuse-to-start on a real poisoned-WAL fixture and a real lock-held-by-another-process fixture, exit code 0, WAL left byte-identical — `tests/integration/server-http-refuse-to-start.test.ts`
+- Scheduled backup: full verify→promote→prune sequence, zero-row and non-zero-row cases, verification-mismatch and mid-export-interruption failure paths, retention-pruning stability, live timer wiring against a real server — `tests/integration/backup-service.test.ts`, `server-http-scheduled-backup.test.ts`, `tests/unit/backup-prune.test.ts`
+- `doctor` backup-staleness reporting: verified/absent/malformed sidecar states, confirmed working even while the daemon holds the DuckDB lock — `tests/integration/cli-doctor-backup-staleness.test.ts`, `tests/unit/backup-metadata.test.ts`
+- Deploy build-identity assertion (same-version-mismatch detection, unknown-buildId degrade, live-verified against the real running daemon) and orphan-port detection (managed-PID match, no false positive during normal restart) — `tests/unit/service-manager.test.ts`
+- Event-log pagination tiebreaker — duplicate-sort-key completeness across every sortable field and both directions — `tests/integration/query-telemetry.test.ts`
+- P5 security fixes: SQL path-literal escaping, backup-timer reentrancy guard — `tests/unit/backup-sql-path-literal.test.ts`, plus dedicated cases in `backup-service.test.ts` and `server-http-scheduled-backup.test.ts`
 
 ## What's covered by automated tests (0000017)
 

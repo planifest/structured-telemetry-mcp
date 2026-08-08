@@ -9,9 +9,20 @@ status: "open"
 >
 > **`{id}` is its own sequence — collisions with feature IDs are expected.** Next
 > `{id}` = highest ever allocated + 1, including picked-up and discarded entries.
+>
+> **Deferral source** distinguishes why the entry exists: `discovered mid-flight`
+> (a surprise found during a run, judged out of scope on the spot — today's only
+> case for ad hoc filings), `deliberate scope decision` (a call already made and
+> reasoned through in the source feature's own `scope.md`/ADRs — this entry
+> points back at that reasoning rather than repeating it), or `tech debt`
+> (acknowledged debt filed alongside the code that incurred it). Entries routed
+> automatically from a `recommendations.md` Deferred Items or Tech Debt row use
+> `deliberate scope decision` or `tech debt` respectively; entries filed live
+> during a run use `discovered mid-flight`.
 
 **Source feature:** {{feature-id that discovered this}}
 **Source phase:** {{P0–P9 phase active when discovered}}
+**Deferral source:** {{discovered mid-flight | deliberate scope decision | tech debt}}
 **Date filed:** {{ISO-8601 date}}
 
 ---

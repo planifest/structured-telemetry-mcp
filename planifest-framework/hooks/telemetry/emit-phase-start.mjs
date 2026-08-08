@@ -48,7 +48,6 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { execFileSync } from "node:child_process";
 
 const BACKEND_URL = process.env.PLANIFEST_TELEMETRY_URL;
 const PHASE = process.argv[2];
@@ -91,16 +90,29 @@ function getFlagPath(sessionId) {
   return join(dir, `phase-start-${sessionId}-${PHASE}`);
 }
 
-function getProductId(cwd) {
-  try {
-    return execFileSync("git", ["rev-parse", "--show-toplevel"], {
-      cwd,
-      encoding: "utf-8",
-      stdio: ["ignore", "pipe", "ignore"],
-    }).trim();
-  } catch {
-    return cwd;
+// Declared product_id source (req-001): product.yml's top-level `id` field,
+// resolved relative to the hook's own `cwd`. No git-derived or path-shaped
+// fallback — an absent/unparseable/`id`-less product.yml is a hard failure
+// that propagates to the caller's top-level try/catch and is routed through
+// recordTelemetryFailure() below (never a silent path-shaped fallback).
+function readProductId(cwd) {
+  const text = readFileSync(join(cwd, "product.yml"), "utf-8");
+  for (const raw of text.split(/\r?\n/)) {
+    const noComment = raw.replace(/#.*$/, "");
+    const m = noComment.match(/^id:\s*(.*)$/);
+    if (!m) continue;
+    let value = m[1].trim();
+    if (/^"[^"]*"$/.test(value) || /^'[^']*'$/.test(value)) {
+      value = value.slice(1, -1).trim();
+    } else if (/["']/.test(value)) {
+      throw new Error("product.yml id field is malformed (unbalanced quoting)");
+    }
+    if (!value || /^(null|~)$/i.test(value)) {
+      throw new Error("product.yml id field is empty");
+    }
+    return value;
   }
+  throw new Error("product.yml has no top-level id field");
 }
 
 // Best-effort durable failure marker (req-002, ADR-002) — see file header for
@@ -187,7 +199,7 @@ try {
   const event = {
     schema_version: "1.0",
     event: "phase_start",
-    product_id: getProductId(cwd),
+    product_id: readProductId(cwd),
     session_id: sessionId,
     phase: PHASE,
     agent: `planifest-${PHASE}-agent`,

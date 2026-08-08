@@ -1,7 +1,7 @@
 id: "planifest-framework"
 name: "Planifest Framework"
-feature: "0000023-framework-pipeline-fixes"
-version: "0.23.0"
+feature: "0000026-context-hook-and-telemetry-backstop-fixes"
+version: "0.26.1"
 status: "active"
 type: "component-pack"
 domain: "developer-tooling"
@@ -47,6 +47,16 @@ responsibilities:
   - "Maintain a populated tests/regression/ pack as the safety net for cross-cutting skill/standards/template changes, gated by human review of the promoted test list before any baseline run"
   - "Bound skill-content growth via a recorded audit-findings-report + dual-guardrail trim process (no enforcement-content loss, no ambiguity regression), never applied without a pre-recorded regression-pack baseline to compare against"
   - "Restate every orchestrator rule in exactly one canonical file (phase skill, workflow, standard, or template) with a pointer from the orchestrator, verified by a P4 diff review as the second detector alongside content-pinning regression tests"
+  - "Source telemetry product_id from a durable declared identifier (product.yml id field) rather than a filesystem path, with unresolvable product_id routed to the existing failure-marker mechanism rather than a fallback value"
+  - "Prompt the human on the loop for a declared product id at P0 when product.yml/id is absent, hard-stopping rather than proceeding silently"
+  - "Document the emit_event MCP tool's envelope argument name correctly across telemetry-standards.md and all phase skills' Telemetry sections"
+  - "Omit AI-attribution footer from ship-agent PR output by default, restorable only via a planifest-overrides/instructions/ opt-in"
+  - "Stage plan/current/ explicitly in the P7 archive commit's git add, not reliant on git's rename-detection heuristic"
+  - "Track active setup flags/backend-url in a versioned planifest-overrides/setup-config/{tool}.md file, additive to the existing gitignored marker"
+  - "Route docs-agent's recommendations.md Deferred Items/Tech Debt rows into plan/backlog/ entries tagged by source, going forward"
+  - "Check continuous_run/plan/.run-mode before docs-agent's Gate B stops for confirmation"
+  - "Default the Scope Lock Challenge to always-drafted, batch-presented answers via parallel planifest-scope-lock-agent dispatch, scoped narrowly against 0000014-ADR-008's one-question-at-a-time convention"
+  - "Backstop the orchestrator's ADR-002 telemetry-failure-marker phase-start check with a deterministic check-telemetry-failures UserPromptSubmit hook (read-only; injects a reminder, never deletes markers or decides block-or-proceed)"
 
 exceptions:
   - "Does not write to planifest-overrides/ — that directory is user-owned"
@@ -115,6 +125,9 @@ scope:
     - "Loop/reversal telemetry event types and planifest-overrides/loop-toggles.yml (all default off)"
     - "tests/regression/ population and baseline-vs-post-trim comparison for skill/standards/template content edits"
     - "standards/agent-dispatch-standards.md as the canonical home for model-tier decisions and parallelism/dispatch mechanics, referenced (not restated) by the orchestrator, ship-agent, and codegen-agent"
+    - "product.yml id field as the canonical declared product_id for telemetry, for single- and multi-component projects alike"
+    - "Correct emit_event MCP tool argument documentation (envelope, not event) in telemetry-standards.md and all phase skills"
+    - "check-telemetry-failures.mjs enforcement hook: always installed alongside gate-write/check-design (not gated behind --context-mode-mcp or --structured-telemetry-mcp) because it is UserPromptSubmit-shaped like those hooks, not PostToolUse like context-pressure.mjs, and only reads plan/.telemetry-failures/ rather than depending on the telemetry hooks being active"
   outOfScope:
     - "Application-level code generation (handled by planifest-codegen-agent)"
     - "CI pipeline configuration for consumer projects"
@@ -133,7 +146,7 @@ risk:
 quality:
   testCoverage:
     unit: 0
-    integration: 414
+    integration: 561
     e2e: 0
   techDebt: []
   quirks:
@@ -142,6 +155,7 @@ quality:
     - "ratchet-check treats a reworded criterion as remove+add and blocks it (conservative); the .ratchet-approve marker is the intended path for legitimate rewording"
     - "ratchet-check cannot verify who wrote .ratchet-approve (ADR-004 same-changeset detection not implemented in 0.16.0); marker forgery is audit-detected via ratchet-log.md and P8, not prevented"
     - "product-version.mjs parses only the constrained product.template.yml shape, not arbitrary YAML"
+    - "readProductId() (telemetry hooks) extracts product.yml's top-level id field via a constrained regex, not a full YAML parser — consistent with the existing minimal-dependency style of these hook files; will not handle a non-trivial YAML structure around the id key"
 
 pipeline:
   templateVersion: "1.0.0"
@@ -150,7 +164,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-05-02"
-  updatedAt: "2026-08-02"
+  updatedAt: "2026-08-03"
   # Updated by 0000021 (spec-agent) P1: seeded requirements-derived
   # responsibilities/scope/risk entries for the regression-pack and
   # audit-findings-report/guardrailed-trim process ahead of P3 codegen.
@@ -162,6 +176,45 @@ metadata:
   # for P1-P3, fixed session-marker commit lifecycle, fixed copilot.sh/.ps1
   # self-copy crash + setup.ps1 dispatcher guard, added product_id telemetry
   # emission.
+  # Updated by 0000024 (codegen-agent) P3: replaced git-path product_id
+  # derivation with a declared product.yml id field (no fallback, routes
+  # to existing failure-marker mechanism), added orchestrator P0 hard-stop
+  # prompt, fixed stale emit_event envelope-argument documentation, closed
+  # 0000017's unexecuted RCA live-verification follow-up.
+  # Updated by 0000025 (codegen-agent) P3: 7-story bundle — ship-agent PR
+  # footer default-off with opt-in toggle, ship-agent P7 git add stages
+  # plan/current/ explicitly, setup-config tracked in
+  # planifest-overrides/setup-config/ (additive to existing marker),
+  # docs-agent routes recommendations.md deferred items to plan/backlog/,
+  # docs-agent Gate B and other phase-skill gates respect continuous_run,
+  # Scope Lock Challenge defaults to always-drafted/batch-presented answers
+  # (supersedes 0000017-ADR-003), subagent parallelism directives expanded
+  # for validate-agent/docs-agent/agent-dispatch-standards.md. Updated 2
+  # pre-existing tests (0000017-req-005, 0000023-req-002) whose assertions
+  # encoded the exact behavior these fixes intentionally changed.
+  # Updated by 0000026 (change-agent, backlog 0000044 folded in): added
+  # check-telemetry-failures.mjs, a read-only UserPromptSubmit hook that
+  # deterministically backstops the orchestrator's ADR-002 phase-start
+  # telemetry-failure-marker check by injecting an additionalContext
+  # reminder when plan/.telemetry-failures/ has unacknowledged markers.
+  # Wired into setup.sh/.ps1 alongside gate-write/check-design (always
+  # installed, not gated behind --context-mode-mcp or
+  # --structured-telemetry-mcp). Updated the orchestrator SKILL.md's
+  # Telemetry section to note the new backstop.
+  #
+  # LOCAL PATCH (not upstream, carried on top of the 0.26.1 release):
+  # hooks/telemetry/context-pressure.mjs carries a bounded retry (2 retries,
+  # 300ms gaps, network-level fetch failures only — never on an HTTP error
+  # status) for the connection-refused window a consuming product's own
+  # daemon restart briefly opens. Added in this repo during
+  # structured-telemetry-mcp's 0000018 run, after 10 spurious durable-failure
+  # markers were traced to its own req-008/009 live deploy-restart
+  # verification tripping the hook during the daemon's restart gap. Verified
+  # with a two-case reproduction (a genuinely unreachable backend still fails
+  # and writes the marker unchanged; a backend returning mid-retry now
+  # succeeds silently). Release 0.26.1 does not contain this change — it will
+  # be lost by the next `update-planifest-framework.local-only.sh` run unless
+  # it is upstreamed into the framework's own repo first.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"

@@ -43,8 +43,11 @@ assert_contains "include \`plan/.orchestrator-ack\` in the P0 commit" "$ORCH_CON
 echo ""
 echo "=== req-002: deletion-side atomic commit (ship-agent P7) ==="
 
-assert_contains "git add plan/_archive/ plan/changelog/ docs/about.md plan/.orchestrator-active plan/.orchestrator-ack plan/.run-mode" \
-  "$SHIP_CONTENT" "req-002: P7 Step 7 git add stages all three markers atomically"
+# String updated by feature 0000025, req-002: `plan/current/` is now staged
+# explicitly (no longer relying on git's rename-detection heuristic to pick
+# up the copy-then-delete when plan/_archive/ is staged).
+assert_contains "git add plan/current/ plan/_archive/ plan/changelog/ docs/about.md plan/.orchestrator-active plan/.orchestrator-ack plan/.run-mode" \
+  "$SHIP_CONTENT" "req-002: P7 Step 7 git add stages plan/current/ explicitly plus all three markers atomically"
 
 echo ""
 echo "=== req-002: P9 pre-flight backstop check ==="

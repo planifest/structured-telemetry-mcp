@@ -260,8 +260,32 @@ The single table that stores all telemetry events. One row per event.
 
 ---
 
+## Backup Artifacts (0000018)
+
+Not a DuckDB table — a second, file-based copy of the same owned data, still governed by this component's sole-ownership rule (no other component may write to these paths either).
+
+**Location:** Outside `~/.planifest/` by default (exact path confirmed at P2 alongside the backup-ownership ADR — see `risk-register.md` R-001), so a mistaken wipe of `~/.planifest/` cannot take the backups with it.
+
+**Format:** Timestamped `EXPORT DATABASE` directories. Written under a temporary name, restored into scratch and row-count-verified, then promoted (renamed) into the retained set only on success — never promoted, never counted — per the mandatory verify → promote → prune ordering (req-006).
+
+**Retention:** 7 daily + 4 weekly (~1 month), pruned only after promotion and only over already-verified artifacts — a failed or interrupted run can never remove an older good backup.
+
+**Sidecar metadata file:** `latest-verified-backup.json`, written directly inside the backup directory (`PLANIFEST_TELEMETRY_BACKUP_DIR`, default `~/.planifest-backups`) — finalized at P3 (req-006, `src/backup/backup-metadata.ts`). Recording, for the most recent *verified* backup only:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timestamp` | string (ISO 8601) | When the verified export completed |
+| `rowCount` | integer | Row count pinned at export time and confirmed by the scratch-restore verification |
+| `artifactPath` | string | Path to the promoted backup directory |
+
+`npm run doctor` (req-007) reads this file to report backup staleness — it never opens `telemetry.db` directly for this purpose, since a second connection while the daemon holds the write lock is confirmed (by reading `src/cli.ts`'s existing `runDoctor()`) to be capable of failing or blocking.
+
+---
+
 ## Migration Policy
 
 Schema changes require a migration proposal at `src/structured-telemetry-mcp/docs/migrations/proposed-{desc}.md`. No direct schema modification without human approval.
 
 New event types increment `schema_version`. Existing rows retain their original `schema_version` value and are queried with null-coalescing for fields added in later versions.
+
+**WAL-safety rule (0000018, req-003):** any `ALTER TABLE ADD COLUMN` migration must be followed immediately by a `CHECKPOINT`, before the daemon proceeds to open its HTTP listener. The 2026-08-03 incident's unreplayable-WAL failure was an internal DuckDB limitation in replaying a pending `ALTER TABLE ADD COLUMN` WAL entry (`ReplayAlter`, per `plan/backlog/00023-recover-stranded-wal-events/entry.md`) — not caused by an explicit function-valued `DEFAULT` in this component's own migration SQL (`MIGRATE_ADD_MODEL_CONFIG` and `MIGRATE_ADD_PRODUCT_ID` in `src/db/schema.ts` both have none). Checkpointing immediately after any `ALTER` ensures the entry is flushed into the base file and never needs to be replayed. Apply this rule to every future migration added to this file, not only the two that exist today.

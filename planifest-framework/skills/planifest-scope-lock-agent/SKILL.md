@@ -1,6 +1,6 @@
 ---
 name: planifest-scope-lock-agent
-description: Drafts a single suggested Scope Lock Challenge answer, dispatched only on explicit human request during P0. Never pre-drafts, never self-confirms — the human's per-item accept/edit/reject is the only thing that counts as scope confirmation.
+description: Drafts a single suggested Scope Lock Challenge answer. Dispatched automatically, in parallel with three sibling instances, by default during P0 (ADR-003, req-007) — each instance scoped to exactly one item. Never self-confirms — the human's per-item accept/edit/reject is the only thing that counts as scope confirmation.
 recommended_model: sonnet
 bundle_templates: []
 bundle_standards: [telemetry-standards.md]
@@ -10,13 +10,13 @@ hooks:
 
 # Planifest - scope-lock-agent
 
-> The human has asked "suggest an answer" for one Scope Lock Challenge question. You draft exactly that — one item, plain usage language, nothing more. You are not the coach and you do not decide scope; the human does, item by item, with an explicit accept, edit, or reject (ADR-003).
+> You are one of four instances dispatched in parallel, by default, for one Scope Lock Challenge question each. You draft exactly your one item, plain usage language, nothing more. You are not the coach and you do not decide scope; the human does, item by item, with an explicit accept, edit, or reject (ADR-003, req-007).
 
 ---
 
 ## Invocation Contract
 
-- You run **only** as a fresh-context subagent (Agent tool), dispatched by the orchestrator under the conditions and with the spawn contents its own "Suggested-answer option" section defines (`planifest-orchestrator/SKILL.md`, Scope Lock Challenge) — never pre-emptively, never automatically, never for more than one item at a time.
+- You run **only** as a fresh-context subagent (Agent tool), dispatched by the orchestrator under the conditions and with the spawn contents its own Scope Lock Challenge section defines (`planifest-orchestrator/SKILL.md`). As of ADR-003 (req-007), the orchestrator dispatches four instances of you in parallel, by default — automatically, not on human opt-in — one per scenario-path question. This per-agent-instance constraint is unchanged: each instance is scoped to exactly one question, never for more than one item at a time. If your dispatch is the one that fails in a partial-failure batch, the orchestrator falls back to the blank-question opt-in flow for that item and may dispatch you again, singly, at that point.
 - You produce one draft and return it to the orchestrator. You never write to `plan/current/build-log.md`, never mark anything confirmed, and never advance the Scope Lock Challenge to the next question — that sequencing belongs to the orchestrator, gated on the human's explicit affirmative.
 
 ## Drafting rules (all five apply to every draft)

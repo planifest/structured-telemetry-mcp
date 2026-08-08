@@ -425,7 +425,10 @@ function Install-TelemetryHooks {
 
 function Merge-EnforcementHookSettings {
     # Merge gate-write (PreToolUse), auto-trigger-orchestrator, check-orchestrator-presence,
-    # and check-design (UserPromptSubmit) into settings.json. Idempotent.
+    # check-design, and check-telemetry-failures (UserPromptSubmit) into settings.json.
+    # check-telemetry-failures (0000026, backlog 0000044) is UserPromptSubmit-shaped like
+    # the other enforcement hooks here, not PostToolUse like context-pressure.mjs, and is
+    # always installed regardless of MCP flags. Idempotent.
     param(
         [string]$SettingsPath,
         [string]$HooksDir
@@ -446,6 +449,10 @@ function Merge-EnforcementHookSettings {
     $userPromptEntry = @{
         matcher = '.*'
         hooks   = @(@{ type = 'command'; command = "node $HooksDir/check-design.mjs" })
+    }
+    $telemetryFailuresEntry = @{
+        matcher = '.*'
+        hooks   = @(@{ type = 'command'; command = "node $HooksDir/check-telemetry-failures.mjs" })
     }
 
     if (Test-Path $SettingsPath) {
@@ -472,10 +479,11 @@ function Merge-EnforcementHookSettings {
             -not ($_.hooks | Where-Object {
                 $_.command -match 'auto-trigger-orchestrator' -or
                 $_.command -match 'check-orchestrator-presence' -or
-                $_.command -match 'check-design'
+                $_.command -match 'check-design' -or
+                $_.command -match 'check-telemetry-failures'
             })
         })
-        $existing.hooks.UserPromptSubmit = $filtered + $autoTriggerEntry + $presenceEntry + $userPromptEntry
+        $existing.hooks.UserPromptSubmit = $filtered + $autoTriggerEntry + $presenceEntry + $userPromptEntry + $telemetryFailuresEntry
 
         $existing | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Encoding UTF8
         Write-Host "  ~ .claude/settings.json (enforcement hook entries merged)"
@@ -487,7 +495,7 @@ function Merge-EnforcementHookSettings {
         $settings = [PSCustomObject]@{
             hooks = [PSCustomObject]@{
                 PreToolUse       = @($preToolEntry)
-                UserPromptSubmit = @($autoTriggerEntry, $presenceEntry, $userPromptEntry)
+                UserPromptSubmit = @($autoTriggerEntry, $presenceEntry, $userPromptEntry, $telemetryFailuresEntry)
             }
         }
         $settings | ConvertTo-Json -Depth 10 | Set-Content -Path $SettingsPath -Encoding UTF8
@@ -523,7 +531,8 @@ function Merge-AllowedTools {
 }
 
 function Install-EnforcementHooks {
-    # Copy gate-write.mjs + check-design.mjs and wire settings.json. Always runs — no flag required.
+    # Copy gate-write.mjs + check-design.mjs + check-telemetry-failures.mjs (0000026) and
+    # wire settings.json. Always runs — no flag required.
     param(
         [string]$HooksSrcRel,
         [string]$HooksDirRel,
@@ -1244,10 +1253,59 @@ function Invoke-PlanifestSetup {
     # scope.md), so this silently skips there rather than erroring under $ErrorActionPreference = 'Stop'.
     if ($toolConfig -and $toolConfig.SkillsDir) {
         $toolDir = Split-Path -Parent $toolConfig.SkillsDir
+        Write-SetupConfigOverride -ToolName $ToolName | Out-Null
         Write-SetupFlagsMarker -ToolName $ToolName -ToolDir $toolDir
     }
 
     Write-Host "  Done."
+}
+
+# Write planifest-overrides/setup-config/{tool}.md — the tracked, git-versioned source
+# of truth for active setup flags/backendUrl (0000025 req-004, ADR-002 decision 1). This
+# is additive: it does not replace Write-SetupFlagsMarker, and it is called BEFORE it so
+# the gitignored marker is always (re)written to match this file's values for the current
+# run (ADR-002 decision 3). On failure to write (e.g. permissions), warns and returns
+# $false so the caller falls back to existing marker-only behavior rather than aborting
+# setup (req-004 acceptance criteria, sad path).
+function Write-SetupConfigOverride {
+    param($ToolName)
+
+    $configDir = Join-Path $ProjectRoot 'planifest-overrides\setup-config'
+    $configFile = Join-Path $configDir "$ToolName.md"
+
+    $flags = @()
+    if ($ContextModeMcp) { $flags += '--context-mode-mcp' }
+    if ($StructuredTelemetryMcp) { $flags += '--structured-telemetry-mcp' }
+    if ($IncludeFullSkillLibrary) { $flags += '--include-full-skill-library' }
+    if ($StrictOrchestrator) { $flags += '--strict-orchestrator' }
+
+    $backendUrlValue = if ($StructuredTelemetryMcp) { $BackendUrl } else { $null }
+    $writtenAt = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
+
+    $configJson = [ordered]@{
+        tool       = $ToolName
+        flags      = $flags
+        backendUrl = $backendUrlValue
+        writtenAt  = $writtenAt
+    } | ConvertTo-Json -Depth 10
+
+    $fence = [char]96 + [char]96 + [char]96
+    $content = "# Setup config: $ToolName`n`n" +
+        "> Tracked source of truth for active setup flags/backend-url for **$ToolName**`n" +
+        "> (0000025 req-004, ADR-002). The gitignored ``.planifest-setup-flags`` marker in`n" +
+        "> this tool's config directory is a local completion-status cache, reconciled to`n" +
+        "> match this file on every ``setup.sh``/``setup.ps1`` run.`n`n" +
+        "$fence" + "json`n$configJson`n$fence`n"
+
+    try {
+        New-Item -ItemType Directory -Path $configDir -Force -ErrorAction Stop | Out-Null
+        Set-Content -Path $configFile -Value $content -Encoding UTF8 -ErrorAction Stop
+        Write-Host "  + planifest-overrides\setup-config\$ToolName.md"
+        return $true
+    } catch {
+        Write-Warning "Could not write planifest-overrides/setup-config/$ToolName.md — continuing with .planifest-setup-flags-only behavior"
+        return $false
+    }
 }
 
 # Write the flags-used marker recording what was applied at install time (REQ-008, ADR-002).
