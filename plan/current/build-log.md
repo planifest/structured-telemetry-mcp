@@ -257,6 +257,21 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 
 ---
 
+### P4 — Validate
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T09:53:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-validate-agent |
+| Agents spawned | `TBD` |
+| MCP calls | `TBD` |
+| Parallel task batches | `TBD` |
+| Telemetry | TBD |
+| Notes | Continuous mode. P3 delivered 485/485 Vitest + 26/26 bats + clean typecheck already; P4 runs the full CI-equivalent check set (lint, typecheck, test, build) fresh and self-corrects up to 5 times per the phase's own protocol. |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
