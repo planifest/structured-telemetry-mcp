@@ -58,9 +58,9 @@ exceptions:
   # required, including for the new UI", reasoned against a multi-user threat
   # model that never considered browser-mediated attack, where the
   # developer's own browser sits inside the trust boundary. ADR-032 narrows
-  # that claim rather than removing it: still no credential, but provenance
-  # is now checked.
-  - "Does not authenticate callers with any credential — no token, password, or key (ADR-032 deliberately rejects a shared secret; see its Alternatives table). Caller *provenance* is checked instead: a Host allow-list and Origin rejection (0000019, req-001, req-002, ADR-032) — landing at P3, not yet implemented as of this P2 manifest revision"
+  # that claim rather than removing it: still no credential, and once P3
+  # lands, provenance will be checked too.
+  - "Does not authenticate callers with any credential — no token, password, or key (ADR-032 deliberately rejects a shared secret; see its Alternatives table). Caller *provenance* will be checked instead, once P3 lands: a Host allow-list and Origin rejection (0000019, req-001, req-002, ADR-032) — the decision is accepted as of this P2 manifest revision, the code is not"
   - "Does not support multi-user access control — there is one local user, and distinguishing between humans remains out of scope (0000015, unaffected by ADR-032, which is about caller provenance, not about telling multiple humans apart)"
   - "Does not install a system-level (root) launchd daemon or root systemd unit — user-scoped service only"
   - "Does not auto-fix a root-owned ~/Library/LaunchAgents or auto-enable systemd lingering — both require explicit human action"

@@ -49,7 +49,7 @@ This narrows, rather than removes, `component.yml`'s original claim. The daemon 
 
 | Component | Impact |
 |-----------|--------|
-| structured-telemetry-mcp | `src/server-http.ts` gains the three checks ahead of every route handler (req-001, req-002, req-003). `component.yml`'s `exceptions` block is revised to state the narrowed claim once this ADR is accepted — not before (see Consequences). No other component is affected; the stdio proxy and Planifest emission hooks require no code change, since both already send no `Origin` and already send `Content-Type: application/json` (verified at P0 against `emit-phase-start.mjs`, `emit-phase-end.mjs`, `context-pressure.mjs`, `http-query-service.ts`, `http-repo.ts`) |
+| structured-telemetry-mcp | `src/server-http.ts` gains the three checks ahead of every route handler (req-001, req-002, req-003). `component.yml`'s `exceptions` block is revised to state the narrowed claim once this ADR is accepted — not before (see Consequences). No other component is affected; the stdio proxy, the Planifest emission hooks, and the log viewer itself all require no code change, since every one of them already sends no foreign `Origin` and already sends `Content-Type: application/json` (verified at P0 and cited in full by req-002 and req-003's own Dependencies: `emit-phase-start.mjs:219`, `emit-phase-end.mjs:208`, `context-pressure.mjs:235`, `http-query-service.ts:42`, `http-repo.ts:16`, `src/ui/index-html.ts:258`) |
 
 ## Consequences
 
