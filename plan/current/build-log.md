@@ -213,6 +213,21 @@ Revalidated: `2026-08-08T07:40:18Z`
 
 ---
 
+### Run Mode Change
+
+```
+Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this should be continuous
+  mode and not stop at gates," given at the P2->P3 confirmation. plan/.run-mode updated from
+  `interactive` to `continuous` effective immediately. P0's gate-by-gate confirmations (P0, P1, P2)
+  stand as already given; P3 onward proceeds without stopping at ordinary phase gates per the Phase
+  Invocation Table's continuous_run exception. Genuine escalation halts (e.g. P3's own Escalation halt
+  condition, Governed Phase-Reversal human gates, P7's ship confirmation which is never bypassed) are
+  unaffected — continuous mode skips routine gate confirmations, not halts that exist independent of
+  run mode. [source: human, 2026-08-08]
+```
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
