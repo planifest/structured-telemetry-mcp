@@ -424,6 +424,85 @@ Gate accepted: P4 — 2026-08-08T16:58:22Z
 
 ---
 
+### P5 — Security
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T17:00:00Z` |
+| Model tier | primary (subagent) |
+| Skills loaded | planifest-security-agent |
+| Agents spawned | `1` |
+| MCP calls | `0` |
+| Parallel task batches | `1` (P5 + P6 dispatched together) |
+| Telemetry | confirmed-disabled |
+| Notes | Report at plan/current/security-report.md. |
+
+Overall risk: **Low. No blockers.** 0 Critical, 0 High, 1 Medium, 2 Low, 1 Info.
+All eight verification targets confirmed sound: Host exact-match closes DNS
+rebinding; Origin rejection closes CSRF (absent-Origin acceptance safe —
+browsers cannot suppress Origin cross-origin); Content-Type parse resists
+tab/param/duplicate-header bypass; both body-cap enforcement points real and
+the end-handler throw no longer escapes to uncaughtException; redaction leaks
+no engine/SQL/stored text on any of the three sites; the gate is a positive
+range test on both paths; the allow-list is the only path to SQL identifier
+interpolation; no new ReDoS/leak/unhandled-rejection introduced.
+
+- **M1** (Medium): pre-existing npm audit vulns (6 prod / 9 total), NOT
+  introduced by this feature and not on the request path. Deferred — filed as
+  backlog 00030 rather than fixed in this feature's scope.
+- **L1** (Low, hygiene): `mode in QUERY_LIMIT_CEILINGS` traverses the prototype
+  chain but fails safe (rejects). Accepted; noted for a future `Object.hasOwn`.
+- **L2** (Low, conformance): an invalid sortField/field/group_by returns a
+  redacted 500 rather than a field-named 400. **Accepted minor deviation** —
+  injection is still fully blocked and the value redacted (no security impact,
+  per the security agent); req-009's field-named-400 wording is a status-code
+  nit at the HTTP layer, not a hole. Filed as backlog 00031 for a conformance
+  follow-up rather than reopening the frozen boundary pass at ship time.
+
+Per the P5 STOP-rule exception (risk Low, zero critical/high/medium findings
+*attributable to this feature*), continuous run proceeds. Gate accepted: P5 —
+2026-08-08T17:00:00Z
+
+---
+
+### P6 — Documentation
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T17:00:00Z` |
+| Model tier | primary (subagent) |
+| Skills loaded | planifest-docs-agent |
+| Agents spawned | `1` |
+| MCP calls | `0` |
+| Parallel task batches | `1` (P5 + P6 dispatched together) |
+| Telemetry | confirmed-disabled |
+| Notes | Committed 0e54c2c. |
+
+Living docs produced/refreshed: OpenAPI contract published to
+src/structured-telemetry-mcp/docs/openapi-spec.yaml and component.yml's
+contract.apiSpec set to that clean path (pending marker removed — required
+before P7 archives plan/current/); docs/about.md → 0.15.0; usage-guide gains a
+request-boundary/error-handling section, the three new env vars, the
+distinct_values reject-not-clamp change, and truncated/total_count; ADR-032
+added to decisions-index; api-index, architecture-overview, component-registry,
+interface-contract, quirks.md all updated; a per-feature doc created.
+
+Drift found and fixed: (1) component.yml's exceptions comments still carried
+the P2 "not yet running / code lands at P3" tense — corrected to running
+behaviour now that the code is green (CLAUDE.md rule 7); (2) usage-guide's
+/health example returned a stale {ok, db} shape — corrected to {ok, version,
+buildId}; (3) quirks.md lacked the 0000019 section its component.yml already
+carried — added.
+
+Zero drift remaining, all expected artifacts present. Per the P6 STOP-rule
+exception, continuous run proceeds. Gate accepted: P6 — 2026-08-08T17:00:00Z
+
+Version alignment (P6 close): package.json (0.13.0 stale, flagged at P0
+discovery), product.yml (0.14.0), component.yml and about.md (0.15.0) were
+divergent. All four set to 0.15.0 so the P9 tag (v0.15.0) is consistent.
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
