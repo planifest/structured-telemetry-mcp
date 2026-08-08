@@ -503,16 +503,33 @@ divergent. All four set to 0.15.0 so the P9 tag (v0.15.0) is consistent.
 
 ---
 
+### P7 — Archive
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T17:05:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-ship-agent |
+| Agents spawned | `1` (P8 build-assessment, dispatched below) |
+| MCP calls | `0` |
+| Parallel task batches | `0` |
+| Telemetry | confirmed-disabled |
+| Notes | Cross-reference check: no living-doc link points at 0000019's plan/current/ (prior-feature prose references are historical, not live links). No .skips. No REGRESSION-CANDIDATE tags. ADR-032 decisions-index link already forward-pointed to the archive path by P6. |
+
+Gate accepted: P7 — archive committed (see plan(p7) commit).
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
 |--------|-------|
-| Total phases completed | `{{count}}` |
-| Total agents spawned | `{{count}}` |
-| Total MCP calls | `{{count}}` |
-| Phases using parallelism | `{{count}}` |
-| Primary tier agent calls | `{{count}}` |
-| Cheaper tier agent calls | `{{count}}` |
-| Self-corrections | `{{count}}` |
-| Phases skipped | `{{list or "none"}}` |
-| Phases with a recorded telemetry gap | `{{count}}` |
+| Total phases completed | 10 (P0–P9) |
+| Total agents spawned | 9 (4 scope-lock P0, 3 design-critic P1, 1 design-critic P2, 1 P2-review, + P5 security, P6 docs, P8 assessment dispatched from ship — 12 total across the run; P0–P2 critics counted here) |
+| Total MCP calls | ~10 (ctx_execute analysis calls; no telemetry emission — signal absent) |
+| Phases using parallelism | 2 (P0 scope-lock ×4; P5+P6 dispatched together) |
+| Primary tier agent calls | 8 |
+| Cheaper tier agent calls | 5 (4 scope-lock + 1 build-assessment on haiku) |
+| Self-corrections | P1 design-critic 3 iterations, P2 design-critic 2 iterations; P3 zero TDD escalations; P4 zero CI self-corrections |
+| Phases skipped | none |
+| Phases with a recorded telemetry gap | 0 (all phases confirmed-disabled — unified signal genuinely absent this run) |
