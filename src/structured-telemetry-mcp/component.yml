@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000017-log-viewer-enhancements"
-version: "0.13.0"
+feature: "0000018-telemetry-data-integrity"
+version: "0.14.0"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -187,16 +187,16 @@ risk:
     - "E2E harness must explicitly bind 127.0.0.1, never 0.0.0.0, to avoid introducing new network exposure during test runs (0000016 R-005)"
     - "sortField (event_log) and field (distinct_values) are both column-identifier inputs — DuckDB has no parameterized-identifier binding, so both MUST validate against a shared allow-list before any SQL interpolation, or both become SQL-injection-via-identifier vectors (0000017 R-001, plan/current/risk-register.md)"
     - "req-001/002/003 all extend the same shared state-management functions in the single src/ui/index-html.ts embedded script (readStateFromUrl, writeStateToUrl, applyStateToForm, readFormIntoFilters) — must be implemented as one integrated pass, not three independently-parallelised edits, to avoid clobbering (0000017 R-002)"
-    - "Backup ownership vs. DuckDB's single-writer lock is unresolved pending a P2 ADR — an external scheduler cannot open telemetry.db while the daemon holds the lock, the exact conflict that produced the 2026-08-03 crash loop (0000018 R-001, plan/current/risk-register.md)"
-    - "doctor (src/cli.ts runDoctor()) already opens a second, independent DuckDB connection for its write-test check — confirmed capable of failing/blocking under the same single-writer lock; backup-staleness reporting must read a sidecar metadata file instead of opening telemetry.db directly (0000018 R-002)"
-    - "Changing the daemon's exit posture on refuse-to-start interacts with launchd KeepAlive/systemd Restart=on-failure — neither currently has a real circuit-breaker (macOS plist has no ThrottleInterval; systemd unit has no StartLimitIntervalSec/StartLimitBurst), confirmed by reading both service scripts (0000018 R-005)"
-    - "The false 'Service is healthy' health check originates in verify_service() in service-macos.sh (curl-only, no body inspection) — the Linux and Windows paths must be independently audited for the same defect shape, not assumed fixed by fixing one platform (0000018 R-009)"
+    - "Backup runs in-process on the daemon's own DuckDB connection (ADR-029) — no external scheduler, so no second connection ever opens telemetry.db; EXPORT DATABASE format chosen for DuckDB-version independence (ADR-028) (0000018)"
+    - "doctor's backup-staleness check (req-007) reads a sidecar JSON metadata file, never telemetry.db directly — avoids the single-writer-lock conflict doctor's pre-existing write-test check is independently exposed to (0000018)"
+    - "Refuse-to-start exits 0 (ADR-030), matching both launchd's SuccessfulExit:false and systemd's Restart=on-failure, which already restart only on non-zero exit — no plist/unit change was required for the primary stay-stopped guarantee; ThrottleInterval/StartLimitBurst (ADR-031) remain as defense-in-depth against unrelated crash loops (0000018)"
+    - "The false 'Service is healthy' health check (verify_service() in service-macos.sh, curl-only, no body inspection) is fixed via an additive buildId fingerprint on GET /health, compared by deploy across all three platform paths (req-008); orphan-port detection (req-009) closes the sibling case of an unmanaged process answering on the port (0000018)"
 
 quality:
   testCoverage:
-    unit: 179   # 405 Vitest tests across 16 files as of 0000017 (179 unit + 88 integration + 137 regression + 1 performance), plus 23 bats tests (tests/bats/, not counted here — separate framework/CI job)
-    integration: 88
-    e2e: 22   # @playwright/test, Chromium-only: 9 backend (tests/e2e/backend/) + 13 UI (tests/e2e/ui/) as of 0000017 (+5: sortable-header click/dropdown/URL-preload, suggestion combobox, auto-refresh toggle+live-pickup)
+    unit: 225   # 485 Vitest tests across 27 files as of 0000018 (225 unit + 122 integration + 137 regression + 1 performance), plus 26 bats tests (tests/bats/, was 23 — +3 for req-005's supervision-config keys; not counted here — separate framework/CI job)
+    integration: 122
+    e2e: 22   # @playwright/test, Chromium-only: unchanged from 0000017 — no new HTTP/UI surface added by 0000018 (deploy/backup/doctor are CLI/daemon-lifecycle, outside the E2E suites' scope)
     performanceGate: "p95 < 100ms (CI-tolerant; Windows GH runners measured ~28ms p95)"
   techDebt:
     - "AJV 8 uses `export =` incompatible with NodeNext ESM default imports. Isolated in src/validation/ajv-instance.ts using createRequire + cast pattern. Will self-resolve if AJV ships a native ESM build."
@@ -224,7 +224,7 @@ pipeline:
 
 metadata:
   createdAt: "2026-04-13T00:00:00Z"
-  updatedAt: "2026-08-03T00:00:00Z"
+  updatedAt: "2026-08-08T00:00:00Z"
   # Updated by 0000017 (codegen-agent) P3: implemented event_log sortField
   # (allow-listed, defaults to timestamp), the distinct_values query mode
   # (allow-listed suggestion lookups), and the GET /ui frontend for all three
@@ -232,6 +232,22 @@ metadata:
   # sortable headers). New shared src/query/column-allow-list.ts (ADR-024).
   # Test coverage: 405 Vitest (unit/integration/regression) + 22 Playwright
   # E2E, all green; typecheck clean.
+  # Updated by 0000018 (codegen-agent) P3: daemon durability (graceful
+  # shutdown checkpoint, periodic checkpoint, WAL-safe migration checkpoint,
+  # refuse-to-start on an unopenable database — exit(0) per ADR-030), a new
+  # in-process scheduled+verified backup module (src/backup/, ADR-028/029:
+  # EXPORT DATABASE format, verify->promote->prune, PLANIFEST_TELEMETRY_
+  # BACKUP_DIR defaulting to ~/.planifest-backups) with doctor reporting
+  # verified-backup staleness from a sidecar file (never opening telemetry.db
+  # directly), an additive buildId fingerprint on GET /health plus deploy-side
+  # build-identity and orphan-port-holder verification across all three
+  # platforms (scripts/service-manager.mjs, deploy.ps1), launchd/systemd
+  # supervision circuit-breaker config (ADR-031, defense-in-depth), and an id
+  # tiebreaker on every event-log ORDER BY closing the pagination-completeness
+  # defect. All 10 requirements landed via 4 parallel Agent-dispatched TDD
+  # implementers across 2 dependency-ordered batches, zero escalations.
+  # Test coverage: 485 Vitest (was 405) + 22 Playwright E2E (unchanged, no
+  # new HTTP/UI surface), all green; typecheck clean.
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"
