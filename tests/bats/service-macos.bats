@@ -39,6 +39,24 @@ setup() {
   [ "$result" = "a &amp; &lt;b&gt;" ]
 }
 
+# ── _generate_plist() ────────────────────────────────────────────────────────
+# req-005 / ADR-031: an explicit ThrottleInterval bounds launchd's default
+# respawn cadence as defense-in-depth (not the primary stop-the-loop
+# mechanism — that's ADR-030's exit(0), which SuccessfulExit:false already
+# respects with no config change needed).
+
+@test "_generate_plist: KeepAlive dict includes an explicit ThrottleInterval" {
+  result="$(_generate_plist "/usr/bin/node")"
+  [[ "$result" == *"<key>ThrottleInterval</key>"* ]]
+  [[ "$result" == *"<integer>60</integer>"* ]]
+}
+
+@test "_generate_plist: ThrottleInterval is nested inside the KeepAlive dict" {
+  result="$(_generate_plist "/usr/bin/node")"
+  keepalive_block="$(printf '%s\n' "$result" | sed -n '/<key>KeepAlive<\/key>/,/<\/dict>/p')"
+  [[ "$keepalive_block" == *"<key>ThrottleInterval</key>"* ]]
+}
+
 # ── resolve_node_path() ──────────────────────────────────────────────────────
 
 @test "resolve_node_path: returns the PATH-resolved node binary when present" {

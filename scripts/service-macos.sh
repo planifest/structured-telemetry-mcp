@@ -178,6 +178,8 @@ _generate_plist() {
 	<dict>
 		<key>SuccessfulExit</key>
 		<false/>
+		<key>ThrottleInterval</key>
+		<integer>60</integer>
 	</dict>
 
 	<key>StandardOutPath</key>

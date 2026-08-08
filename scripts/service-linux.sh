@@ -105,6 +105,8 @@ install() {
 [Unit]
 Description=Planifest structured-telemetry-mcp backend
 After=network.target
+StartLimitIntervalSec=60
+StartLimitBurst=5
 
 [Service]
 Type=simple
