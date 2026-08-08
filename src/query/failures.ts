@@ -13,7 +13,16 @@ export interface FailureQuery {
   readonly session_id?: string;
   readonly initiative_id?: string;
   readonly loop_threshold?: number;
+  readonly limit?: number;
 }
+
+/**
+ * req-007: default and ceiling row cap for failure_sequence, matching
+ * event_log's MAX_LIMIT and the ADR-016 bounding precedent. The gate
+ * (validate-query.ts) rejects an over-ceiling limit before dispatch; this
+ * default applies when the caller supplies none.
+ */
+const FAILURE_SEQUENCE_LIMIT = 1000;
 
 /** Dispatches to the appropriate failure query mode. */
 export async function queryFailures(db: DuckDBInstance, query: FailureQuery): Promise<QueryResponse> {
@@ -21,7 +30,7 @@ export async function queryFailures(db: DuckDBInstance, query: FailureQuery): Pr
   switch (query.mode) {
     case 'retry_summary': return queryRetrySummary(db, initiativeId);
     case 'loop_candidates': return queryLoopCandidates(db, query.loop_threshold ?? 5, initiativeId);
-    case 'failure_sequence': return queryFailureSequence(db, query.session_id ?? '', initiativeId);
+    case 'failure_sequence': return queryFailureSequence(db, query.session_id ?? '', initiativeId, query.limit ?? FAILURE_SEQUENCE_LIMIT);
     case 'failure_cluster': return queryFailureCluster(db, initiativeId);
   }
 }
@@ -147,30 +156,47 @@ async function queryLoopCandidates(db: DuckDBInstance, threshold: number, initia
   }
 }
 
-/** Mode C: ordered event timeline for a session. */
-async function queryFailureSequence(db: DuckDBInstance, sessionId: string, initiativeId?: string): Promise<QueryResponse> {
+/** Mode C: ordered event timeline for a session, bounded by `limit` (req-007). */
+async function queryFailureSequence(db: DuckDBInstance, sessionId: string, initiativeId: string | undefined, limit: number): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const initiativeClause = initiativeId ? 'AND initiative_id = $initiative_id' : '';
     const params: Record<string, string> = { session_id: sessionId };
     if (initiativeId) params['initiative_id'] = initiativeId;
 
+    const eventFilter = "event IN ('phase_start', 'validation_failure', 'self_correction', 'phase_end')";
+
     const sql = `
       SELECT id, event, session_id, phase, agent, timestamp::VARCHAR AS timestamp, data::VARCHAR AS data
       FROM events
       WHERE session_id = $session_id
-        AND event IN ('phase_start', 'validation_failure', 'self_correction', 'phase_end')
+        AND ${eventFilter}
         ${initiativeClause}
       ORDER BY timestamp ASC
+      LIMIT ${limit}
+    `;
+
+    // req-007: total_count is a COUNT(*) over the same predicate, not rows.length,
+    // so a capped result still reports the true total.
+    const countSql = `
+      SELECT COUNT(*) AS total_count
+      FROM events
+      WHERE session_id = $session_id
+        AND ${eventFilter}
+        ${initiativeClause}
     `;
 
     const rows = await runQuery<unknown[]>(conn, sql, params);
+    const countRows = await runQuery<[bigint | number]>(conn, countSql, params);
+    const totalCount = Number(countRows[0]?.[0] ?? 0);
     const rawSample = rows.slice(0, 5).map(rowToRaw);
 
     const aggregation = {
       mode: 'failure_sequence',
       session_id: sessionId,
       event_count: rows.length,
+      total_count: totalCount,
+      truncated: totalCount > rows.length,
       events: rows.map(rowToRaw),
     };
 

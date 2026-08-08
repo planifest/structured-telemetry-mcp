@@ -334,6 +334,38 @@ on iteration 2, no human gate stop required)
 | Telemetry | confirmed-disabled |
 | Notes | Continuous run. Subagent Decomposition Directive applies. R-002: req-001..req-004 all edit src/server-http.ts and MUST land as one integrated pass, not parallel edits. |
 
+#### Parallel-dispatch analysis (Parallel Dispatch Checklist)
+
+File-overlap map drives this, not requirement count:
+- `src/server-http.ts` ← req-001, req-002, req-003, req-004, req-006 (HTTP error sites)
+- `src/server-factory.ts` ← req-005 (shared gate wiring), req-006 (MCP error site), req-008 (MCP text cap)
+- `src/query/*` ← req-005 (per-mode ceilings), req-007 (bounding failure_sequence + drill_down)
+- isolated: req-009 (column-allow-list.test.ts), req-010 (ui XSS e2e), req-012 (.gitignore)
+
+Conclusion: the feature is **largely not parallelisable** — the header-check
+and error-redaction requirements share single files, exactly the collision
+R-002 warns about (precedent 0000017 R-002 on index-html.ts). Only req-009,
+req-010, req-012 touch disjoint files. Rather than dispatch a swarm of
+per-requirement TDD subagents that would clobber server-http.ts and
+server-factory.ts, and re-derive context I already hold in full, the codegen
+orchestrator executes the TDD inner loop (RED → GREEN → refactor, verifying
+exit codes) directly, in dependency order. Batch count for parallel subagent
+dispatch: 0 — dependency reason stated here per the checklist's requirement to
+record it explicitly when no parallelism is used.
+
+Baseline confirmed green before any change: 491 vitest / 28 files, typecheck clean.
+
+Implementation order (dependency-driven):
+1. req-012 (.gitignore, independent)
+2. req-005 foundation: new src/query/validate-query.ts shared gate (per-mode ceilings)
+3. req-007: bound failure_sequence + drill_down (limit + truncated + total_count)
+4. req-006 + req-005 wiring in server-factory.ts (MCP path: shared gate + redaction)
+5. req-008: MCP tool-result text budget
+6. req-001+002+003+004+006(http): integrated server-http.ts boundary pass
+7. req-009: injection tests
+8. req-010: XSS escaping e2e tests
+9. req-011: test-coverage.md + ui.test.ts import
+
 | Metric | Value |
 |--------|-------|
 | Total phases completed | `{{count}}` |
