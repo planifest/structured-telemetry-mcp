@@ -23,6 +23,7 @@ import type { DuckDBInstance } from '@duckdb/node-api';
 
 import { openDatabase, resolveDbPath, closeDatabase } from './db/index.js';
 import { classifyStartupError, formatRefuseToStartMessage } from './db/refuse-to-start.js';
+import { runCheckpoint } from './db/checkpoint.js';
 import { DuckDbEventRepository } from './db/duckdb-event-repository.js';
 import { DuckDbQueryService } from './query/query-service.js';
 import { dispatchQuery } from './server-factory.js';
@@ -80,6 +81,34 @@ try {
 const repo = new DuckDbEventRepository(db);
 const qs   = new DuckDbQueryService(db);
 
+// ── Checkpoint discipline (req-001, req-002) ─────────────────────────────────
+// Checkpoint every 60s or every 100 writes since the last checkpoint —
+// whichever comes first — plus once more on graceful shutdown, bounding the
+// data-at-risk window (domain-glossary.md). Overridable via env for tests;
+// production defaults are the 60s/100-write/5s values req-002/req-001 specify.
+
+const CHECKPOINT_INTERVAL_MS = Number(process.env['PLANIFEST_CHECKPOINT_INTERVAL_MS'] ?? 60_000);
+const CHECKPOINT_WRITE_THRESHOLD = Number(process.env['PLANIFEST_CHECKPOINT_WRITE_THRESHOLD'] ?? 100);
+const SHUTDOWN_TIMEOUT_MS = Number(process.env['PLANIFEST_SHUTDOWN_TIMEOUT_MS'] ?? 5_000);
+
+let writesSinceCheckpoint = 0;
+
+/** Runs a checkpoint; a failure warns and degrades-and-keeps-serving (never crashes, never stops writes). */
+async function checkpoint(): Promise<void> {
+  const ok = await runCheckpoint(db, (msg) => process.stderr.write(`[telemetry-backend] ${msg}\n`));
+  if (ok) writesSinceCheckpoint = 0;
+}
+
+/** Called once per successful write; triggers a checkpoint at the write-count threshold. */
+function noteWrite(): void {
+  writesSinceCheckpoint += 1;
+  if (writesSinceCheckpoint >= CHECKPOINT_WRITE_THRESHOLD) {
+    void checkpoint();
+  }
+}
+
+const checkpointTimer = setInterval(() => { void checkpoint(); }, CHECKPOINT_INTERVAL_MS);
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -129,6 +158,9 @@ const server = createServer(async (req, res) => {
         return;
       }
       const result = await repo.write(event as Parameters<typeof repo.write>[0]);
+      if (result.ok) {
+        noteWrite();
+      }
       json(res, 200, result);
     } catch (err) {
       json(res, 400, { ok: false, errors: [`emit error: ${err}`] });
