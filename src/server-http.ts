@@ -206,3 +206,31 @@ server.listen(PORT, '127.0.0.1', () => {
   const actualPort = typeof addr === 'object' && addr !== null ? addr.port : PORT;
   process.stderr.write(`[telemetry-backend] v${VERSION} ready — http://127.0.0.1:${actualPort}\n`);
 });
+
+// ── Graceful shutdown (req-001) ──────────────────────────────────────────────
+// SIGTERM/SIGINT: stop accepting new connections, checkpoint, close the DB,
+// exit 0 — bounded by SHUTDOWN_TIMEOUT_MS so a hung final checkpoint (e.g.
+// disk full) can't hang shutdown forever. launchd (SuccessfulExit: false) and
+// systemd (Restart=on-failure) both treat exit 0 as an intentional stop, not
+// a crash to respawn from (ADR-030's same reasoning applies here).
+
+let shuttingDown = false;
+
+async function shutdown(signal: NodeJS.Signals): Promise<void> {
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  clearInterval(checkpointTimer);
+  process.stderr.write(`[telemetry-backend] ${signal} received — checkpointing and shutting down\n`);
+  server.close();
+
+  await Promise.race([
+    checkpoint(),
+    new Promise<void>((res) => setTimeout(res, SHUTDOWN_TIMEOUT_MS)),
+  ]);
+  closeDatabase();
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+process.on('SIGINT', () => { void shutdown('SIGINT'); });
