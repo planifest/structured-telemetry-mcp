@@ -19,8 +19,10 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync } from 'node:fs';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { DuckDBInstance } from '@duckdb/node-api';
 
-import { openDatabase } from './db/index.js';
+import { openDatabase, resolveDbPath, closeDatabase } from './db/index.js';
+import { classifyStartupError, formatRefuseToStartMessage } from './db/refuse-to-start.js';
 import { DuckDbEventRepository } from './db/duckdb-event-repository.js';
 import { DuckDbQueryService } from './query/query-service.js';
 import { dispatchQuery } from './server-factory.js';
@@ -56,7 +58,25 @@ process.on('uncaughtException', (err: Error) => {
 // ── DB ────────────────────────────────────────────────────────────────────────
 
 const PORT = parseInt(process.env['PLANIFEST_MCP_PORT'] ?? '3741', 10);
-const db   = await openDatabase();
+
+// req-004: attempt to open the database exactly once, before any migration
+// (src/db/index.ts) and before the HTTP listener opens. A lock-contention or
+// poisoned-WAL failure means the store is unusable — refuse to start rather
+// than retry-looping or touching the WAL. ADR-030: this exits 0, deliberately.
+let db: DuckDBInstance;
+try {
+  db = await openDatabase();
+} catch (err) {
+  const classification = classifyStartupError(err);
+  if (classification !== null) {
+    process.stderr.write(`${formatRefuseToStartMessage(resolveDbPath(), classification)}\n`);
+    process.exit(0);
+  }
+  // Not a "store is unusable" condition — an unrelated startup error keeps
+  // its existing behaviour (crash / non-zero exit).
+  throw err;
+}
+
 const repo = new DuckDbEventRepository(db);
 const qs   = new DuckDbQueryService(db);
 
