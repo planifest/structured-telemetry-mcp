@@ -1,7 +1,7 @@
 id: "planifest-framework"
 name: "Planifest Framework"
 feature: "0000025-pipeline-gate-and-config-fixes-and-ship-agent-fixes"
-version: "0.25.0"
+version: "0.25.1"
 status: "active"
 type: "component-pack"
 domain: "developer-tooling"
@@ -201,6 +201,16 @@ metadata:
   # installed, not gated behind --context-mode-mcp or
   # --structured-telemetry-mcp). Updated the orchestrator SKILL.md's
   # Telemetry section to note the new backstop.
+  # 0.25.1: hooks/telemetry/context-pressure.mjs gained a narrow, bounded retry
+  # (2 retries, 300ms gaps, network-level failures only — never on an HTTP
+  # error status) for the connection-refused window a consuming product's own
+  # daemon restart briefly opens. Fixed directly in this repo's session per the
+  # Framework Update Policy (not tied to a numbered framework feature) after
+  # 10 spurious durable-failure markers were traced to structured-telemetry-mcp's
+  # own req-008/009 live deploy-restart verification tripping the hook during
+  # the daemon's restart gap. Verified with a real two-case reproduction (a
+  # genuinely unreachable backend still fails and writes the marker unchanged;
+  # a backend that returns mid-retry now succeeds silently, no marker).
   createdBy: "agent"
   lastModifiedBy: "agent"
   skill: "planifest-codegen-agent"
