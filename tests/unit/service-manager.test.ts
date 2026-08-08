@@ -1,20 +1,33 @@
 /**
- * req-009: scripts/service-manager.mjs's orphan-port detection.
+ * req-008 / req-009: scripts/service-manager.mjs's deploy-time checks.
  *
  * service-manager.mjs is a CLI script (not covered by the rest of the
- * Vitest suite, which targets src/), but its deploy-time logic is exactly
- * the kind of "false success" bug this feature exists to close, so it gets
- * the same deterministic, dependency-injected treatment as
- * tests/unit/checkpoint.test.ts: no real launchctl/systemctl/lsof calls,
- * fake `exec` functions instead. The module guards its CLI dispatch behind
- * an import.meta.url-equals-argv[1] check (mirroring the bash scripts'
+ * Vitest suite, which targets src/), but its deploy-time logic — orphan-port
+ * detection and build-identity comparison — is exactly the kind of "false
+ * success" bug this feature exists to close, so it gets the same
+ * deterministic, dependency-injected treatment as tests/unit/checkpoint.test.ts:
+ * no real launchctl/systemctl/lsof/network calls, fake `exec`/`fetchImpl`
+ * functions instead. The module guards its CLI dispatch behind an
+ * import.meta.url-equals-argv[1] check (mirroring the bash scripts'
  * BASH_SOURCE guard in tests/bats/), so importing it here for its exported
  * pure functions does not trigger any real service action.
  */
 import { describe, it, expect, vi } from 'vitest';
-import { getManagedPid, getPortListenerPid, checkOrphanPort } from '../../scripts/service-manager.mjs';
+import { writeFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import {
+  getManagedPid,
+  getPortListenerPid,
+  checkOrphanPort,
+  computeBuildId,
+  compareBuildIdentity,
+  fetchHealthWithRetry,
+  verifyBuildIdentity,
+} from '../../scripts/service-manager.mjs';
 
-// ── getManagedPid() ──────────────────────────────────────────────────────────
+// ── req-009: getManagedPid() ─────────────────────────────────────────────────
 
 describe('req-009: getManagedPid', () => {
   it('darwin: parses the PID out of launchctl list output', () => {
@@ -48,7 +61,7 @@ describe('req-009: getManagedPid', () => {
   });
 });
 
-// ── getPortListenerPid() ─────────────────────────────────────────────────────
+// ── req-009: getPortListenerPid() ────────────────────────────────────────────
 
 describe('req-009: getPortListenerPid', () => {
   it('reports the port free when lsof returns no output', () => {
@@ -76,7 +89,7 @@ describe('req-009: getPortListenerPid', () => {
   });
 });
 
-// ── checkOrphanPort() ─────────────────────────────────────────────────────────
+// ── req-009: checkOrphanPort() ───────────────────────────────────────────────
 
 describe('req-009: checkOrphanPort', () => {
   it('passes when the port is free', () => {
@@ -126,5 +139,160 @@ describe('req-009: checkOrphanPort', () => {
     const result = checkOrphanPort(3741, { platform: 'darwin', exec, log });
     expect(result).toEqual({ ok: true, reason: 'unchecked' });
     expect(log).toHaveBeenCalledWith(expect.stringContaining('skipping orphan-port check'));
+  });
+});
+
+// ── req-008: computeBuildId() ────────────────────────────────────────────────
+
+describe('req-008: computeBuildId', () => {
+  it('matches node:crypto SHA-256 hex of the bundle file, same as src/server-http.ts BUILD_ID', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'service-manager-test-'));
+    const bundlePath = join(dir, 'server-http.bundle.mjs');
+    const content = 'console.log("fake bundle");';
+    writeFileSync(bundlePath, content);
+    try {
+      const expected = createHash('sha256').update(Buffer.from(content)).digest('hex');
+      expect(computeBuildId(bundlePath)).toBe(expected);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('returns null (degrade, not throw) when the bundle file does not exist', () => {
+    expect(computeBuildId('/definitely/not/a/real/path/server-http.bundle.mjs')).toBeNull();
+  });
+});
+
+// ── req-008: compareBuildIdentity() ──────────────────────────────────────────
+
+describe('req-008: compareBuildIdentity', () => {
+  it('reports a match when buildId equals the computed hash', () => {
+    expect(compareBuildIdentity('abc123', { buildId: 'abc123' })).toEqual({ status: 'match', buildId: 'abc123' });
+  });
+
+  it('reports a mismatch — catching a same-version redeploy, not just a version-string diff', () => {
+    expect(compareBuildIdentity('newhash', { version: '1.2.3', buildId: 'oldhash' })).toEqual({
+      status: 'mismatch',
+      computedId: 'newhash',
+      remoteId: 'oldhash',
+    });
+  });
+
+  it('reports unknown (not a false pass) when /health has no buildId field at all', () => {
+    expect(compareBuildIdentity('newhash', { ok: true, version: '1.2.3' })).toEqual({ status: 'unknown' });
+  });
+
+  it('reports unknown when buildId is explicitly null (a bundle-less dev daemon)', () => {
+    expect(compareBuildIdentity('newhash', { buildId: null })).toEqual({ status: 'unknown' });
+  });
+});
+
+// ── req-008: fetchHealthWithRetry() ──────────────────────────────────────────
+
+describe('req-008: fetchHealthWithRetry', () => {
+  it('returns the parsed health body on the first successful attempt', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ buildId: 'abc' }) });
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const result = await fetchHealthWithRetry(3741, { fetchImpl, sleep, retries: 3 });
+    expect(result).toEqual({ buildId: 'abc' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('retries on connection failure and succeeds once the daemon comes up', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+      .mockRejectedValueOnce(new Error('ECONNREFUSED'))
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ buildId: 'abc' }) });
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const result = await fetchHealthWithRetry(3741, { fetchImpl, sleep, retries: 5 });
+    expect(result).toEqual({ buildId: 'abc' });
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws after exhausting retries', async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    await expect(fetchHealthWithRetry(3741, { fetchImpl, sleep, retries: 3 })).rejects.toThrow('ECONNREFUSED');
+    expect(fetchImpl).toHaveBeenCalledTimes(3);
+  });
+});
+
+// ── req-008: verifyBuildIdentity() (the assembled post-restart check) ───────
+
+describe('req-008: verifyBuildIdentity', () => {
+  it('passes when the freshly-built hash equals /health buildId', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'service-manager-test-'));
+    const bundlePath = join(dir, 'server-http.bundle.mjs');
+    const content = 'console.log("build A");';
+    writeFileSync(bundlePath, content);
+    try {
+      const hash = createHash('sha256').update(Buffer.from(content)).digest('hex');
+      const fetchHealth = vi.fn().mockResolvedValue({ ok: true, version: '1.0.0', buildId: hash });
+      const ok = await verifyBuildIdentity(3741, bundlePath, { fetchHealth });
+      expect(ok).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails and prints both identities on a same-version redeploy that did not actually take effect', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'service-manager-test-'));
+    const bundlePath = join(dir, 'server-http.bundle.mjs');
+    writeFileSync(bundlePath, 'console.log("build B — the new one");');
+    try {
+      const fetchHealth = vi.fn().mockResolvedValue({ ok: true, version: '1.0.0', buildId: 'stale-hash-from-old-process' });
+      const err = vi.fn();
+      const ok = await verifyBuildIdentity(3741, bundlePath, { fetchHealth, err });
+      expect(ok).toBe(false);
+      const combined = err.mock.calls.map((c) => c[0]).join('\n');
+      expect(combined).toContain('stale-hash-from-old-process');
+      expect(combined).toContain('mismatch');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('warns (does not hard-fail) when the daemon predates this feature and reports no buildId', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'service-manager-test-'));
+    const bundlePath = join(dir, 'server-http.bundle.mjs');
+    writeFileSync(bundlePath, 'console.log("build");');
+    try {
+      const fetchHealth = vi.fn().mockResolvedValue({ ok: true, version: '1.0.0' });
+      const log = vi.fn();
+      const ok = await verifyBuildIdentity(3741, bundlePath, { fetchHealth, log });
+      expect(ok).toBe(true);
+      const combined = log.mock.calls.map((c) => c[0]).join('\n');
+      expect(combined).toContain('no buildId');
+      expect(combined).toContain('manual restart');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('fails when /health cannot be reached at all', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'service-manager-test-'));
+    const bundlePath = join(dir, 'server-http.bundle.mjs');
+    writeFileSync(bundlePath, 'console.log("build");');
+    try {
+      const fetchHealth = vi.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      const err = vi.fn();
+      const ok = await verifyBuildIdentity(3741, bundlePath, { fetchHealth, err });
+      expect(ok).toBe(false);
+      expect(err).toHaveBeenCalledWith(expect.stringContaining('ECONNREFUSED'));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('degrades to a skip when the bundle itself cannot be found (never blocks deploy on this alone)', async () => {
+    const fetchHealth = vi.fn();
+    const log = vi.fn();
+    const ok = await verifyBuildIdentity(3741, '/no/such/bundle.mjs', { fetchHealth, log });
+    expect(ok).toBe(true);
+    expect(fetchHealth).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('bundle not found'));
   });
 });

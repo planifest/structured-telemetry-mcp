@@ -20,13 +20,26 @@
  * restart" while a stale process keeps answering requests. If the port is
  * held by a process that isn't the launchd/systemd-managed one, `deploy`
  * names it and stops — it never kills a foreign process itself.
+ *
+ * req-008 (build-identity assertion): after a restart the platform script
+ * reports "succeeded" as soon as launchd/systemd says the unit is active —
+ * that's necessary but not sufficient, since the exact same bug (a stale
+ * process still bound to the port) can make the health check pass against
+ * the OLD process. So once the restart script exits 0, `deploy` computes
+ * the SHA-256 of the just-built server-http.bundle.mjs (the same
+ * computation src/server-http.ts uses for its `buildId`), fetches /health,
+ * and compares. A mismatch — even at the same package.json version — fails
+ * the deploy loudly instead of leaving the engineer testing stale code.
  */
 
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 
 const scriptsDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = dirname(scriptsDir);
 
 const DEFAULT_PORT = 3741;
 
@@ -130,6 +143,91 @@ export function checkOrphanPort(
   return { ok: false, reason: 'orphan', pid: listener.pid };
 }
 
+// ── req-008: build-identity assertion ───────────────────────────────────────
+
+/** Same algorithm as src/server-http.ts's BUILD_ID: SHA-256 hex of the bundle. */
+export function computeBuildId(bundlePath) {
+  if (!existsSync(bundlePath)) return null;
+  return createHash('sha256').update(readFileSync(bundlePath)).digest('hex');
+}
+
+export async function fetchHealthWithRetry(
+  port,
+  { retries = 10, delayMs = 1000, fetchImpl = fetch, sleep = (ms) => new Promise((r) => setTimeout(r, ms)) } = {},
+) {
+  let lastErr;
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetchImpl(`http://localhost:${port}/health`);
+      if (res.ok) return await res.json();
+      lastErr = new Error(`/health responded with status ${res.status}`);
+    } catch (e) {
+      lastErr = e;
+    }
+    if (attempt < retries) await sleep(delayMs);
+  }
+  throw lastErr ?? new Error('health check failed after retries');
+}
+
+/**
+ * Compares the freshly-built hash against /health's reported buildId.
+ * 'unknown' (missing buildId — a daemon predating this feature) is a
+ * distinct outcome from 'mismatch': callers must warn, not hard-fail, on
+ * 'unknown' (req-008 acceptance criteria).
+ */
+export function compareBuildIdentity(computedId, health) {
+  const remoteId = health?.buildId;
+  if (remoteId === null || remoteId === undefined) {
+    return { status: 'unknown' };
+  }
+  if (remoteId === computedId) {
+    return { status: 'match', buildId: computedId };
+  }
+  return { status: 'mismatch', computedId, remoteId };
+}
+
+/**
+ * Runs the full req-008 post-restart check: compute local hash, fetch
+ * /health, compare, and log the outcome. Returns true if deploy should
+ * continue (match, unknown, or bundle-not-found degrade), false if it
+ * must fail (mismatch, or /health unreachable).
+ */
+export async function verifyBuildIdentity(
+  port,
+  bundlePath,
+  { log = (m) => console.log(m), err = (m) => console.error(m), fetchHealth = fetchHealthWithRetry } = {},
+) {
+  const computedId = computeBuildId(bundlePath);
+  if (computedId === null) {
+    log(`  !!  Could not compute build identity (bundle not found at ${bundlePath}) — skipping verification.`);
+    return true;
+  }
+
+  log('  >> Verifying build identity...');
+  let health;
+  try {
+    health = await fetchHealth(port);
+  } catch (e) {
+    err(`  ERR Could not reach /health to verify build identity: ${e?.message ?? e}`);
+    return false;
+  }
+
+  const cmp = compareBuildIdentity(computedId, health);
+  if (cmp.status === 'match') {
+    log(`  OK  Build identity verified (${cmp.buildId.slice(0, 12)}...).`);
+    return true;
+  }
+  if (cmp.status === 'unknown') {
+    log('  !!  Running daemon reports no buildId (predates this feature) — cannot verify build identity.');
+    log('      Recommend a manual restart to pick up an identity-reporting build.');
+    return true;
+  }
+  err('  ERR Build identity mismatch — the running daemon is not the build just deployed.');
+  err(`      Just-built hash:        ${cmp.computedId}`);
+  err(`      Running daemon buildId: ${cmp.remoteId}`);
+  return false;
+}
+
 // ── deploy ───────────────────────────────────────────────────────────────────
 
 async function runDeploy() {
@@ -146,7 +244,7 @@ async function runDeploy() {
 
   if (process.platform === 'win32') {
     // deploy.ps1 already does global install + detect-installed-and-restart,
-    // plus its own orphan-port (req-009) check.
+    // plus its own orphan-port (req-009) and build-identity (req-008) checks.
     const r = spawnSync(
       'powershell',
       ['-ExecutionPolicy', 'Bypass', '-File', join(scriptsDir, 'deploy.ps1')],
@@ -175,7 +273,14 @@ async function runDeploy() {
     console.log('  >> Service is currently running — restarting to pick up the new build...');
     const scriptName = process.platform === 'darwin' ? 'service-macos.sh' : 'service-linux.sh';
     const r = spawnSync('bash', [join(scriptsDir, scriptName), 'restart'], { stdio: 'inherit' });
-    process.exit(r.status ?? 1);
+    if (r.status !== 0) {
+      process.exit(r.status ?? 1);
+    }
+
+    // req-008: only after the restart script itself reports success.
+    const bundlePath = join(repoRoot, 'server-http.bundle.mjs');
+    const identityOk = await verifyBuildIdentity(port, bundlePath);
+    process.exit(identityOk ? 0 : 1);
   }
 
   console.log('  No active service detected — build complete, nothing to restart.');

@@ -80,6 +80,61 @@ function Test-OrphanPort {
     return $true
 }
 
+# req-008: build-identity assertion. Same algorithm as src/server-http.ts's
+# BUILD_ID (SHA-256 hex of the built bundle) so a freshly-built bundle's
+# hash equals what /health reports once the new process starts.
+function Get-BuildId {
+    param([string]$BundlePath)
+    if (-not (Test-Path $BundlePath)) { return $null }
+    return (Get-FileHash -Path $BundlePath -Algorithm SHA256).Hash.ToLower()
+}
+
+# req-008: compute the local hash, fetch /health, and compare. Returns
+# $true if deploy should continue (match, unknown/predates-feature degrade,
+# or bundle-not-found degrade), $false if it must fail (mismatch, or
+# /health unreachable) — this must catch a same-version redeploy, not just
+# a version-string mismatch, so buildId is compared regardless of version.
+function Test-BuildIdentity {
+    param([string]$BundlePath, [int]$Port)
+
+    $computed = Get-BuildId -BundlePath $BundlePath
+    if (-not $computed) {
+        Write-Warn "Could not compute build identity (bundle not found at $BundlePath) — skipping verification."
+        return $true
+    }
+
+    Write-Step "Verifying build identity..."
+    $health = $null
+    for ($i = 0; $i -lt 10; $i++) {
+        try {
+            $health = Invoke-RestMethod -Uri "http://localhost:$Port/health" -TimeoutSec 5 -ErrorAction Stop
+            break
+        } catch {
+            Start-Sleep -Seconds 1
+        }
+    }
+    if (-not $health) {
+        Write-Err "Could not reach /health to verify build identity."
+        return $false
+    }
+
+    if (-not $health.buildId) {
+        Write-Warn "Running daemon reports no buildId (predates this feature) — cannot verify build identity."
+        Write-Warn "Recommend a manual restart to pick up an identity-reporting build."
+        return $true
+    }
+
+    if ($health.buildId -ne $computed) {
+        Write-Err "Build identity mismatch — the running daemon is not the build just deployed."
+        Write-Err "  Just-built hash:        $computed"
+        Write-Err "  Running daemon buildId: $($health.buildId)"
+        return $false
+    }
+
+    Write-OK "Build identity verified ($($computed.Substring(0,12))...)."
+    return $true
+}
+
 Write-Host ""
 Write-Host "structured-telemetry-mcp: deploy (global install)" -ForegroundColor White
 Write-Host ("=" * 40)
@@ -146,6 +201,12 @@ if ($svc) {
 } else {
     Write-Step "Installing Windows service..."
     & $ServiceScript install
+}
+
+# req-008: only after the service install/restart above reports success.
+$BundlePath = Join-Path $RepoRoot 'server-http.bundle.mjs'
+if (-not (Test-BuildIdentity -BundlePath $BundlePath -Port $Port)) {
+    exit 1
 }
 
 Write-Host ""
