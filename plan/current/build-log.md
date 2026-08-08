@@ -197,6 +197,21 @@ Revalidated: `2026-08-08T07:40:18Z`
 
 ---
 
+### P2 — Architecture Decisions
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T08:10:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-adr-agent |
+| Agents spawned | `TBD` |
+| MCP calls | `TBD` |
+| Parallel task batches | `TBD` |
+| Telemetry | TBD |
+| Notes | Human confirmed proceeding from P1 gate. Two items already flagged for this phase: backup-trigger ownership vs. DuckDB single-writer lock (risk-register.md R-001), and refuse-to-start exit-code posture (R-005). `design_critic` toggle confirmed off (no `plan/current/loop-toggles.yml` present) — no critic subagent this gate. |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
