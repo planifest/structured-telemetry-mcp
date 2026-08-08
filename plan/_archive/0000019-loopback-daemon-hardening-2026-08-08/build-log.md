@@ -533,3 +533,26 @@ Gate accepted: P7 — archive committed (see plan(p7) commit).
 | Self-corrections | P1 design-critic 3 iterations, P2 design-critic 2 iterations; P3 zero TDD escalations; P4 zero CI self-corrections |
 | Phases skipped | none |
 | Phases with a recorded telemetry gap | 0 (all phases confirmed-disabled — unified signal genuinely absent this run) |
+
+---
+
+### P8 — Build Assessment
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T17:08:00Z` |
+| Model tier | cheaper (haiku subagent) |
+| Skills loaded | planifest-build-assessment-agent |
+| Telemetry | confirmed-disabled |
+| Notes | Reads this archived build-log; writes build-report.md alongside. |
+
+---
+
+### P9 — Ship
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T17:10:00Z` |
+| Model tier | primary |
+| Telemetry | confirmed-disabled |
+| Notes | Version 0.15.0 derived from product.yml (exit 0 after adding the components[].path field). Tag v0.15.0. Branch pushed, PR raised (human authorized branch+PR, complete-ASAP). |

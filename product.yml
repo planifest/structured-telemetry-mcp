@@ -20,3 +20,4 @@ versionPolicy: "max-component-version"
 components:
   - id: "structured-telemetry-mcp"
     version: "0.15.0"
+    path: "src/structured-telemetry-mcp/component.yml"
