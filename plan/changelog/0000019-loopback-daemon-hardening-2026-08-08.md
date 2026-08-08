@@ -2,7 +2,7 @@
 
 **Feature:** Loopback daemon hardening
 **Pipeline run:** P0–P9 complete, no phases skipped
-**PR:** pending — updated after PR is raised
+**PR:** https://github.com/planifest/structured-telemetry-mcp/pull/14
 
 ## What Was Built
 
