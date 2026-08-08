@@ -37,7 +37,7 @@ As a developer, I want cross-origin requests refused, so that a page I visit can
 ## Dependencies
 
 - One integrated pass with req-001, req-003, req-004 (design R-002).
-- ADR-032 (P2) accepted before implementation.
+- **ADR-032 accepted** (P2, 2026-08-08).
 - Relies on the P0-verified fact that no legitimate caller sends a foreign `Origin`: the three framework hooks, `src/http-query-service.ts`, `src/http-repo.ts` and `src/ui/index-html.ts` are the complete set of in-repo callers.
 
 ## Input Validation

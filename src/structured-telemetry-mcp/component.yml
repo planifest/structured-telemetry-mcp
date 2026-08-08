@@ -49,22 +49,19 @@ exceptions:
   - "Does not provide an aggregation/dashboard view (bottleneck/failure/token-efficiency charts) in the UI — those remain MCP/REST-only (0024 — future; also plan/current/scope.md Deferred as of 0000015)"
   - "Does not publish to npm this pipeline run"
   - "Does not run in the cloud or as a hosted service"
-  # PENDING REVISION at 0000019 P2 — do not treat as current behaviour yet.
-  # This entry is still true today: no code in this tree checks Host or
-  # Origin. 0000019 P1 has planned a change here (req-001, req-002) that
-  # will add caller-provenance checks without a credential, but that change
-  # is gated on ADR-032 (breakingChangePolicy: requires-adr), which has not
-  # been written. Do not cite "ADR-032" as an accepted decision or describe
-  # provenance checks as implemented until P2 lands the ADR and P3 lands the
-  # code — both are still pending as of this manifest revision. The original
-  # entry read: "Does not authenticate callers — bound to 127.0.0.1, no auth
-  # model required, including for the new UI (0000015)", reasoned against a
-  # multi-user threat model that never considered browser-mediated attack,
-  # where the developer's own browser sits inside the trust boundary. That
-  # reasoning gap is why a change is planned; it is not yet a reason to
-  # describe the change as already true.
-  - "Does not authenticate callers — bound to 127.0.0.1, no auth model required, including for the UI (0000015). A revision is planned at 0000019 pending ADR-032 and req-001/req-002 landing — see plan/current/design.md until that ADR is accepted, at which point this entry is rewritten to reflect the shipped behaviour, not before"
-  - "Does not support multi-user access control — there is one local user, and distinguishing between humans remains out of scope (0000015). Unaffected by 0000019's pending revision above, which is about caller provenance, not about telling multiple humans apart"
+  # REVISED at 0000019 P2 per ADR-032 (accepted 2026-08-08). ADR-032 is now
+  # accepted — the DECISION is settled — but req-001/req-002's code lands at
+  # P3, not yet. Until P3 lands, no code in this tree actually checks Host or
+  # Origin: this entry states the target behaviour this feature is building
+  # toward, not yet the running behaviour. The original entry (0000015) read
+  # "Does not authenticate callers — bound to 127.0.0.1, no auth model
+  # required, including for the new UI", reasoned against a multi-user threat
+  # model that never considered browser-mediated attack, where the
+  # developer's own browser sits inside the trust boundary. ADR-032 narrows
+  # that claim rather than removing it: still no credential, but provenance
+  # is now checked.
+  - "Does not authenticate callers with any credential — no token, password, or key (ADR-032 deliberately rejects a shared secret; see its Alternatives table). Caller *provenance* is checked instead: a Host allow-list and Origin rejection (0000019, req-001, req-002, ADR-032) — landing at P3, not yet implemented as of this P2 manifest revision"
+  - "Does not support multi-user access control — there is one local user, and distinguishing between humans remains out of scope (0000015, unaffected by ADR-032, which is about caller provenance, not about telling multiple humans apart)"
   - "Does not install a system-level (root) launchd daemon or root systemd unit — user-scoped service only"
   - "Does not auto-fix a root-owned ~/Library/LaunchAgents or auto-enable systemd lingering — both require explicit human action"
   - "Does not support editing or deleting events from the UI — read-only viewer (0000015)"

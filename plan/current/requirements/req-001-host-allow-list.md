@@ -38,7 +38,7 @@ Applied across all five routes: `/health`, `/ui`, `/emit`, `/query`, and the 404
 ## Dependencies
 
 - Must land as one integrated pass with req-002, req-003 and req-004 — all four edit the same request-entry path in `src/server-http.ts` (design R-002).
-- ADR-032 (P2) must be accepted before implementation — this reverses `component.yml`'s documented "no auth model required" position under `breakingChangePolicy: requires-adr`.
+- **ADR-032 accepted** (P2, 2026-08-08) — this reverses `component.yml`'s documented "no auth model required" position under `breakingChangePolicy: requires-adr`. The decision is settled; this requirement's code is what P3 lands to make it real.
 
 ## Input Validation
 
