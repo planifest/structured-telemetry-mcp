@@ -211,9 +211,75 @@ Gate accepted: P0 — 2026-08-08T13:19:38Z
 | Telemetry | confirmed-disabled |
 | Notes | Continuous run — no human gate stop. `design_critic` on (blocking) runs over the P1 artifact set before P2. |
 
+#### design_critic loop (cap 3)
+
+Iteration 1: REJECT, 10 blocking findings. Fixed: AC-cap breach on all 12
+requirements (recast to 3 ACs each with corpora moved to a Test corpus
+section), limit clamp-vs-reject stated backwards against a passing test
+(query-telemetry.test.ts:299), total_count/truncated placed where they would
+have broken the log viewer's existing read (index-html.ts:371/:419),
+correlationId-on-403 contradiction, ErrorEnvelope object-only shape that
+would have silently restructured /emit's error format, req-009 naming the
+wrong two tests as tautological (would have had codegen delete the two tests
+that catch a regression and keep the two that cannot), trend.limit named as
+a field that does not exist, component.yml contract.apiSpec pointing at a
+nonexistent file, two risk-register assumptions mapped to a risk that did
+not cover them.
+
+Iteration 2: REJECT, 8 blocking findings — two self-inflicted by iteration
+1's own fixes. Most consequential: component.yml's exceptions block had
+started citing "ADR-032" as an accepted decision and describing the auth
+change in present tense, before P2 has written that ADR — contradicting the
+feature's own sequencing rule. Also: distinct_values genuinely clamps today
+(distinct-values.ts:39) where req-005 had treated ceiling behaviour as
+uniform; resolved by making rejection uniform going forward as a stated,
+deliberate behaviour change, not an accident. failure_sequence/drill_down
+ceilings undefined in req-005 despite req-007 depending on them.
+trend.limit remnants in component.yml/scope.md not caught by iteration 1's
+fix elsewhere. Correlation-id gap on 413/415. Two OpenAPI self-contradictions
+(worked example reintroducing the global-ceiling mistake; /emit 400
+description contradicting the ErrorEnvelope shape one section later).
+
+Iteration 3: REJECT, 1 blocking finding — domain-glossary.md's MAX_LIMIT
+entry still asserted uniform rejection, missed when req-005 moved off that
+premise in iteration 2. Fixed and re-verified. One advisory (R-018) also
+picked up: no risk entry covered the distinct_values behaviour change itself.
+
+Cap reached at iteration 3 per the design_critic toggle's own rule. Per
+Governed Phase-Reversal escalation conventions, the loop halted and escalated
+to the human rather than dispatching a fourth automated critic pass, even
+though iteration 3's own assessment characterised the remaining item as a
+one-paragraph sync gap rather than a structural defect.
+
+Mechanical gate (consistency-check.mjs) held at 18 findings across all three
+iterations, unchanged — all pre-existing cross-feature ADR-resolution class,
+independently reproduced by two critic instances against the shipped
+plan/_archive/0000018 archive (which fails the same check with 23 findings).
+Filed as backlog 00029 rather than fixed inline, since an agent should not
+edit the gate currently judging its own output.
+
+P0 exchange — P1 gate close-out: Q: design_critic hit its cap; iteration 3's
+finding is fixed and re-verified — accept and proceed, spawn a 4th
+independent check, or review directly? / A: Accept P1 as revised, proceed to
+P2.
+
+Gate accepted: P1 — 2026-08-08T14:07:34Z (continuous run; no phase-boundary
+stop, escalation resolved above per Hard Limit on blocked-loop escalation)
+
 ---
 
-## Summary (filled at P7)
+### P2 — Architecture Decisions
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T14:07:34Z` |
+| Model tier | primary |
+| Skills loaded | planifest-orchestrator, planifest-adr-agent |
+| Agents spawned | `{{count}}` |
+| MCP calls | `{{count}}` |
+| Parallel task batches | `{{count}}` |
+| Telemetry | confirmed-disabled |
+| Notes | Continuous run — no human gate stop. `design_critic` on (blocking) runs over the combined P1+P2 set before P3, running consistency-check.mjs first per the orchestrator's Design-critic note. |
 
 | Metric | Value |
 |--------|-------|
