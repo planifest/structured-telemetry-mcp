@@ -291,6 +291,21 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 
 ---
 
+### P6 — Documentation
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T10:20:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-docs-agent |
+| Agents spawned | `TBD` |
+| MCP calls | `TBD` |
+| Parallel task batches | `TBD` |
+| Telemetry | TBD |
+| Notes | Continuous mode; P5's Gate B exception now satisfied (Low risk, zero crit/high/medium). Known documentation debt to fold in: (1) req-005's live-supervised-respawn drill was never run (noted at P4, config-content-only bats coverage); (2) `RESTORE_PROCEDURE_PATH` in src/db/refuse-to-start.ts points at src/structured-telemetry-mcp/docs/restore-procedure.md, which does not exist yet — must be created this phase, referenced from the startup message and req-006. |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
