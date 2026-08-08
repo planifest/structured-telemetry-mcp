@@ -13,6 +13,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { readBackupMetadata } from './backup/backup-metadata.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -129,6 +130,19 @@ function registerInCursorMcp(mcpPath: string, entry: McpEntry): void {
 
 // ── doctor command ────────────────────────────────────────────────────────────
 
+/** Formats a millisecond duration as a short, human-readable "age" string (e.g. "2h 15m", "3d"). */
+function formatAge(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
+
 async function runDoctor(): Promise<void> {
   p.intro(color.bgCyan(color.black(' structured-telemetry-mcp doctor ')));
 
@@ -176,6 +190,26 @@ async function runDoctor(): Promise<void> {
     dbDetail = String(err);
   }
   checks.push({ label: 'DuckDB write test event', pass: dbOk, detail: dbDetail });
+
+  // Check 4 (req-007): most recent verified backup, sourced from the sidecar
+  // metadata file only — never by opening telemetry.db directly, so this
+  // check works even while the daemon holds the DuckDB lock (risk-register
+  // R-002: doctor's own write-test check above is capable of failing/
+  // blocking under that same lock; this check must not inherit that failure
+  // mode).
+  const backupResult = readBackupMetadata();
+  if (backupResult.state === 'verified') {
+    const ageMs = Date.now() - Date.parse(backupResult.metadata.timestamp);
+    checks.push({
+      label: 'Verified backup',
+      pass: true,
+      detail: `${formatAge(ageMs)} ago, ${backupResult.metadata.rowCount} rows, ${backupResult.metadata.artifactPath}`,
+    });
+  } else if (backupResult.state === 'absent') {
+    checks.push({ label: 'Verified backup', pass: true, detail: 'no verified backup yet' });
+  } else {
+    checks.push({ label: 'Verified backup', pass: false, detail: `malformed backup metadata — ${backupResult.detail}` });
+  }
 
   // Print results.
   for (const check of checks) {
