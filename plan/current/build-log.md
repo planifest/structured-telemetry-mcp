@@ -173,6 +173,44 @@ scope-lock subagents, but this session is configured not to spawn agents unless
 asked — draft inline or dispatch? / A: Dispatch the four subagents. Framework
 default protocol followed exactly; no deviation to record.
 
+#### P0 gate
+
+P0 exchange — design confirmation: Q: Confirm the design and start the pipeline?
+/ A: Confirmed, proceed to P1.
+
+P0 exchange — run mode: Q: Check after each phase, or continuous run? / A:
+Continuous run. `plan/.run-mode` written as `continuous`. No stops at P1-P6
+gates; P7-P9 still stops.
+
+P0 exchange — loop toggles: Q: Turn on the design-critic maker-checker pass? /
+A: On, blocking — a REJECT returns artifacts for revision, cap 3 per
+`planifest-loop-runner`. Note the combination chosen: continuous run with a
+blocking critic, so quality control at P1/P2 is automated rather than human.
+No toggle config file exists in `planifest-framework/`, so `p0_completeness`,
+`cross_model_review` and `reversal_protocol` remain at their default off.
+
+Capability skills (REQ-026): stack assessed, no proposal made. The work is
+Node/TypeScript backend hardening plus Vitest/Playwright tests; the `playwright`
+skill is already available and mapped to US-010 in the Skill Map. Skills-inbox
+empty at P0 and re-checked at the P0->P1 transition.
+
+Gate accepted: P0 — 2026-08-08T13:19:38Z
+
+---
+
+### P1 — Requirements
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T13:19:38Z` |
+| Model tier | primary |
+| Skills loaded | planifest-orchestrator, planifest-spec-agent |
+| Agents spawned | `{{count}}` |
+| MCP calls | `{{count}}` |
+| Parallel task batches | `{{count}}` |
+| Telemetry | confirmed-disabled |
+| Notes | Continuous run — no human gate stop. `design_critic` on (blocking) runs over the P1 artifact set before P2. |
+
 ---
 
 ## Summary (filled at P7)

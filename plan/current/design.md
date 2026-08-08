@@ -137,4 +137,16 @@ Two files present in `planifest-overrides/instructions/`:
 **`git-up-to-date-shorthand.md`** — "GUTD" means: `git status` first, checkout `main`, pull latest, and report untracked files. Do not silently force-reconcile a diverged local `main`; prefer a reversible step. Established 2026-08-02. **Applied at session start:** GUTD run clean, `main` level with `origin/main`, no untracked files.
 
 ## Confirmation
-Human confirmed this design before proceeding: {{pending}} // Date and Time confirmed: {{pending}}
+Human confirmed this design before proceeding: yes // Date and Time confirmed: 08 Aug 2026 @ 02:19 PM BST
+
+Run mode: `continuous` — no stops at the P1-P6 gates. P7-P9 still stops for final
+confirmation regardless of run mode.
+
+Loop toggles for this run:
+- `design_critic`: **on (blocking)** — a fresh-context critic runs at the P1 and P2 gates
+  and a REJECT returns the artifacts for revision, capped at 3 iterations per
+  `planifest-loop-runner`. With no human gate stops in continuous mode, this is the
+  quality control for this run.
+- `p0_completeness`: off
+- `cross_model_review`: off
+- `reversal_protocol`: off
