@@ -28,10 +28,69 @@ $RepoRoot = Split-Path $PSScriptRoot -Parent
 function Write-Step([string]$msg) { Write-Host "  >> $msg" -ForegroundColor Cyan }
 function Write-OK([string]$msg)   { Write-Host "  OK  $msg" -ForegroundColor Green }
 function Write-Err([string]$msg)  { Write-Host "  ERR $msg" -ForegroundColor Red }
+function Write-Warn([string]$msg) { Write-Host "  !!  $msg" -ForegroundColor Yellow }
+
+# req-009: orphan-port detection. Returns the PID of the NSSM-managed
+# 'structured-telemetry-mcp' Windows service, or $null if it isn't
+# installed/running. Mirrors service-manager.mjs's getManagedPid() for
+# launchd/systemd on macOS/Linux.
+function Get-ManagedServicePid {
+    $svc = Get-CimInstance Win32_Service -Filter "Name='structured-telemetry-mcp'" -ErrorAction SilentlyContinue
+    if ($svc -and $svc.ProcessId -gt 0) { return [int]$svc.ProcessId }
+    return $null
+}
+
+# req-009: is $Port free, or held only by the managed service? Returns
+# $true if deploy may proceed. Never terminates a foreign process itself —
+# only names it and the remedy, then returns $false.
+function Test-OrphanPort {
+    param([int]$Port)
+
+    $conns = $null
+    try {
+        $conns = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop
+    } catch {
+        # Get-NetTCPConnection unavailable (older systems) — fall back to netstat.
+        try {
+            $lines = & netstat -ano | Select-String ":$Port\s" | Select-String "LISTENING"
+            if (-not $lines) { return $true }
+            $pids = @()
+            foreach ($line in $lines) {
+                $parts = ($line.ToString() -split '\s+') | Where-Object { $_ -ne '' }
+                $pids += [int]$parts[-1]
+            }
+            $conns = $pids | Select-Object -Unique | ForEach-Object { [PSCustomObject]@{ OwningProcess = $_ } }
+        } catch {
+            Write-Warn "Could not determine port occupancy (Get-NetTCPConnection and netstat both failed) — skipping orphan-port check."
+            return $true
+        }
+    }
+
+    if (-not $conns) { return $true }
+
+    $managedPid = Get-ManagedServicePid
+    foreach ($c in $conns) {
+        if ($null -ne $managedPid -and $c.OwningProcess -eq $managedPid) { continue }
+        Write-Err "Port $Port is held by an unmanaged process (PID $($c.OwningProcess))."
+        Write-Err "This process is not the managed Windows service, so deploy cannot restart it safely."
+        Write-Err "Stop it yourself, then re-run deploy:"
+        Write-Err "  Stop-Process -Id $($c.OwningProcess) -Force"
+        return $false
+    }
+    return $true
+}
 
 Write-Host ""
 Write-Host "structured-telemetry-mcp: deploy (global install)" -ForegroundColor White
 Write-Host ("=" * 40)
+
+# req-009: check port occupancy before doing anything else.
+$Port = if ($env:PLANIFEST_MCP_PORT) { [int]$env:PLANIFEST_MCP_PORT } else { 3741 }
+Write-Step "Checking port occupancy..."
+if (-not (Test-OrphanPort -Port $Port)) {
+    exit 1
+}
+Write-OK "Port $Port check passed."
 
 # Check build artifacts exist
 foreach ($artifact in @('server.bundle.mjs', 'server-http.bundle.mjs', 'cli.bundle.mjs')) {
