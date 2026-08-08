@@ -1,8 +1,8 @@
 # Planifest Component Manifest
 id: "structured-telemetry-mcp"
 name: "Structured Telemetry MCP Server"
-feature: "0000018-telemetry-data-integrity"
-version: "0.14.0"
+feature: "0000019-loopback-daemon-hardening"
+version: "0.15.0"
 status: "active"
 type: "microservice"
 domain: "observability"
@@ -33,6 +33,14 @@ responsibilities:
   - "Expose an additive build-identity fingerprint (`buildId`, a SHA-256 hash of server-http.bundle.mjs) on GET /health, letting `npm run deploy` detect a stale running daemon even at an unchanged version string (0000018, decision A)"
   - "Detect, during `npm run deploy`, a process bound to the daemon's port that launchd/systemd does not manage, and refuse to report success while naming that process rather than killing it (0000018)"
   - "Append a uniqueness tiebreaker (`id`) to every event-log ORDER BY, guaranteeing a full pagination returns each row exactly once regardless of duplicate values in the sorted field (0000018)"
+  - "Validate every inbound HTTP request against a Host allow-list (127.0.0.1:<PORT> / localhost:<PORT>, compared against the actually-bound port) before routing, closing DNS rebinding (0000019, req-001)"
+  - "Refuse a request carrying a foreign Origin, while accepting one with no Origin at all — the stdio proxy and emission hooks are non-browser clients and send none (0000019, req-002, ADR-009)"
+  - "Require Content-Type: application/json on POST /emit and POST /query, closing the CORS-simple no-preflight write path (0000019, req-003)"
+  - "Cap request bodies at PLANIFEST_MAX_BODY_BYTES (4 MB) at two independent enforcement points — a Content-Length pre-check and a streaming byte counter — so a chunked or forged-length request cannot bypass the cap, and survive the attempt rather than exiting (0000019, req-004)"
+  - "Apply one shared validation gate across the HTTP and MCP query paths, with integer/range constraints on limit, offset, loop_threshold and trend.limit (0000019, req-005)"
+  - "Return redacted error bodies carrying a correlation id, with the full error and stack written to stderr against the same id; 500 for engine failures, 400 reserved for validated client input (0000019, req-006)"
+  - "Bound failure_sequence and drill_down by MAX_LIMIT with additive truncated and total_count fields, total_count computed by a count query rather than by counting materialised rows (0000019, req-007)"
+  - "Cap assembled MCP tool-result text at PLANIFEST_MCP_TEXT_BUDGET, truncating at section boundaries so the agent never receives a half-serialised JSON block (0000019, req-008)"
 
 exceptions:
   - "Does not emit telemetry itself — it is the sink, not a source"
@@ -41,7 +49,15 @@ exceptions:
   - "Does not provide an aggregation/dashboard view (bottleneck/failure/token-efficiency charts) in the UI — those remain MCP/REST-only (0024 — future; also plan/current/scope.md Deferred as of 0000015)"
   - "Does not publish to npm this pipeline run"
   - "Does not run in the cloud or as a hosted service"
-  - "Does not authenticate callers — bound to 127.0.0.1, no auth model required, including for the new UI (0000015)"
+  # SUPERSEDED by ADR-032 (0000019). The original entry read: "Does not
+  # authenticate callers — bound to 127.0.0.1, no auth model required,
+  # including for the new UI (0000015)". That was reasoned against a
+  # multi-user threat model. It did not consider browser-mediated attack,
+  # where the developer's own browser sits inside the trust boundary and
+  # 127.0.0.1 binding provides no protection. The replacement below narrows
+  # the claim to what remains true.
+  - "Does not authenticate callers with any credential — no token, password, or key. Caller *provenance* is nonetheless checked: Host is allow-listed and a foreign Origin is refused (0000019, ADR-032). A shared secret was considered and deliberately not adopted, because a token readable by the owning user gives no protection against a same-user process that can read telemetry.db directly"
+  - "Does not support multi-user access control — there is one local user, and distinguishing between humans remains out of scope (0000015, unchanged by ADR-032)"
   - "Does not install a system-level (root) launchd daemon or root systemd unit — user-scoped service only"
   - "Does not auto-fix a root-owned ~/Library/LaunchAgents or auto-enable systemd lingering — both require explicit human action"
   - "Does not support editing or deleting events from the UI — read-only viewer (0000015)"
@@ -54,7 +70,14 @@ exceptions:
   - "Does not queue, buffer, or retry client-side for events emitted while the daemon is down or refusing to start — those events are lost, not delayed (0000018)"
   - "Does not auto-remediate a locked or poisoned-WAL database — refuses to start and leaves the WAL untouched for manual recovery; auto-copy-aside was considered and explicitly not chosen (0000018, decision D)"
   - "Does not recover the ~4,100 events already stranded in the pre-existing unreplayable WAL from the 2026-08-03 incident — tracked separately at backlog #00023, explicitly deferred (0000018)"
-  - "Does not provide HTTP boundary hardening — request validation, error-message leakage, auth/Origin/Host checks, or request-body size limits — tracked separately at backlog 00010-00014/00020, out of scope this feature (0000018)"
+  # RESOLVED by 0000019. 0000018 recorded this as out of scope and named the
+  # backlog entries; this feature is that follow-up. All six (00010-00014,
+  # 00020) are now delivered, so the exception no longer holds and is replaced
+  # by the narrower residual exclusions below.
+  - "Does not drain in-flight requests on SIGTERM — server.close() keeps its existing semantics and the interaction between an in-flight request and the shutdown checkpoint is unspecified. Surfaced at 0000019 P0 and deliberately excluded as 0000018 shutdown-path surface, not request-boundary surface"
+  - "Does not emit CORS response headers — cross-origin access is refused, not negotiated; adding Access-Control-Allow-Origin would defeat the Origin check (0000019, req-002)"
+  - "Does not change the uncaughtException -> process.exit(1) policy — 0000019 stops the request path from reaching it, but the handler itself is unchanged and other crash paths still exit (0000019, 00013 action 5 not adopted)"
+  - "Does not guarantee that a refused /emit is surfaced to the caller as a telemetry failure — the daemon returns a structured 400, but whether the emission hooks write a failure marker for it is framework-side, tracked at plan/backlog/00028 (0000019)"
   - "Does not migrate event-log pagination away from limit/offset to keyset pagination — the id tiebreaker works within the existing ADR-016 bounding strategy, not instead of it (0000018)"
 
 stack:
@@ -73,7 +96,13 @@ stack:
   ci: "github-actions"
 
 contract:
-  apiSpec: "none"
+  # 0000019 introduces a formal contract for the HTTP surface. The boundary is
+  # exactly what this feature changes, so a language-agnostic statement of it is
+  # what P3, P4 and P5 verify against. Drafted at P1 to
+  # plan/current/openapi-spec.yaml; P6 publishes it to the living path below,
+  # since plan/current/ archives at P7 and a contract must not point into an
+  # archive.
+  apiSpec: "src/structured-telemetry-mcp/docs/openapi-spec.yaml"
   inputs:
     - name: "emit_event"
       type: "event"
@@ -139,13 +168,24 @@ scope:
     - "distinct_values query mode: allow-listed field, optional prefix-match q, capped at 20 results (0000017)"
     - "GET /ui: auto-refresh/tail-mode toggle (interval polling, never blanks table, degrades gracefully on poll failure), filter-value suggestion comboboxes (<datalist>-based) on the 6 filterable fields, clickable sortable column headers three-way synced with the sort-field/direction control and URL query params (0000017)"
     - "URL-state persistence extended to cover sort field, sort direction, and auto-refresh toggle state, alongside the existing filter persistence from 0000015 (0000017)"
+    - "HTTP request boundary: Host allow-list, foreign-Origin refusal, Content-Type requirement on writes, and a two-point request-body cap — all checked before the body is read (0000019, req-001 to req-004)"
+    - "Crash safety on the request path: try/catch around the readBody end-listener so a throw rejects the promise instead of reaching uncaughtException, plus a slow-body socket timeout (0000019, req-004)"
+    - "One shared query validation gate across HTTP and MCP, tightening limit/offset/loop_threshold/trend.limit to integer-and-range and newly declaring offset, which was previously unvalidated on both paths (0000019, req-005)"
+    - "Error redaction with correlation ids across all three leak sites — server-http.ts /emit and /query, and the MCP result path in server-factory.ts — with 500 for engine failures replacing the previous blanket 400 (0000019, req-006)"
+    - "Bounded failure_sequence and drill_down with additive truncated/total_count, plus an independent character budget on assembled MCP tool-result text (0000019, req-007, req-008)"
+    - "Injection-shaped input tests against sortField and distinct_values.field on both paths, including prototype keys, each verified by a real RED-before-GREEN cycle (0000019, req-009)"
+    - "Playwright XSS-escaping coverage across every rendered field including the title attribute, asserted behaviourally via a dialog handler rather than by DOM inspection (0000019, req-010)"
+    - "test-coverage.md corrected so every security claim names the test backing it, and ui.test.ts importing SORTABLE_FIELDS/SUGGESTIBLE_FIELDS instead of restating them (0000019, req-011)"
   outOfScope:
     - "0008b framework integration"
     - "npm publish"
     - "Remote hosting"
     - "Web dashboard"
     - "Server-side loop detection"
-    - "Authentication or access control"
+    - "Credential-based authentication (token, password, key) — superseded in part by ADR-032, which adds provenance checks but deliberately no shared secret"
+    - "Multi-user access control — one local user; distinguishing between humans stays out of scope"
+    - "Draining in-flight requests on SIGTERM (0000019 — excluded as shutdown-path surface)"
+    - "Log viewer correctness defects — async races, tail mode destroying expanded rows, filter/sort/page state desync, keyboard accessibility — deferred to 0.16.0 as backlog 00015-00018 (0000019). 00016 is a live regression against 0000017 and was deferred with that stated"
     - "System-level (root) launchd daemon or root systemd unit"
     - "Distro-specific packaging (.deb/.rpm)"
     - "ratchet_blocked event type (not yet emitted by any framework skill — speculative)"
@@ -158,7 +198,10 @@ scope:
     - "Plugin marketplace manifests — blocked on: marketplace listing decision"
     - "Auto-fixing a root-owned ~/Library/LaunchAgents — blocked on: human confirmation it's safe to override a possible MDM control"
     - "Auto-enabling systemd lingering — blocked on: human decision to accept an account-wide setting change"
-    - "Authentication / multi-user UI access — blocked on: a need to run this for more than one person (0000015)"
+    - "Multi-user UI access — blocked on: a need to run this for more than one person (0000015, still deferred). Note this is a distinct question from the browser-mediated attack surface ADR-032 addresses; the two were previously conflated under one 'authentication' heading"
+    - "Local shared secret token (backlog 00012 action 4) — blocked on: a threat emerging that Host/Origin/Content-Type checks do not already close. Not adopted at 0000019: a token in ~/.planifest/ readable by the owning user gives no protection against a same-user process that can read telemetry.db directly, so it defends only against browser pages, which the checks close completely"
+    - "Projection instead of the full data payload per row in failure_sequence / drill_down (backlog 00014 action 3) — blocked on: evidence that the req-007-capped payload is still too large in practice (0000019)"
+    - "Recovering the ~4,100 events stranded in the pre-existing unreplayable WAL — blocked on: backlog 00023 being picked up; unchanged by 0000019"
     - "Editing/deleting events from the UI — blocked on: a specific, deliberate need (0000015)"
     - "planifest-framework's emitters populating product_id — blocked on: that product's own pipeline picking up plan/backlog/00002-framework-product-id-emission (0000015)"
     - "Multi-browser (Firefox/WebKit) E2E coverage — blocked on: a concrete cross-browser bug being found, or a deliberate decision to broaden coverage (0000016)"
@@ -190,6 +233,14 @@ risk:
     - "Backup runs in-process on the daemon's own DuckDB connection (ADR-029) — no external scheduler, so no second connection ever opens telemetry.db; EXPORT DATABASE format chosen for DuckDB-version independence (ADR-028) (0000018)"
     - "doctor's backup-staleness check (req-007) reads a sidecar JSON metadata file, never telemetry.db directly — avoids the single-writer-lock conflict doctor's pre-existing write-test check is independently exposed to (0000018)"
     - "Refuse-to-start exits 0 (ADR-030), matching both launchd's SuccessfulExit:false and systemd's Restart=on-failure, which already restart only on non-zero exit — no plist/unit change was required for the primary stay-stopped guarantee; ThrottleInterval/StartLimitBurst (ADR-031) remain as defense-in-depth against unrelated crash loops (0000018)"
+    - "req-001 to req-004 all modify the same request-entry path in src/server-http.ts and must land as one integrated pass, not parallel edits — exact precedent is 0000017 R-002, which hit this with index-html.ts (0000019 R-002)"
+    - "A request-body cap enforced only on Content-Length passes review but is bypassed by a chunked or forged-length request, leaving the original DoS intact — two independent enforcement points are required, and the streaming byte counter is the load-bearing one (0000019 R-003)"
+    - "Reusing QueryShape unchanged on the HTTP path closes only the string-limit case: z.number() admits -5, 1.5 and 1e21, and offset is undeclared under .passthrough(), so the offset defect exists on the MCP path too. The gate must be tightened, not merely shared (0000019 R-005)"
+    - "Error redaction applied only to the two HTTP sites leaves src/server-factory.ts:204 leaking the same engine text straight into an agent's context — all three sites must be fixed together (0000019 R-006)"
+    - "An allow-list check written as a bare property lookup admits constructor/__proto__/prototype as inherited members; the injection corpus must include all three (0000019 R-007)"
+    - "The Host check must compare against the actually-bound port from server.address(), not the configured PORT constant, or it locks out the ephemeral-port E2E harness that binds via port 0 (0000019 R-008, 0000016 R-002)"
+    - "New security tests written to pass against current behaviour rather than to fail against broken behaviour would reproduce the exact defect this feature exists to fix — req-009 and req-010 each require a real RED-before-GREEN cycle, per the precedent 0000018 set for its P5 fixes (0000019 R-011)"
+    - "The Origin/Host checks refusing a legitimate non-browser client would stop telemetry, and possibly silently, since hook-side handling of a non-2xx is unverified (backlog 00028) — mitigated by accepting requests that carry no Origin at all (0000019 R-001)"
     - "The false 'Service is healthy' health check (verify_service() in service-macos.sh, curl-only, no body inspection) is fixed via an additive buildId fingerprint on GET /health, compared by deploy across all three platform paths (req-008); orphan-port detection (req-009) closes the sibling case of an unmanaged process answering on the port (0000018)"
 
 quality:
