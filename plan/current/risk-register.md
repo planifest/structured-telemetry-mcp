@@ -20,6 +20,7 @@ summary: "Technical, operational, security and compliance risks with likelihood 
 | R-012 | operational | `test-coverage.md` is updated to describe intended coverage rather than actual coverage, re-creating the false-assurance defect in a new form | low | high | req-011 requires every security claim to name the test file backing it, and lands only after req-009 and req-010 exist |
 | R-013 | compliance | The auth reversal ships without ADR-032, leaving `component.yml`'s documented "no auth model required" position contradicting the code, in breach of `breakingChangePolicy: requires-adr` | low | medium | ADR-032 is a P2 gate item and is listed as a dependency of req-001 and req-002 |
 | R-014 | operational | `git rm --cached` on the two `.local-only.` files reads as a deletion to anyone else on the repo, who then recreates or restores them | low | low | req-012 requires the commit message to state the files remain on disk, and forbids sharing a commit with `src/` changes |
+| R-018 | technical | req-005 makes `distinct_values`' limit ceiling a hard rejection, where `distinct-values.ts:39` today silently clamps — `{"mode":"distinct_values","limit":500}` succeeds now and returns `400` afterward. A caller relying on that clamp breaks | low | low | No in-repo test or caller sends `distinct_values` with `limit > 20` — verified at P1 review. req-005's Test corpus makes the change explicit rather than incidental, and the log viewer's own suggestion comboboxes never request more than the default |
 
 ## Assumptions Carrying Risk
 
