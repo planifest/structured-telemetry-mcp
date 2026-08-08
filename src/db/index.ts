@@ -47,6 +47,11 @@ export async function openDatabase(path?: string): Promise<DuckDBInstance> {
     await conn.run(CREATE_SESSION_INDEX);
     await conn.run(CREATE_EVENT_TIMESTAMP_INDEX);
     await conn.run(CREATE_PHASE_SESSION_INDEX);
+    // req-003: checkpoint immediately after any ALTER TABLE ADD COLUMN migration,
+    // before the caller proceeds to open the HTTP listener — a pending schema-change
+    // WAL entry must never be left to be replayed by a future crash (data-contract.md
+    // Migration Policy — WAL-safety rule; 2026-08-03 incident).
+    await conn.run('CHECKPOINT');
   } finally {
     conn.disconnectSync();
   }
