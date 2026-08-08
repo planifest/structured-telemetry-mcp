@@ -241,6 +241,13 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 | Telemetry | TBD |
 | Notes | Run mode now `continuous` — proceeding without a phase-gate stop unless a genuine Escalation halt occurs. Capability-skills check: no relevant skills for this stack (confirmed at P0/P1, unchanged) — proceeding silently, no question asked. 10 requirements (req-001..010) targeted this phase, per plan/current/execution-plan.md and 4 confirmed ADRs (ADR-028..031). |
 
+**Batch 1 (3 parallel agents, disjoint files) — all GREEN, no escalations:**
+- req-001..004 + req-004b (server-http.ts/db/*.ts): commits `eb69663`,`3243011`,`69baeb5`,`80a8fe1`,`87ef86d`. Notable TDD finding: reproducing the poisoned-WAL fixture required avoiding DuckDB's auto-checkpoint-on-clean-close, and `tsx`'s child-process re-exec meant the test harness had to kill the whole detached process group, not just the spawned pid, to release the file lock. 430 tests, 21 files, re-run 3x with no flakiness.
+- req-005 (service-macos.sh/service-linux.sh): commit `ee46e21`. Added `ThrottleInterval: 60` (macOS) and `StartLimitIntervalSec=60`/`StartLimitBurst=5` (Linux) — judgment-call values, no acceptance criterion pinned a number. Verified via `bats` (actually runnable in this environment): 26/26 pass (23 pre-existing + 3 new).
+- req-010 (event-log.ts): commit `3694583`. Honest TDD note: could not reproduce a RED failure pre-fix — DuckDB happened to resolve ties in a stable, insertion-order-consistent way in the test environment at both small and large scale. Reported rather than fabricated; the test still guards the documented behavior going forward.
+
+**Batch 2 (2 parallel agents) dispatched next:** req-006/007 (backup + doctor, depends on Batch 1's server-http.ts) and req-008/009 (deploy build-identity + orphan port, depends on Batch 1's `/health` buildId field).
+
 ---
 
 ## Summary (filled at P7)
