@@ -35,6 +35,19 @@ A fifth query family reached through the same `mode`-keyed dispatch as `event_lo
 
 As of 0000016, all four routes above have black-box E2E coverage (`tests/e2e/backend/`, `tests/e2e/ui/`, `@playwright/test`) exercising the real `node:http` server, not just these exported handlers — see ADR-020 through ADR-023.
 
+### Request boundary and error contract (0000019, ADR-032)
+
+The HTTP surface now has a formal OpenAPI 3.1 contract at `docs/openapi-spec.yaml` (sibling to this file). No route was added or removed; what 0000019 pins is the request boundary and the error contract:
+
+- **Provenance checks, before routing and before the body is read.** A `Host` allow-list (`127.0.0.1:<port>` / `localhost:<port>`, compared against the *actually-bound* port from `server.address()`, not the configured `PORT` — so the ephemeral-port E2E harness is not locked out) and an `Origin` rejection (a foreign `Origin` is refused; **no** `Origin` is accepted, because the stdio proxy and emission hooks send none). Both refuse with `403`, which carries no `correlationId` since nothing executed. No `Access-Control-Allow-Origin` is ever emitted — cross-origin access is refused, not negotiated.
+- **`Content-Type: application/json` required on `POST /emit` and `POST /query`** (`415` otherwise) — closes the CORS-simple no-preflight write path.
+- **Two-point body cap** at `PLANIFEST_MAX_BODY_BYTES` (default 4 MB): a `Content-Length` pre-check plus a streaming byte counter (the load-bearing one against a chunked or forged-length request) → `413`. `readBody`'s over-cap handling differs by delivery shape — an honest over-cap `Content-Length` rejects without destroying the socket (so a `413` can be sent), while a streaming overflow calls `req.destroy()`.
+- **Request timeout** (`PLANIFEST_REQUEST_TIMEOUT_MS`, default 30 s) closes a connection that sends headers then stalls — a transport-level outcome, no status code.
+- **Error redaction.** Engine/internal failures return a generic `500` + `correlationId`; the full error and stack go to stderr against the same id. This replaces the pre-0000019 `400` responses that interpolated raw DuckDB text and stored row values. `400` is now reserved for validated client input (the shared `src/query/validate-query.ts` gate — see `usage-guide.md` §7). The same redaction was applied to the MCP result path in `src/server-factory.ts`, not just the two HTTP sites.
+- **Crash safety.** A try/catch around the `readBody` end-listener rejects the promise on a throw instead of letting it reach `uncaughtException -> process.exit(1)` — so a single malformed request can no longer terminate the daemon.
+
+No credential is added (ADR-032 deliberately rejects a shared secret). `component.yml`'s `breakingChangePolicy` is `requires-adr`; ADR-032 is that ADR, narrowing the earlier "no auth model required" claim to "no credential, but caller provenance is checked."
+
 ## Consumers
 
 `contract.consumedBy` in `component.yml` is empty by design (spec-agent convention — unknown at requirements phase). In practice, the known consumer is `planifest-framework` (sibling repo), calling `emit_event`/`query_telemetry` from its own skills. No code-level dependency exists between the repos — only the shared tool-call contract and `schemas/telemetry-event.schema.json`.

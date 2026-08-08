@@ -3,7 +3,7 @@
 > Living document. Index of all ADRs across all features. Updated after every pipeline run.
 > Do not archive this file — update it in place.
 
-Last updated: 0000018-telemetry-data-integrity
+Last updated: 0000019-loopback-daemon-hardening
 
 ---
 
@@ -42,6 +42,7 @@ Last updated: 0000018-telemetry-data-integrity
 | [ADR-029](../plan/_archive/0000018-telemetry-data-integrity-2026-08-08/adr/ADR-029-backup-runs-in-process.md) | Backup Triggered In-Process, Not by an External Scheduler | 0000018-telemetry-data-integrity | active | The daily backup runs on an in-process timer using the daemon's own already-open DuckDB connection — never a second connection to `telemetry.db`, eliminating the single-writer-lock conflict that produced the crash loop by construction. `PLANIFEST_TELEMETRY_BACKUP_DIR` defaults to `~/.planifest-backups`. |
 | [ADR-030](../plan/_archive/0000018-telemetry-data-integrity-2026-08-08/adr/ADR-030-refuse-to-start-exits-zero.md) | Refuse-to-Start Exits Zero | 0000018-telemetry-data-integrity | active | The daemon exits 0 on refuse-to-start, matching `planifest-framework`'s own ADR-005 (0000003) hook precedent — and mechanically correct against both `launchd`'s `SuccessfulExit: false` and `systemd`'s `Restart=on-failure`, which already restart only on a non-zero exit. Corrects the P0-time assumption that supervision config alone was insufficient. |
 | [ADR-031](../plan/_archive/0000018-telemetry-data-integrity-2026-08-08/adr/ADR-031-supervision-circuit-breaker-defense-in-depth.md) | Supervision Circuit-Breaker as Defense-in-Depth | 0000018-telemetry-data-integrity | amends ADR-014 | Adds `ThrottleInterval` (macOS) / `StartLimitIntervalSec`+`StartLimitBurst` (Linux) to the supervision config — not the primary stay-stopped mechanism (ADR-030 owns that), but a bounded safety net against any other repeated-failure cause. |
+| [ADR-032](../plan/_archive/0000019-loopback-daemon-hardening-2026-08-08/adr/ADR-032-caller-provenance-without-shared-secret.md) | Caller Provenance Without a Shared Secret | 0000019-loopback-daemon-hardening | active | The loopback daemon gains a `Host` allow-list, `Origin` rejection, and a `Content-Type: application/json` requirement on writes — closing a browser-mediated CSRF-write and DNS-rebinding-read surface — deliberately with **no** shared-secret credential (a token in `~/.planifest/` defends only against browser pages the three checks already fully exclude, while giving nothing against a same-user process that reads `telemetry.db` off disk). Narrows, rather than removes, `component.yml`'s earlier "no auth model required" position. |
 
 ---
 

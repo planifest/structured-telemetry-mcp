@@ -15,6 +15,13 @@ export interface TokenEfficiencyQuery {
   readonly limit?: number;
 }
 
+/**
+ * req-007: default and ceiling row cap for drill_down, matching event_log's
+ * MAX_LIMIT and the ADR-016 precedent. Note this is distinct from `trend`'s
+ * use of `limit` as a day count (default 30) — drill_down bounds rows.
+ */
+const DRILL_DOWN_LIMIT = 1000;
+
 /** Dispatches to the appropriate token efficiency query mode. */
 export async function queryTokenEfficiency(db: DuckDBInstance, query: TokenEfficiencyQuery): Promise<QueryResponse> {
   const initiativeId = query.initiative_id;
@@ -23,7 +30,7 @@ export async function queryTokenEfficiency(db: DuckDBInstance, query: TokenEffic
     case 'mcp_impact': return queryMcpImpact(db, initiativeId);
     case 'request_volume': return queryRequestVolume(db, initiativeId);
     case 'trend': return queryTrend(db, query.limit ?? 30, initiativeId);
-    case 'drill_down': return queryDrillDown(db, query.session_id ?? '', initiativeId);
+    case 'drill_down': return queryDrillDown(db, query.session_id ?? '', initiativeId, query.limit ?? DRILL_DOWN_LIMIT);
   }
 }
 
@@ -201,23 +208,37 @@ async function queryTrend(db: DuckDBInstance, limitDays: number, initiativeId?: 
 }
 
 /** Mode E: full raw event detail for a session (context_pressure + mcp_impact). */
-async function queryDrillDown(db: DuckDBInstance, sessionId: string, initiativeId?: string): Promise<QueryResponse> {
+async function queryDrillDown(db: DuckDBInstance, sessionId: string, initiativeId: string | undefined, limit: number): Promise<QueryResponse> {
   const conn = await db.connect();
   try {
     const initiativeClause = initiativeId ? 'AND initiative_id = $initiative_id' : '';
     const params: Record<string, string> = { session_id: sessionId };
     if (initiativeId) params['initiative_id'] = initiativeId;
 
+    const eventFilter = "event IN ('context_pressure', 'mcp_impact')";
+
     const sql = `
       SELECT id, event, session_id, phase, agent, timestamp::VARCHAR AS timestamp, data::VARCHAR AS data
       FROM events
       WHERE session_id = $session_id
-        AND event IN ('context_pressure', 'mcp_impact')
+        AND ${eventFilter}
         ${initiativeClause}
       ORDER BY timestamp ASC
+      LIMIT ${limit}
+    `;
+
+    // req-007: total_count via COUNT(*), not rows.length.
+    const countSql = `
+      SELECT COUNT(*) AS total_count
+      FROM events
+      WHERE session_id = $session_id
+        AND ${eventFilter}
+        ${initiativeClause}
     `;
 
     const rawRows = await runQuery<unknown[]>(conn, sql, params);
+    const countRows = await runQuery<[bigint | number]>(conn, countSql, params);
+    const totalCount = Number(countRows[0]?.[0] ?? 0);
     const rows = rawRows.map(rowToRaw);
     const rawSample = rows.slice(0, 5);
 
@@ -225,6 +246,8 @@ async function queryDrillDown(db: DuckDBInstance, sessionId: string, initiativeI
       mode: 'drill_down',
       session_id: sessionId,
       event_count: rows.length,
+      total_count: totalCount,
+      truncated: totalCount > rows.length,
       events: rows,
     };
 
