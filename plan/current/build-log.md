@@ -273,6 +273,21 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 
 ---
 
+### P5 — Security
+
+| Field | Value |
+|-------|-------|
+| Start | `2026-08-08T09:58:00Z` |
+| Model tier | primary |
+| Skills loaded | planifest-security-agent |
+| Agents spawned | `TBD` |
+| MCP calls | `TBD` |
+| Parallel task batches | `TBD` |
+| Telemetry | TBD |
+| Notes | Continuous mode. New surface this feature: a second on-disk data location (backup artifacts, ~/.planifest-backups by default), a new env var (PLANIFEST_TELEMETRY_BACKUP_DIR), an additive unauthenticated /health field (buildId), and deploy tooling that now inspects process/port state (getManagedPid, getPortListenerPid). |
+
+---
+
 ## Summary (filled at P7)
 
 | Metric | Value |
