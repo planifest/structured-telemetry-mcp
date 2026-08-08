@@ -267,8 +267,9 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 | Agents spawned | `TBD` |
 | MCP calls | `TBD` |
 | Parallel task batches | `TBD` |
-| Telemetry | TBD |
-| Notes | Continuous mode. P3 delivered 485/485 Vitest + 26/26 bats + clean typecheck already; P4 runs the full CI-equivalent check set (lint, typecheck, test, build) fresh and self-corrects up to 5 times per the phase's own protocol. |
+| End | `2026-08-08T09:57:00Z` |
+| Telemetry | emitted |
+| Notes | No lint configured in package.json — skipped per "if configured". Library audit: no new dependencies added this feature (package.json diff empty vs. pre-P3) — trivial pass. Semantic traceability: every req-001..010 has real `describe('req-00N: ...')` blocks (not incidental string matches) across unit/integration/bats — spot-checked via `grep -rn "describe(.*req-0"`, full list recorded below. Fresh run, zero self-corrections: typecheck clean; 485/485 Vitest (27 files); 26/26 bats; `npm run build` produces server.bundle.mjs (580.7kb), server-http.bundle.mjs (557.7kb), cli.bundle.mjs (34.1kb) cleanly. `verify_by_execution` toggle confirmed off (no loop-toggles file) — behavioral browser/CLI verification skipped by design, not by omission. **One finding, not a failure:** req-005's "stay stopped under a real supervised install" acceptance criterion is tested via bats mocking curl/launchctl/systemctl (config content correct) rather than a genuine live launchd/systemd respawn-count drill — the *primary* stay-stopped mechanism (req-004's exit(0), per ADR-030) has real integration-test coverage via actual poisoned-WAL/lock-held reproduction, so this is a defense-in-depth path's test depth, not the main guarantee. Deliberately did not run this destructively against the live daemon backing this session's own telemetry. Recorded as a P6 documentation note / manual pre-ship check, not a validation failure — proceeding per P4's zero-self-correction exception (continuous mode not even needed here). |
 
 ---
 
