@@ -31,15 +31,33 @@ describe('ADR-024: column allow-list', () => {
     );
   });
 
-  it('every SORTABLE_FIELDS entry resolves via ALLOWED_EVENT_COLUMNS', () => {
-    for (const field of SORTABLE_FIELDS) {
-      expect(ALLOWED_EVENT_COLUMNS[field]).toBeDefined();
+  // req-009: the two tests that stood here (":34-38" / ":40-44" pre-0000019)
+  // asserted that every entry of a `readonly AllowedEventColumnKey[]` resolves
+  // in ALLOWED_EVENT_COLUMNS — true by construction of the type, so they could
+  // not fail. Replaced with tests that CAN fail: the allow-lists must exclude
+  // injection-shaped and prototype-pollution keys. (The membership tests above,
+  // "is exactly the 6", are real coverage and are kept.)
+
+  const HOSTILE_KEYS = ["'", '"', ';', '--', '/* */', 'UNION SELECT', '`', 'constructor', '__proto__', 'prototype', 'not_a_real_field'];
+
+  it('SORTABLE_FIELDS excludes every injection-shaped and prototype key', () => {
+    for (const bad of HOSTILE_KEYS) {
+      expect((SORTABLE_FIELDS as readonly string[]).includes(bad), `SORTABLE_FIELDS must not contain ${JSON.stringify(bad)}`).toBe(false);
     }
   });
 
-  it('every SUGGESTIBLE_FIELDS entry resolves via ALLOWED_EVENT_COLUMNS', () => {
-    for (const field of SUGGESTIBLE_FIELDS) {
-      expect(ALLOWED_EVENT_COLUMNS[field]).toBeDefined();
+  it('SUGGESTIBLE_FIELDS excludes every injection-shaped and prototype key', () => {
+    for (const bad of HOSTILE_KEYS) {
+      expect((SUGGESTIBLE_FIELDS as readonly string[]).includes(bad), `SUGGESTIBLE_FIELDS must not contain ${JSON.stringify(bad)}`).toBe(false);
     }
+  });
+
+  it('the allow-list lookup is guarded by array membership, so a prototype key never reaches the object index', () => {
+    // ALLOWED_EVENT_COLUMNS['constructor'] would return the inherited Object
+    // constructor (truthy) under a bare lookup — but the query builders gate on
+    // SORTABLE_FIELDS.includes()/SUGGESTIBLE_FIELDS.includes() FIRST, and neither
+    // array contains 'constructor', so the object index is never reached for it.
+    expect((SORTABLE_FIELDS as readonly string[]).includes('constructor')).toBe(false);
+    expect((SUGGESTIBLE_FIELDS as readonly string[]).includes('__proto__')).toBe(false);
   });
 });
