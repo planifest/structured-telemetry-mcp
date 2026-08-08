@@ -157,6 +157,28 @@ confirmation rather than discovered at P3.
 Carried into P1 as the highest-risk open item: backup ownership versus DuckDB's single-writer lock,
 routed to a P2 ADR. Independently identified as load-bearing by three of the four scope-lock subagents.
 
+### P0 Revalidation (new session)
+
+Triggered by a gap filed as [[00025-auto-trigger-orchestrator-not-resuming-session]] — the
+auto-trigger hook did not re-fire when this session resumed an in-flight feature (the sentinel
+`plan/.orchestrator-active` persists across the feature's whole lifecycle, so the hook's "not yet
+loaded" check never re-triggers on later sessions), so the orchestrator skill was not loaded until the
+human noticed no P1 work was happening and asked directly.
+
+Independently re-verified the P0→P1 gate checklist against live artifacts in this fresh session
+context — `design.md`, `discovery.md`, `product.yml`, `feature-brief.md` — rather than trusting the
+prior session's recorded acceptance at face value. All 15 checklist items re-confirmed passing, no
+drift found: problem statement and four user stories intact, stack fully declared, data ownership
+assigned, scope in/out/deferred all populated, six risk entries with likelihood/impact, adoption mode
+`standard-iterative` and version `0.14.0` both intact, Scope Lock Challenge's four paths present,
+`discovery.md` complete with no unreadable signals, `product.yml` carries a declared id, feature ID
+format correct. `gate-write` and `check-design` enforcement hooks confirmed registered.
+
+Original gate acceptance (`2026-08-03T02:21:00Z`) stands — this was a re-verification, not a re-run of
+P0 coaching. Proceeding to P1.
+
+Revalidated: `2026-08-08T07:40:18Z`
+
 ---
 
 ## Summary (filled at P7)
