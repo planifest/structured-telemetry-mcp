@@ -5,8 +5,10 @@
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { validateEvent } from './validation/validate-event.js';
+import { validateQuery } from './query/validate-query.js';
 import type { IEventRepository } from './db/repository.js';
 import type { IQueryService, BottleneckQuery, FailureQuery, TokenEfficiencyQuery, EventLogQuery, DistinctValuesQuery, QueryResponse } from './query/query-service.js';
 import { BOTTLENECK_GROUP_BY_VALUES } from './query/bottlenecks.js';
@@ -171,7 +173,7 @@ export function createEmitEventHandler(
  */
 export function createQueryTelemetryHandler(
   qs: IQueryService,
-): (args: { query: unknown }) => Promise<McpTextResult> {
+): (args: { query: unknown; budget?: number }) => Promise<McpTextResult> {
   return async (args) => {
     // Argument-shape gate (ADR-015): rejects a non-object query (string,
     // undefined, null, array) with a specific error before dispatchQuery
@@ -185,23 +187,28 @@ export function createQueryTelemetryHandler(
       };
     }
 
-    try {
-      const q = shapeCheck.data as Record<string, unknown>;
-      const response = await dispatchQuery(qs, q);
+    const q = shapeCheck.data as Record<string, unknown>;
 
-      const text = [
-        '## Results\n',
-        response.markdown,
-        '\n## JSON\n',
-        '```json\n' + JSON.stringify(response.json, bigIntReplacer, 2) + '\n```',
-        '\n## Raw Sample\n',
-        '```json\n' + JSON.stringify(response.rawSample, bigIntReplacer, 2) + '\n```',
-      ].join('\n');
-
-      return { content: [{ type: 'text' as const, text }] };
-    } catch (err) {
+    // req-005: the shared validation gate — the SAME gate the HTTP path uses,
+    // so the two paths can no longer disagree on what a valid query is. Runs
+    // before dispatch; an out-of-range numeric field is rejected here with a
+    // field-named error, never coerced.
+    const gate = validateQuery(q);
+    if (!gate.ok) {
       return {
-        content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, errors: [`query error: ${err}`] }) }],
+        content: [{ type: 'text' as const, text: JSON.stringify({ ok: false, errors: gate.errors }) }],
+      };
+    }
+
+    try {
+      const response = await dispatchQuery(qs, q);
+      // req-008: cap the assembled text independently of req-007's row cap.
+      const budget = typeof args.budget === 'number' ? args.budget : MCP_TEXT_BUDGET;
+      return { content: [{ type: 'text' as const, text: assembleToolResultText(response, budget) }] };
+    } catch (err) {
+      // req-006: never surface the engine error — redact, log with a correlationId.
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(redactError(err)) }],
       };
     }
   };
@@ -209,6 +216,56 @@ export function createQueryTelemetryHandler(
 
 function bigIntReplacer(_key: string, value: unknown): unknown {
   return typeof value === 'bigint' ? Number(value) : value;
+}
+
+/**
+ * req-008: character budget for assembled MCP tool-result text. An agent's
+ * context window is a tighter constraint than the daemon's memory, and this is
+ * independent of req-007's row cap — a result perfectly reasonable over HTTP can
+ * still be too large to paste into a conversation. Overridable via env for tests.
+ */
+const MCP_TEXT_BUDGET = Number(process.env['PLANIFEST_MCP_TEXT_BUDGET'] ?? 100_000);
+
+/**
+ * req-006: redact an engine/internal error before it reaches a caller. DuckDB
+ * binder errors embed SQL and conversion errors embed stored row values; neither
+ * may leave the process. The full error and stack go to stderr against a
+ * correlation id the caller also receives, so an operator can still trace it.
+ */
+function redactError(err: unknown): { ok: false; errors: string[]; correlationId: string } {
+  const correlationId = randomUUID();
+  process.stderr.write(`[telemetry-backend] query failed correlationId=${correlationId}: ${err instanceof Error ? err.stack ?? err.message : String(err)}\n`);
+  return { ok: false, errors: ['query failed'], correlationId };
+}
+
+/**
+ * req-008: assemble the tool-result text within a character budget. Sections are
+ * dropped from the least important end first — raw sample, then JSON payload —
+ * keeping the markdown summary. A truncation notice (with total_count when the
+ * mode supplies it) states plainly that dropping occurred. Every JSON block that
+ * appears is complete, never cut mid-structure. A result that already fits is
+ * returned byte-identical to the pre-0000019 output.
+ */
+function assembleToolResultText(response: QueryResponse, budget: number): string {
+  const jsonBlock = '## JSON\n\n```json\n' + JSON.stringify(response.json, bigIntReplacer, 2) + '\n```';
+  const sampleBlock = '## Raw Sample\n\n```json\n' + JSON.stringify(response.rawSample, bigIntReplacer, 2) + '\n```';
+  const full = ['## Results\n', response.markdown, '\n' + jsonBlock, '\n' + sampleBlock].join('\n');
+  if (full.length <= budget) return full;
+
+  const totalCount = (response.json as Record<string, unknown> | null)?.['total_count'];
+  const notice = `\n\n_Result truncated to fit the tool-result budget${typeof totalCount === 'number' ? ` (total_count: ${totalCount})` : ''}. Narrow the query — by session, mode, or a smaller limit — for a complete result._`;
+
+  // Drop the raw sample first, then the JSON payload; markdown is kept last.
+  const withoutSample = ['## Results\n', response.markdown, '\n' + jsonBlock].join('\n') + notice;
+  if (withoutSample.length <= budget) return withoutSample;
+
+  const markdownOnly = ['## Results\n', response.markdown].join('\n') + notice;
+  if (markdownOnly.length <= budget) return markdownOnly;
+
+  // Pathological: even the markdown summary exceeds the budget. Hard-truncate it,
+  // leaving room for the notice, so the returned text is never over budget.
+  const room = Math.max(0, budget - notice.length);
+  return markdownOnly.slice(0, room) + notice;
 }
 
 // ── Server factory ────────────────────────────────────────────────────────────

@@ -298,16 +298,19 @@ describe('createQueryTelemetryHandler', () => {
     expect(text).toContain('## Raw Sample');
   });
 
-  it('returns ok:false JSON for an unrecognised query shape', async () => {
+  it('returns a redacted ok:false JSON for an unrecognised query shape (req-006)', async () => {
     const qs = mockQueryService();
     const handler = createQueryTelemetryHandler(qs);
     const result = await handler({ query: { completely_unknown: true } });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
-    expect(parsed.errors[0]).toContain('query error');
+    // req-006: the internal error is redacted to a generic message with a
+    // correlationId; the pre-0000019 behaviour leaked the raw error text.
+    expect(parsed.errors[0]).toBe('query failed');
+    expect(typeof parsed.correlationId).toBe('string');
   });
 
-  it('returns ok:false JSON when the query service throws', async () => {
+  it('redacts an engine error rather than leaking it to the caller (req-006)', async () => {
     const qs = mockQueryService({
       bottlenecks: vi.fn().mockRejectedValue(new Error('DuckDB offline')),
     });
@@ -315,7 +318,11 @@ describe('createQueryTelemetryHandler', () => {
     const result = await handler({ query: { group_by: 'phase' } });
     const parsed = JSON.parse(result.content[0].text);
     expect(parsed.ok).toBe(false);
-    expect(parsed.errors[0]).toContain('DuckDB offline');
+    // The engine string must NOT reach the caller — this test previously
+    // asserted the opposite, which was the leak req-006 closes.
+    expect(result.content[0].text).not.toContain('DuckDB offline');
+    expect(parsed.errors[0]).toBe('query failed');
+    expect(typeof parsed.correlationId).toBe('string');
   });
 
   // req-021–028: new event types through handler pipeline
@@ -355,9 +362,13 @@ describe('createQueryTelemetryHandler', () => {
     const handler = createQueryTelemetryHandler(qs);
     const result = await handler({ query: { completely_unknown: true } });
     const parsed = JSON.parse(result.content[0].text);
+    // The object still passes the shape gate and reaches dispatchQuery (the
+    // point of this test); dispatchQuery's throw is now redacted (req-006), so
+    // we assert ok:false + no leaked engine text rather than the old message.
     expect(parsed.ok).toBe(false);
-    expect(parsed.errors[0]).toContain('query error');
-    expect(parsed.errors[0]).toContain('Unrecognised query shape');
+    expect(result.content[0].text).not.toContain('Unrecognised query shape');
+    expect(parsed.errors[0]).toBe('query failed');
+    expect(qs.bottlenecks).not.toHaveBeenCalled();
   });
 
   it('rejects context_reset missing reason — does not call repo.write (REQ-022)', async () => {
