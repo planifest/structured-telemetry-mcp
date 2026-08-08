@@ -46,3 +46,18 @@ See `plan/_archive/0000015-telemetry-log-viewer-ui-2026-08-01/security-report.md
 - R-004 — poll-failure behavior during an active auto-refresh session was extended by inference from the pre-existing "degrade gracefully, never block" principle rather than being pre-confirmed scope; accepted by the human without a from-scratch confirmation. Implemented: last successful results stay visible (table never blanks), a small non-blocking failure indicator shows, and polling keeps retrying on the next interval.
 
 Security review (P5) noted one Medium finding: `distinct_values` marginally eases enumeration of distinct field values, layered on 0000015's already-accepted no-auth/local-only Medium finding (R-007 above) — not a new exposure. Zero Critical/High findings overall.
+
+## Mitigated this feature (0000018)
+
+- R-001 (this feature's numbering) — backup ownership vs. DuckDB's single-writer lock: resolved by running the backup in-process on the daemon's own connection (ADR-029), never a second connection to `telemetry.db`.
+- R-002 — `doctor`'s pre-existing write-test check already opens a second DuckDB connection, exposed to the same single-writer lock; backup-staleness reporting (req-007) avoids inheriting this by reading a sidecar JSON file instead of the live database.
+- R-005 — refuse-to-start's exit posture: resolved by ADR-030, exiting zero, which both `launchd`'s `SuccessfulExit: false` and `systemd`'s `Restart=on-failure` already correctly interpret as "stay stopped" — no supervision config change was actually required for this specific mechanism, contrary to the initial P0 assumption. ADR-031 keeps the originally-scoped `ThrottleInterval`/`StartLimitBurst` config as defense-in-depth for unrelated crash loops.
+- R-008 — `EXPORT DATABASE` format durability across DuckDB versions: decided via ADR-028 rather than left as an unconfirmed assumption; self-verifying in production since every backup includes a mandatory scratch-restore check.
+- **Security review (P5) findings, both fixed same-day:** unescaped single-quote in the `EXPORT`/`IMPORT DATABASE` path literals (`src/backup/backup-service.ts` — CWE-88-adjacent, local-trust-boundary only), and no reentrancy guard on the backup timer (`src/server-http.ts`). Both verified fixed with real RED-before-GREEN test cycles, not just review — see `plan/current/security-report.md`. Overall security risk: Medium → Low same-day; zero Critical/High/Medium findings remain.
+
+## Accepted (by design, 0000018)
+
+- R-003 (this feature's numbering) — an operator can still destroy the WAL by hand despite the daemon never touching it itself; mitigated only by the startup message's wording and `docs/restore-procedure.md`'s explicit warning, not eliminable without an auto-copy-aside the human explicitly declined.
+- R-004 — a machine whose database is already poisoned gets neither a running daemon nor scheduled backups until a human intervenes (decision D means the daemon refuses to start at all). Accepted as the cost of never silently switching a user's dataset.
+- R-006 — events emitted while the daemon is down (refusing to start, or between deploy stop/start) are lost, not queued — client-side buffering is out of scope.
+- R-009 — backup export duration was not empirically measured against production-realistic data volumes (only small test datasets). Not blocking at current scale (~15–20MB); tracked as a follow-up, filed to the backlog at P6 (see `plan/backlog/`).

@@ -31,7 +31,7 @@ A fifth query family reached through the same `mode`-keyed dispatch as `event_lo
 
 ## REST equivalents
 
-`POST /emit` and `POST /query` on the local HTTP backend (`127.0.0.1:3741`) mirror the two MCP tools — used by the stdio proxy (ADR-009) and directly by scripts/CI. `GET /health` is a liveness check, used by all three platforms' service scripts to verify a successful install/restart. `GET /ui` (0000015, ADR-018) serves the static Log Viewer browser page from the same process; the page itself calls `POST /query` via same-origin `fetch()`, not a separate contract.
+`POST /emit` and `POST /query` on the local HTTP backend (`127.0.0.1:3741`) mirror the two MCP tools — used by the stdio proxy (ADR-009) and directly by scripts/CI. `GET /health` is a liveness check, used by all three platforms' service scripts to verify a successful install/restart. As of 0000018, `GET /health` gains an additive `buildId` field (SHA-256 of `server-http.bundle.mjs`, `null` if the bundle can't be found — e.g. running under `tsx` in dev) — `scripts/service-manager.mjs`'s `deploy` action compares this against a freshly-computed hash of the just-built bundle to catch a stale running daemon even at an unchanged `version` string (req-008). The existing `{ ok, version }` shape is unchanged for any consumer not reading the new field. `GET /ui` (0000015, ADR-018) serves the static Log Viewer browser page from the same process; the page itself calls `POST /query` via same-origin `fetch()`, not a separate contract.
 
 As of 0000016, all four routes above have black-box E2E coverage (`tests/e2e/backend/`, `tests/e2e/ui/`, `@playwright/test`) exercising the real `node:http` server, not just these exported handlers — see ADR-020 through ADR-023.
 

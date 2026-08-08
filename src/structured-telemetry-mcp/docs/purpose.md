@@ -11,6 +11,7 @@ Planifest-compliant agents (Claude Code, Cursor, etc., running Planifest skills)
 - Persists every valid event to a local DuckDB store (`~/.planifest/telemetry.db`).
 - Runs as a boot-surviving background service — Windows (`nssm`), macOS (`launchd`, user-scoped), Linux (`systemd --user`) — so it doesn't need a foreground terminal (`0000010-macos-launchd-service`).
 - Serves a read-only browser UI (`GET /ui`) for browsing, filtering, and paging events without hand-writing a query (`0000015-telemetry-log-viewer-ui`) — its first human-facing surface beyond MCP tools and the CLI.
+- Guarantees its own record is trustworthy (`0000018-telemetry-data-integrity`): survives an unclean shutdown with a bounded data-at-risk window, refuses to serve from a genuinely unopenable store rather than silently corrupting it further, takes verified backups automatically, and lets a deploy know whether it's actually running the build it just shipped.
 
 ## Who uses it
 
