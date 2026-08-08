@@ -208,7 +208,7 @@ Revalidated: `2026-08-08T07:40:18Z`
 | Agents spawned | `0 — performed inline, no subagents dispatched` |
 | MCP calls | `~10 (context-mode source reads + 4 emit_event adr_decision calls)` |
 | Parallel task batches | `0 — sequential; ADR-029 depends on ADR-028, ADR-031 depends on ADR-030` |
-| Telemetry | emitted (`adr_decision` for each of ADR-028..031, session_id `0000018-p2-20260808`) |
+| Telemetry | emitted (`adr_decision` x4 live during the phase; `phase_start`/`phase_end` backfilled retroactively at P3 close-out after noticing the gap, session_id `0000018-p2-20260808`) |
 | Notes | 4 ADRs written: ADR-028 (EXPORT DATABASE format), ADR-029 (backup runs in-process, resolves R-001), ADR-030 (refuse-to-start exits zero, resolves R-005 — corrected the P0-time assumption that supervision config alone could stop a restart loop, by reading actual `launchd.plist(5)`/`systemd.service(5)` semantics: both `SuccessfulExit: false` and `Restart=on-failure` already restart only on non-zero exit), ADR-031 (supervision circuit-breaker re-scoped to defense-in-depth, amends ADR-014). Also distinguished this product's own ADR-005 (schema validation) from `planifest-framework`'s separate ADR-005/0000003 (hook exit-zero precedent) — design.md's P0-time reference was to the latter. R-001/R-005/R-008 moved from open to mitigated; req-005/req-006/execution-plan.md updated to match. `design_critic` toggle confirmed off (no `plan/current/loop-toggles.yml`) — no critic subagent this gate. |
 
 ---
@@ -233,13 +233,14 @@ Run mode — interactive -> continuous: Q: (human-initiated, not asked) A: "this
 | Field | Value |
 |-------|-------|
 | Start | `2026-08-08T08:40:00Z` |
-| Model tier | primary |
+| End | `2026-08-08T09:51:57Z` |
+| Model tier | primary (orchestration) + primary (all 5 dispatched implementers — "Code generation" resolves to Primary tier per agent-dispatch-standards.md's Model Tier Decision Table, not the codegen-agent skill's own generic "haiku for sub-agents" text) |
 | Skills loaded | planifest-codegen-agent |
-| Agents spawned | `TBD` |
-| MCP calls | `TBD` |
-| Parallel task batches | `TBD` |
-| Telemetry | TBD |
-| Notes | Run mode now `continuous` — proceeding without a phase-gate stop unless a genuine Escalation halt occurs. Capability-skills check: no relevant skills for this stack (confirmed at P0/P1, unchanged) — proceeding silently, no question asked. 10 requirements (req-001..010) targeted this phase, per plan/current/execution-plan.md and 4 confirmed ADRs (ADR-028..031). |
+| Agents spawned | `5 (3 in batch 1, 2 in batch 2), all subagent_type general-purpose, model sonnet` |
+| MCP calls | `~15 (context-mode source grounding + 6 emit_event calls: phase_start/end x2 pairs + backfilled P2 phase_start/end)` |
+| Parallel task batches | `2 (batch 1: req-001..004+buildId / req-005 / req-010, disjoint files; batch 2: req-006/007 / req-008/009, disjoint files, both depending on batch 1's server-http.ts and /health work)` |
+| Telemetry | failed-with-recorded-choice (see the telemetry-block entry below); `phase_start`/`phase_end` for this phase itself both emitted successfully, confirming the mid-phase hook fix works live, not just in the scratch reproduction |
+| Notes | Run mode now `continuous` — proceeded without a phase-gate stop; no genuine Escalation halt occurred across any of the 10 requirements. Capability-skills check: no relevant skills for this stack (confirmed at P0/P1, unchanged) — proceeded silently, no question asked. All 10 requirements (req-001..010) landed. Full suite: 485/485 Vitest tests (27 files, up from 405/16), 26/26 bats (up from 23), typecheck clean. component.yml closed out: version 0.13.0->0.14.0, feature->0000018, test counts updated, stale P1-era risk notes rewritten to reflect actual resolutions. |
 
 **Batch 1 (3 parallel agents, disjoint files) — all GREEN, no escalations:**
 - req-001..004 + req-004b (server-http.ts/db/*.ts): commits `eb69663`,`3243011`,`69baeb5`,`80a8fe1`,`87ef86d`. Notable TDD finding: reproducing the poisoned-WAL fixture required avoiding DuckDB's auto-checkpoint-on-clean-close, and `tsx`'s child-process re-exec meant the test harness had to kill the whole detached process group, not just the spawned pid, to release the file lock. 430 tests, 21 files, re-run 3x with no flakiness.
